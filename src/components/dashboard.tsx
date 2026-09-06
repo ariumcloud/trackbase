@@ -69,7 +69,7 @@ import { ClonadorView } from "./clonador";
 import { DiagnosticoView } from "./diagnostico";
 import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
-import { AssistenteKirofy } from "./assistente";
+import { AssistenteTrackbase } from "./assistente";
 import { BottomBar } from "./bottom-bar";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
 type Props = {
@@ -133,7 +133,7 @@ const titles: Record<string, [string, string]> = {
     "Suas fontes de tráfego, vendas e Pixels/CAPI na mesma operação.",
   ],
   assistente: [
-    "Assistente Kirofy IA.",
+    "Assistente Trackbase IA.",
     "Seu copiloto de tráfego direto, métricas em tempo real e CRO.",
   ],
   alertas: [
@@ -395,12 +395,12 @@ export function Dashboard(p: Props) {
         <Link href="/painel" className="brand">
           <Image
             src="/logo.png"
-            alt="Kirofy Logo"
+            alt="Trackbase Logo"
             width={32}
             height={32}
             className="brand-logo-img"
           />
-          Kirofy
+          Trackbase
           <span className="brand-dot" />
         </Link>
         <button
@@ -472,7 +472,7 @@ export function Dashboard(p: Props) {
             </span>
             <span>
               <strong>{p.workspace?.name || "Bem-vindo"}</strong>
-              <small>Powered by Kirofy</small>
+              <small>Powered by Trackbase</small>
             </span>
             {!p.setup && (
               <button
@@ -2017,7 +2017,7 @@ export function Dashboard(p: Props) {
             />
           )}
           {tab === "assistente" && (
-            <AssistenteKirofy
+            <AssistenteTrackbase
               metrics={metrics}
               currency={currency}
               offers={p.offers}
@@ -2378,7 +2378,7 @@ export function Dashboard(p: Props) {
                   {modal === "monetizze" &&
                     "Na Monetizze (Ferramentas > Postback), informe sua Chave Única."}
                   {modal === "wiapy" &&
-                    "Na Wiapy (Webhooks), insira a URL do Kirofy e o token gerado."}
+                    "Na Wiapy (Webhooks), insira a URL da Trackbase e o token gerado."}
                   O token será armazenado como hash seguro para autenticar cada webhook.
                 </p>
               </ActionForm>

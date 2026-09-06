@@ -74,12 +74,12 @@ export default function DemoPage() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Kirofy Logo"
+            alt="Trackbase Logo"
             width={32}
             height={32}
             className="brand-logo-img"
           />
-          Kirofy
+          Trackbase
           <span className="brand-dot" />
         </Link>
         <span className="demo-label">

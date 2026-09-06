@@ -10,12 +10,12 @@ export default function Login() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Kirofy Logo"
+            alt="Trackbase Logo"
             width={38}
             height={38}
             className="brand-logo-img"
           />
-          Kirofy
+          Trackbase
           <span className="brand-dot" />
         </Link>
         <div>

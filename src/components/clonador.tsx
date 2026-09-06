@@ -169,7 +169,7 @@ export function ClonadorView({
             <h2>Clonador e Minerador de Funil</h2>
             <p>
               Capture a estrutura visual de páginas autorizadas, edite textos, CTAs e injete o rastreador
-              Kirofy automaticamente.
+              Trackbase automaticamente.
             </p>
           </div>
           <span className="chip">{funnels.length} páginas no workspace</span>

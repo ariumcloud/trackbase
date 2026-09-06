@@ -41,7 +41,9 @@ export function OnboardingChecklist({
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("kirofy_onboarding_hidden");
+      const saved =
+        localStorage.getItem("trackbase_onboarding_hidden") ||
+        localStorage.getItem("kirofy_onboarding_hidden");
       if (saved === "true") setDismissed(true);
     } catch {
       // ignore
@@ -51,7 +53,7 @@ export function OnboardingChecklist({
   const handleDismiss = () => {
     setDismissed(true);
     try {
-      localStorage.setItem("kirofy_onboarding_hidden", "true");
+      localStorage.setItem("trackbase_onboarding_hidden", "true");
     } catch {
       // ignore
     }
@@ -79,7 +81,7 @@ export function OnboardingChecklist({
     {
       id: "step-tracker",
       title: "3. Instalar o Tracker na Landing Page",
-      description: "Adicione o script do Kirofy para rastrear visitas, cliques e checkouts em tempo real.",
+      description: "Adicione o script da Trackbase para rastrear visitas, cliques e checkouts em tempo real.",
       done: hasTrackerActivity,
       icon: Code2,
       actionLabel: "Copiar script",
@@ -148,7 +150,7 @@ export function OnboardingChecklist({
             <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 600 }}>
               {isAllComplete
                 ? "🎉 Parabéns! Sua operação está 100% pronta para escalar."
-                : "Checklist de Ativação Kirofy"}
+                : "Checklist de Ativação Trackbase"}
             </h3>
             <p style={{ margin: "0.15rem 0 0", color: "var(--muted, #64748B)", fontSize: "0.85rem" }}>
               {isAllComplete

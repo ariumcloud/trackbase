@@ -100,7 +100,7 @@ export function runFunnelDiagnostic(input: FunnelDiagnosticInput): FunnelDiagnos
       evidence: `${metaClicks} cliques registrados na Meta, mas apenas ${pageviews} visualizações de página (${pvRate.toFixed(1)}% de aproveitamento).`,
       possibleCause: "A página está lenta no mobile ou há redirecionamentos pesados antes do script carregar.",
       estimatedLoss: Math.round(estimatedLoss),
-      recommendation: "Comprima imagens da landing page, remova scripts externos desnecessários e use o script assíncrono do Kirofy.",
+      recommendation: "Comprima imagens da landing page, remova scripts externos desnecessários e use o script assíncrono do Trackbase.",
       actionLabel: "Otimizar velocidade",
       actionTab: "clonador",
     });
@@ -169,7 +169,7 @@ export function runFunnelDiagnostic(input: FunnelDiagnosticInput): FunnelDiagnos
       evidence: "Foram registradas vendas na plataforma, mas a Conversions API (CAPI) não está configurada neste workspace.",
       possibleCause: "Bloqueadores de anúncio (AdBlock) e iOS 14+ estão descartando até 35% das suas conversões no navegador.",
       estimatedLoss: Math.round(purchases * 0.3 * (purchases > 0 ? grossRevenue / purchases : 97) * 0.2),
-      recommendation: "Ative a CAPI server-side do Kirofy nas configurações para recuperar atribuição e baratear seus anúncios.",
+      recommendation: "Ative a CAPI server-side do Trackbase nas configurações para recuperar atribuição e baratear seus anúncios.",
       actionLabel: "Configurar CAPI",
       actionTab: "integracoes",
     });

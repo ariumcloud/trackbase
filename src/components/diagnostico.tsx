@@ -448,7 +448,7 @@ export function DiagnosticoView({
                       className="button small primary"
                       onClick={() => selectTab(b.actionTab || "clonador")}
                     >
-                      {b.actionLabel || "Corrigir no Kirofy"} <ArrowRight size={13} />
+                      {b.actionLabel || "Corrigir na Trackbase"} <ArrowRight size={13} />
                     </button>
                   )}
                 </div>

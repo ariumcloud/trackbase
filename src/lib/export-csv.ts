@@ -19,7 +19,7 @@ function escapeCsv(value: unknown): string {
   return `"${str}"`;
 }
 
-export function exportSalesCsv(sales: SaleRow[], filename = "vendas-kirofy.csv") {
+export function exportSalesCsv(sales: SaleRow[], filename = "vendas-trackbase.csv") {
   const headers = [
     "ID Transação",
     "Data / Hora",
@@ -73,7 +73,7 @@ export function exportSalesCsv(sales: SaleRow[], filename = "vendas-kirofy.csv")
 export function exportCampaignsCsv(
   insights: InsightRow[],
   entities: Entity[],
-  filename = "campanhas-kirofy.csv",
+  filename = "campanhas-trackbase.csv",
 ) {
   const entityMap = new Map(entities.map((e) => [e.external_id, e.name]));
   const headers = [
@@ -114,7 +114,7 @@ export function exportCampaignsCsv(
 export function exportLinksCsv(
   links: LinkRow[],
   appUrl: string,
-  filename = "links-utm-kirofy.csv",
+  filename = "links-utm-trackbase.csv",
 ) {
   const headers = [
     "ID Link",

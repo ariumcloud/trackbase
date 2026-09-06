@@ -45,7 +45,7 @@ const plans = [
       "Pixel e CAPI server-side deduplicados",
       "Clonador de funil autônomo com editor de blocos",
       "Diagnóstico de gargalos com cálculo de perda financeira",
-      "Assistente Kirofy IA para análise de ROAS e CPA",
+      "Assistente Trackbase IA para análise de ROAS e CPA",
       "Upsell, downsell e order bump separados",
       "Alertas inteligentes e exportação CSV",
     ],
@@ -70,27 +70,27 @@ const plans = [
 
 const faqs = [
   {
-    question: "Como o Kirofy evita eventos duplicados na Meta CAPI?",
+    question: "Como o Trackbase evita eventos duplicados na Meta CAPI?",
     answer:
-      "O Kirofy utiliza o mesmo event_id rigorosamente compartilhado entre o script do navegador e o servidor server-side. A Meta recebe os dois sinais e, por conterem o mesmo identificador único, aproveita os parâmetros enriquecidos descartando a duplicação. Além disso, aplicamos hash SHA-256 apenas em dados pessoais (e-mail e telefone) preservando cookies brutos fbp, fbc, IP e User-Agent para nota máxima no Event Quality Match (EMQ).",
+      "O Trackbase utiliza o mesmo event_id rigorosamente compartilhado entre o script do navegador e o servidor server-side. A Meta recebe os dois sinais e, por conterem o mesmo identificador único, aproveita os parâmetros enriquecidos descartando a duplicação. Além disso, aplicamos hash SHA-256 apenas em dados pessoais (e-mail e telefone) preservando cookies brutos fbp, fbc, IP e User-Agent para nota máxima no Event Quality Match (EMQ).",
   },
   {
     question: "Quais plataformas de checkout são suportadas?",
     answer:
-      "O Kirofy suporta nativamente todas as principais plataformas de direct response do Brasil: Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, além de validação estrita de domínios para Braip, Ticto, Perfect Pay e Greenn. Suas vendas são processadas via webhooks criptografados com separação de produto principal, order bump e upsell.",
+      "O Trackbase suporta nativamente todas as principais plataformas de direct response do Brasil: Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, além de validação estrita de domínios para Braip, Ticto, Perfect Pay e Greenn. Suas vendas são processadas via webhooks criptografados com separação de produto principal, order bump e upsell.",
   },
   {
     question: "Como funciona o Clonador de Funil autônomo?",
     answer:
-      "Você insere a URL da página autorizada da sua operação. O Kirofy extrai a estrutura de blocos (Headline, VSL, Benefícios, Depoimentos, Oferta), remove scripts e pixels de terceiros (para evitar vazamento de dados para concorrentes) e injeta o script de tracking do Kirofy. Você pode substituir os links de checkout pelos seus e baixar o HTML 100% autônomo pronto para hospedar onde quiser.",
+      "Você insere a URL da página autorizada da sua operação. O Trackbase extrai a estrutura de blocos (Headline, VSL, Benefícios, Depoimentos, Oferta), remove scripts e pixels de terceiros (para evitar vazamento de dados para concorrentes) e injeta o script de tracking do Trackbase. Você pode substituir os links de checkout pelos seus e baixar o HTML 100% autônomo pronto para hospedar onde quiser.",
   },
   {
     question: "O que é o Diagnóstico de Gargalos e Auditoria Financeira?",
     answer:
-      "O Diagnóstico analisa cada etapa da jornada: Cliques na Meta → PageViews carregados → Cliques no botão CTA → Checkouts iniciados → Vendas aprovadas. Se sua página perde 40% das visitas antes de abrir, o Kirofy calcula exatamente quantos Reais (R$) você perdeu no período e aponta recomendações práticas para estancar o sangramento.",
+      "O Diagnóstico analisa cada etapa da jornada: Cliques na Meta → PageViews carregados → Cliques no botão CTA → Checkouts iniciados → Vendas aprovadas. Se sua página perde 40% das visitas antes de abrir, o Trackbase calcula exatamente quantos Reais (R$) você perdeu no período e aponta recomendações práticas para estancar o sangramento.",
   },
   {
-    question: "O que o Assistente Kirofy IA consegue fazer?",
+    question: "O que o Assistente Trackbase IA consegue fazer?",
     answer:
       "O Assistente IA tem acesso contextual aos dados consolidados do seu workspace: receita, investimento em mídia, lucro, ROAS, CPA e gargalos. Ele responde perguntas analíticas como 'Qual meu ROAS real hoje?', 'Qual campanha devo pausar?', 'Onde está meu maior gargalo?' e também fornece orientações táticas sobre esteiras de produto e contingência.",
   },
@@ -103,12 +103,12 @@ const faqs = [
 
 function MockDashboard() {
   return (
-    <div className="landing-mock" aria-label="Prévia do dashboard Kirofy">
+    <div className="landing-mock" aria-label="Prévia do dashboard Trackbase">
       <div className="mock-sidebar">
         <div className="mock-logo-wrap">
           <Image
             src="/logo.png"
-            alt="Kirofy Logo"
+            alt="Trackbase Logo"
             width={34}
             height={34}
             className="mock-logo-img"
@@ -123,7 +123,7 @@ function MockDashboard() {
       </div>
       <div className="mock-content">
         <div className="mock-top">
-          <span>Visão geral · Kirofy</span>
+          <span>Visão geral · Trackbase</span>
           <span className="mock-live">● Rastreamento em tempo real</span>
         </div>
         <div className="mock-heading">
@@ -189,12 +189,12 @@ export default function Home() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Kirofy Logo"
+            alt="Trackbase Logo"
             width={34}
             height={34}
             className="brand-logo-img"
           />
-          Kirofy
+          Trackbase
           <span className="brand-dot" />
         </Link>
         <div className="landing-nav-links">
@@ -226,7 +226,7 @@ export default function Home() {
             <em>sem pagar fortunas.</em>
           </h1>
           <p>
-            Kirofy une Meta Ads, CAPI server-side deduplicada, clonador de funis autônomo, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 50/mês</strong>.
+            Trackbase une Meta Ads, CAPI server-side deduplicada, clonador de funis autônomo, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 50/mês</strong>.
           </p>
           <div className="landing-actions">
             <Link href="/demo" className="button primary large">
@@ -309,7 +309,7 @@ export default function Home() {
           <span className="eyebrow">VELOCIDADE &amp; CONTROLE</span>
           <h2>Clonador de Funil Autônomo</h2>
           <p>
-            Modele páginas autorizadas, edite blocos visuais, limpe códigos de concorrentes e gere arquivos HTML 100% autônomos com o tracker Kirofy já injetado.
+            Modele páginas autorizadas, edite blocos visuais, limpe códigos de concorrentes e gere arquivos HTML 100% autônomos com o tracker Trackbase já injetado.
           </p>
         </div>
 
@@ -340,7 +340,7 @@ export default function Home() {
             </span>
             <h3 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>HTML Autônomo com Rastreamento</h3>
             <p style={{ color: "#64748B", fontSize: "0.92rem", lineHeight: "1.5" }}>
-              Baixe um arquivo HTML completo, responsivo e sem dependências externas, pronto para hospedar na Hostinger, Vercel ou VPS própria com seu script Kirofy ativo.
+              Baixe um arquivo HTML completo, responsivo e sem dependências externas, pronto para hospedar na Hostinger, Vercel ou VPS própria com seu script Trackbase ativo.
             </p>
           </div>
         </div>
@@ -391,7 +391,7 @@ export default function Home() {
       <section id="assistente" className="landing-section" style={{ background: "#F8FAFC", borderTop: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0" }}>
         <div className="section-intro">
           <span className="eyebrow">COPILOTO INTELIGENTE</span>
-          <h2>Assistente Kirofy IA</h2>
+          <h2>Assistente Trackbase IA</h2>
           <p>
             Uma inteligência artificial que conhece os números do seu tráfego e responde perguntas operacionais e estratégicas na hora.
           </p>
@@ -405,7 +405,7 @@ export default function Home() {
             <div style={{ background: "#F1F5F9", padding: "0.85rem 1rem", borderRadius: "4px 14px 14px 14px", fontSize: "0.9rem", color: "#0F172A", lineHeight: "1.5" }}>
               <strong>Pergunta:</strong> &quot;Qual meu ROAS hoje e quais anúncios devo pausar?&quot;
               <div style={{ marginTop: "0.5rem", color: "#334155" }}>
-                <strong>Assistente Kirofy:</strong> Seu ROAS consolidado hoje está em <strong>2.84x</strong> com R$ 1.420 em vendas. A campanha <em>[Escala] - Criativo 04</em> atingiu CPA de R$ 94,00 (acima do seu teto de R$ 55,00) sem conversões nas últimas 12 horas. Recomendação: <strong>pausar o conjunto 04</strong> e remanejar o orçamento para o <em>Criativo 02</em> que está com ROAS 4.1x.
+                <strong>Assistente Trackbase:</strong> Seu ROAS consolidado hoje está em <strong>2.84x</strong> com R$ 1.420 em vendas. A campanha <em>[Escala] - Criativo 04</em> atingiu CPA de R$ 94,00 (acima do seu teto de R$ 55,00) sem conversões nas últimas 12 horas. Recomendação: <strong>pausar o conjunto 04</strong> e remanejar o orçamento para o <em>Criativo 02</em> que está com ROAS 4.1x.
               </div>
             </div>
           </div>
@@ -416,8 +416,8 @@ export default function Home() {
       <section id="comparativo" className="landing-section">
         <div className="section-intro">
           <span className="eyebrow">TRANSPARÊNCIA TOTAL</span>
-          <h2>Kirofy vs. Ferramentas Tradicionais</h2>
-          <p>Veja por que os maiores operadores de direct response estão migrando para o Kirofy.</p>
+          <h2>Trackbase vs. Ferramentas Tradicionais</h2>
+          <p>Veja por que os maiores operadores de direct response estão migrando para o Trackbase.</p>
         </div>
 
         <div style={{ maxWidth: "900px", margin: "0 auto", overflowX: "auto" }}>
@@ -425,7 +425,7 @@ export default function Home() {
             <thead>
               <tr style={{ background: "#17152F", color: "#FFFFFF", textAlign: "left" }}>
                 <th style={{ padding: "1rem 1.25rem" }}>Recurso / Benefício</th>
-                <th style={{ padding: "1rem 1.25rem", color: "#A78BFA" }}>Kirofy</th>
+                <th style={{ padding: "1rem 1.25rem", color: "#A78BFA" }}>Trackbase</th>
                 <th style={{ padding: "1rem 1.25rem", color: "#94A3B8" }}>Outras Ferramentas</th>
               </tr>
             </thead>
@@ -446,7 +446,7 @@ export default function Home() {
                 <td style={{ padding: "0.9rem 1.25rem", color: "#94A3B8" }}>❌ Apenas métricas brutas</td>
               </tr>
               <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
-                <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Assistente Kirofy IA Integrado</td>
+                <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Assistente Trackbase IA Integrado</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#10B981" }}>✅ Incluso</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#94A3B8" }}>❌ Não possui</td>
               </tr>
@@ -556,7 +556,7 @@ export default function Home() {
       <section id="faq" className="landing-section" style={{ background: "#F8FAFC", borderTop: "1px solid #E2E8F0" }}>
         <div className="section-intro">
           <span className="eyebrow">DÚVIDAS FREQUENTES</span>
-          <h2>Tudo o que você precisa saber sobre o Kirofy</h2>
+          <h2>Tudo o que você precisa saber sobre o Trackbase</h2>
           <p>Perguntas comuns sobre rastreamento, CAPI, clonagem e segurança.</p>
         </div>
         <FaqAccordion items={faqs} />
@@ -584,12 +584,12 @@ export default function Home() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Kirofy Logo"
+            alt="Trackbase Logo"
             width={28}
             height={28}
             className="brand-logo-img"
           />
-          Kirofy
+          Trackbase
           <span className="brand-dot" />
         </Link>
         <span>O rastreamento profissional para quem quer lucro real.</span>

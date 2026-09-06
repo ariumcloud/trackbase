@@ -56,7 +56,7 @@ interface Message {
   tags?: string[];
 }
 
-export function AssistenteKirofy({
+export function AssistenteTrackbase({
   metrics,
   currency,
   offers,
@@ -99,7 +99,7 @@ export function AssistenteKirofy({
         {
           id: "welcome",
           sender: "assistant",
-          text: `Olá! Sou o **Assistente Kirofy**, seu copiloto de tráfego direto, atribuição e CRO.
+          text: `Olá! Sou o **Assistente Trackbase**, seu copiloto de tráfego direto, atribuição e CRO.
           
 No momento, sua operação registra:
 - 💰 Receita Bruta: **${money(metrics.grossRevenue)}** (${metrics.purchases} compras)
@@ -123,9 +123,9 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
     { label: "📊 Meu ROAS e Lucro", query: "Qual meu ROAS, receita líquida e lucro operacional atual?" },
     { label: "🛑 Onde estou perdendo dinheiro?", query: "Onde estão os principais gargalos e perdas de tráfego do meu funil?" },
     { label: "🎯 Pausar ou Escalar?", query: "Quais campanhas devo pausar ou escalar com base no CPA e ROAS?" },
-    { label: "🔄 Como configurar a CAPI?", query: "Como a CAPI server-side do Kirofy funciona e evita eventos duplicados?" },
+    { label: "🔄 Como configurar a CAPI?", query: "Como a CAPI server-side do Trackbase funciona e evita eventos duplicados?" },
     { label: "🛒 Aumentar Ticket com Order Bump", query: "Como estruturar um Order Bump eficiente na minha esteira de produtos?" },
-    { label: "⚡ Como usar o Clonador", query: "Como funciona o Clonador de Funil do Kirofy com injeção de tracking?" },
+    { label: "⚡ Como usar o Clonador", query: "Como funciona o Clonador de Funil do Trackbase com injeção de tracking?" },
   ];
 
   const handleCopy = (id: string, text: string) => {
@@ -250,7 +250,7 @@ ${statusProf}
 
 Você ainda não sincronizou campanhas da Meta Ads neste workspace ou não houve gasto no período selecionado.
 
-**Regras de Ouro Kirofy para Direct Response:**
+**Regras de Ouro Trackbase para Direct Response:**
 1. **Regra de Pausa:** Se um conjunto de anúncios gastar **1.5x a 2x o seu CPA alvo** sem gerar nenhuma venda aprovada, **pause imediatamente**.
 2. **Regra de Escala Vertical:** Se o conjunto estiver com **ROAS acima de 2.2x** e com pelo menos 5 vendas nos últimos 3 dias, aumente o orçamento em **15% a 20%** ao meio-dia.
 3. **Regra de Escala Horizontal:** Duplique o criativo vencedor para um novo público lookalike ou aberto (broad) com criativos variações de gancho (hook).`;
@@ -275,9 +275,9 @@ ${campAnalysis}
 
     // 4. Meta CAPI e Deduplicação
     if (q.includes("capi") || q.includes("pixel") || q.includes("deduplica") || q.includes("conversions api")) {
-      return `### 🔄 Como o Kirofy implementa Meta CAPI sem duplicar eventos:
+      return `### 🔄 Como o Trackbase implementa Meta CAPI sem duplicar eventos:
 
-O Kirofy utiliza a arquitetura recomendada oficialmente pela Meta para máxima nota de correspondência (EMQ):
+O Trackbase utiliza a arquitetura recomendada oficialmente pela Meta para máxima nota de correspondência (EMQ):
 
 1. **Mesmo Event ID:** Tanto o script do navegador quanto o servidor backend usam exatamente o mesmo \`event_id\` para o mesmo evento de PageView, InitiateCheckout ou Purchase.
 2. **Deduplicação Automática na Meta:** A Meta recebe o evento do navegador via Pixel JS e o evento do servidor via Graph API. Por terem o mesmo \`event_id\`, ela descarta o duplicado e aproveita os parâmetros enriquecidos.
@@ -290,31 +290,31 @@ O Kirofy utiliza a arquitetura recomendada oficialmente pela Meta para máxima n
     if (q.includes("order bump") || q.includes("upsell") || q.includes("ticket") || q.includes("esteira")) {
       return `### 🛒 Estratégia de Order Bump & Aumento de LTV:
 
-O Kirofy rastreia order bumps e upsells separadamente para não inflar a contagem de clientes únicos:
+O Trackbase rastreia order bumps e upsells separadamente para não inflar a contagem de clientes únicos:
 
 **3 Tipos de Order Bump que mais convertem em Direct Response:**
 1. **Garantia Estendida / Blindagem:** "Garantia em dobro (60 dias) por apenas R$ 19,90" (converte entre 35% e 55%).
 2. **Acelerador de Resultados / Template:** "Planilha/Templates prontos para copiar e colar por R$ 27,00" (ótimo para infoprodutos).
 3. **Acesso Vitalício / Conteúdo VIP:** "Acesso sem expiração + grupo de networking por R$ 37,00".
 
-> **Dica Kirofy:** O preço do order bump deve ser entre **15% e 35% do valor do produto principal**. Nunca coloque um bump mais caro que a oferta base.`;
+> **Dica Trackbase:** O preço do order bump deve ser entre **15% e 35% do valor do produto principal**. Nunca coloque um bump mais caro que a oferta base.`;
     }
 
     // 6. Clonador de Funil
     if (q.includes("clona") || q.includes("clonador") || q.includes("pagina") || q.includes("autonomo")) {
-      return `### ⚡ Como usar o Clonador de Funil Kirofy:
+      return `### ⚡ Como usar o Clonador de Funil Trackbase:
 
 1. Acesse a aba **Clonador de Funil** no menu lateral.
 2. Insira a URL da página que você possui autorização para operar.
-3. O Kirofy extrai a estrutura, remove scripts e pixels de terceiros (para evitar que você envie tráfego com o pixel do concorrente).
+3. O Trackbase extrai a estrutura, remove scripts e pixels de terceiros (para evitar que você envie tráfego com o pixel do concorrente).
 4. No editor visual de blocos, você ajusta a headline, VSL e substitui os links de checkout pelos seus links de afiliado/produtor.
-5. O Kirofy injeta o script de rastreamento oficial e permite:
+5. O Trackbase injeta o script de rastreamento oficial e permite:
    - **Download do HTML Autônomo:** Suba diretamente na sua VPS, Hostinger ou Vercel.
    - **Exportar JSON:** Para versionamento e duplicações rápidas.`;
     }
 
     // Default Fallback
-    return `### 💡 Análise Estratégica Kirofy:
+    return `### 💡 Análise Estratégica Trackbase:
 
 Entendi sua pergunta sobre "${userQuery}".
 
@@ -402,7 +402,7 @@ Quer que eu aprofunde algum ponto específico?`;
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <strong style={{ fontSize: "1.05rem" }}>Assistente Kirofy IA</strong>
+              <strong style={{ fontSize: "1.05rem" }}>Assistente Trackbase IA</strong>
               <span
                 style={{
                   fontSize: "0.7rem",
@@ -662,3 +662,5 @@ Quer que eu aprofunde algum ponto específico?`;
     </div>
   );
 }
+
+export { AssistenteTrackbase as AssistenteKirofy };

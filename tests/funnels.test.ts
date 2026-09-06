@@ -86,7 +86,7 @@ test("Parse de HTML gera blocos estruturados e gera HTML autônomo com tracker",
       detectedCheckouts: ["https://pay.cakto.com.br/prod123"],
       extractedAt: new Date().toISOString(),
     },
-    "https://app.kirofy.com",
+    "https://app.trackbase.com",
     "pub_offer_xyz",
   );
 

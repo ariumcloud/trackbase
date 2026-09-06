@@ -393,7 +393,7 @@ export async function analyzeAndClonePage(
 export function generateAutonomousHtml(structure: ClonedFunnelStructure, appUrl: string, offerKey?: string): string {
   const trackerSnippet = offerKey
     ? `<script src="${appUrl}/tracker.js" data-key="${offerKey}"></script>`
-    : `<!-- Kirofy Tracker: configure a chave pública da sua oferta -->`;
+    : `<!-- Trackbase Tracker: configure a chave pública da sua oferta -->`;
 
   const blocksHtml = structure.blocks
     .map((b) => {

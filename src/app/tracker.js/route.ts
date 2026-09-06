@@ -4,11 +4,11 @@ export function GET() {
   const script = `(function() {
   try {
     var scriptTag = document.currentScript || document.querySelector('script[data-key]');
-    var key = scriptTag ? scriptTag.getAttribute('data-key') : (window.__UTMLISO_KEY__ || '');
+    var key = scriptTag ? scriptTag.getAttribute('data-key') : (window.__TRACKBASE_KEY__ || window.__UTMLISO_KEY__ || '');
     if (!key) return;
 
-    var STORAGE_KEY = 'utmliso_attr';
-    var SESSION_KEY = 'utmliso_sid';
+    var STORAGE_KEY = 'trackbase_attr';
+    var SESSION_KEY = 'trackbase_sid';
 
     function getCookie(name) {
       var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
