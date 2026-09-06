@@ -730,29 +730,29 @@ export function Dashboard(p: Props) {
                   <span className="chip">Rastreamento ponta a ponta</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.75rem", marginTop: "0.75rem" }}>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
-                    <small style={{ color: "var(--muted, #888)", display: "block" }}>1. Visitas</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.pageviews}</strong>
-                    <small style={{ color: "var(--muted, #888)" }}>Pageviews</small>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
+                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>1. Visitas</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.pageviews}</strong>
+                    <small style={{ color: "var(--muted, #64748B)" }}>Pageviews</small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
-                    <small style={{ color: "var(--muted, #888)", display: "block" }}>2. Cliques em CTA</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.ctas}</strong>
-                    <small style={{ color: "var(--muted, #888)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
+                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>2. Cliques em CTA</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.ctas}</strong>
+                    <small style={{ color: "var(--muted, #64748B)" }}>
                       {metrics.pageviews > 0 ? `${((metrics.ctas / metrics.pageviews) * 100).toFixed(1)}% das visitas` : "Sem visitas"}
                     </small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
-                    <small style={{ color: "var(--muted, #888)", display: "block" }}>3. Checkouts</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.checkouts}</strong>
-                    <small style={{ color: "var(--muted, #888)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
+                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>3. Checkouts</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.checkouts}</strong>
+                    <small style={{ color: "var(--muted, #64748B)" }}>
                       {metrics.ctas > 0 ? `${((metrics.checkouts / metrics.ctas) * 100).toFixed(1)}% dos CTAs` : "Sem CTAs"}
                     </small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
-                    <small style={{ color: "var(--muted, #888)", display: "block" }}>4. Compras</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.purchases}</strong>
-                    <small style={{ color: "var(--muted, #888)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
+                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>4. Compras</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.purchases}</strong>
+                    <small style={{ color: "var(--muted, #64748B)" }}>
                       {metrics.checkouts > 0 ? `${((metrics.purchases / metrics.checkouts) * 100).toFixed(1)}% conversão` : "Aguardando"}
                     </small>
                   </div>
@@ -1098,12 +1098,12 @@ export function Dashboard(p: Props) {
                       <h2>{o.name}</h2>
                       <p className="url-text">{o.landing_url}</p>
                       {o.public_key && (
-                        <div style={{ marginTop: "0.75rem", padding: "0.6rem", background: "rgba(0,0,0,0.2)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div style={{ marginTop: "0.75rem", padding: "0.6rem", background: "var(--surface-subtle, #F9FAFB)", borderRadius: "6px", border: "1px solid var(--line, #E5E7EB)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
-                            <small style={{ fontSize: "0.75rem", color: "var(--muted, #888)" }}>Script da Página / Quiz:</small>
+                            <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>Script da Página / Quiz:</small>
                             <Clipboard value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`} label="Copiar script" />
                           </div>
-                          <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "#a5b4fc" }}>
+                          <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "var(--brand-accent, #5B34EA)" }}>
                             {`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
                           </code>
                         </div>
@@ -1176,12 +1176,12 @@ export function Dashboard(p: Props) {
                           <textarea readOnly value={built.parameters} />
                         </label>
                         {l.public_key && (
-                          <div style={{ marginTop: "0.5rem", marginBottom: "0.75rem", padding: "0.5rem", background: "rgba(0,0,0,0.15)", borderRadius: "6px" }}>
+                          <div style={{ marginTop: "0.5rem", marginBottom: "0.75rem", padding: "0.5rem", background: "var(--surface-subtle, #F9FAFB)", borderRadius: "6px", border: "1px solid var(--line, #E5E7EB)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                              <small style={{ fontSize: "0.75rem", color: "var(--muted, #888)" }}>Script individual deste link:</small>
+                              <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>Script individual deste link:</small>
                               <Clipboard value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`} label="Copiar script" />
                             </div>
-                            <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "#a5b4fc" }}>
+                            <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "var(--brand-accent, #5B34EA)" }}>
                               {`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
                             </code>
                           </div>
@@ -1474,8 +1474,8 @@ export function Dashboard(p: Props) {
                               style={{
                                 padding: "0.85rem 1rem",
                                 borderRadius: "8px",
-                                background: "rgba(255,255,255,0.03)",
-                                border: "1px solid rgba(255,255,255,0.08)",
+                                background: "var(--surface-subtle, #F9FAFB)",
+                                border: "1px solid var(--line, #E5E7EB)",
                                 display: "flex",
                                 justifyContent: "space-between",
                                 alignItems: "center",
@@ -1485,11 +1485,11 @@ export function Dashboard(p: Props) {
                                 <strong style={{ display: "block", fontSize: "0.95rem" }}>
                                   Pixel: {px.pixel_id}
                                 </strong>
-                                <small style={{ color: "var(--muted, #888)", display: "block" }}>
+                                <small style={{ color: "var(--muted, #64748B)", display: "block" }}>
                                   Escopo: {linkedOffer ? linkedOffer.name : "Global (Workspace)"}
                                 </small>
                                 {px.test_event_code && (
-                                  <small style={{ color: "#a5b4fc", display: "block" }}>
+                                  <small style={{ color: "var(--brand-accent, #5B34EA)", display: "block", fontWeight: 600 }}>
                                     Teste ativo: {px.test_event_code}
                                   </small>
                                 )}
@@ -1550,16 +1550,16 @@ export function Dashboard(p: Props) {
                     const isCrit = al.severity === "critical";
                     const isWarn = al.severity === "high" || al.severity === "medium";
                     const borderColor = isCrit
-                      ? "rgba(239, 51, 64, 0.4)"
+                      ? "var(--red-border, #FECACA)"
                       : isWarn
-                        ? "rgba(245, 158, 11, 0.4)"
-                        : "rgba(167, 139, 250, 0.4)";
+                        ? "var(--yellow-border, #FDE68A)"
+                        : "var(--brand-border, #DDD6FE)";
                     const bgBadge = isCrit
-                      ? "rgba(239, 51, 64, 0.2)"
+                      ? "var(--red-soft, #FEF2F2)"
                       : isWarn
-                        ? "rgba(245, 158, 11, 0.2)"
-                        : "rgba(167, 139, 250, 0.2)";
-                    const textBadge = isCrit ? "#FF6B75" : isWarn ? "#FCD34D" : "#C4B5FD";
+                        ? "var(--yellow-soft, #FEF3C7)"
+                        : "var(--brand-soft, #F3F0FF)";
+                    const textBadge = isCrit ? "var(--red-text, #B91C1C)" : isWarn ? "var(--yellow-text, #B45309)" : "var(--brand-text, #3B1E78)";
 
                     return (
                       <article
@@ -1567,8 +1567,9 @@ export function Dashboard(p: Props) {
                         style={{
                           padding: "1rem 1.25rem",
                           borderRadius: "10px",
-                          background: al.read ? "rgba(255,255,255,0.01)" : "rgba(30, 27, 58, 0.6)",
+                          background: al.read ? "var(--surface-subtle, #F9FAFB)" : "var(--surface, #FFFFFF)",
                           border: `1px solid ${borderColor}`,
+                          boxShadow: "var(--shadow-sm)",
                           opacity: al.read ? 0.75 : 1,
                         }}
                       >
@@ -1584,14 +1585,14 @@ export function Dashboard(p: Props) {
                             <AlertTriangle
                               size={20}
                               style={{
-                                color: isCrit ? "#EF3340" : isWarn ? "#f59e0b" : "#A78BFA",
+                                color: isCrit ? "var(--red, #EF3340)" : isWarn ? "var(--yellow, #F59E0B)" : "var(--brand-accent, #5B34EA)",
                                 marginTop: "2px",
                                 flexShrink: 0,
                               }}
                             />
                             <div>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                <strong style={{ fontSize: "1rem" }}>{al.title}</strong>
+                                <strong style={{ fontSize: "1rem", color: "var(--ink, #0F172A)" }}>{al.title}</strong>
                                 <span
                                   style={{
                                     fontSize: "0.7rem",
@@ -1601,17 +1602,18 @@ export function Dashboard(p: Props) {
                                     color: textBadge,
                                     fontWeight: 700,
                                     textTransform: "uppercase",
+                                    border: `1px solid ${borderColor}`,
                                   }}
                                 >
                                   {al.severity}
                                 </span>
                                 {al.read && (
-                                  <span style={{ fontSize: "0.75rem", color: "var(--muted, #888)" }}>
+                                  <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>
                                     (Lido)
                                   </span>
                                 )}
                               </div>
-                              <p style={{ margin: "0.35rem 0", color: "#ccc", fontSize: "0.9rem" }}>
+                              <p style={{ margin: "0.35rem 0", color: "var(--ink-secondary, #334155)", fontSize: "0.9rem" }}>
                                 {al.message}
                               </p>
                               {al.evidence && Object.keys(al.evidence).length > 0 && (
@@ -1619,11 +1621,12 @@ export function Dashboard(p: Props) {
                                   style={{
                                     marginTop: "0.5rem",
                                     padding: "0.5rem 0.75rem",
-                                    background: "rgba(0,0,0,0.2)",
+                                    background: "var(--surface-muted, #F3F4F6)",
+                                    border: "1px solid var(--line, #E5E7EB)",
                                     borderRadius: "6px",
                                     fontSize: "0.8rem",
                                     fontFamily: "monospace",
-                                    color: "#94a3b8",
+                                    color: "var(--ink-secondary, #334155)",
                                   }}
                                 >
                                   {Object.entries(al.evidence).map(([k, v]) => (
@@ -1633,7 +1636,7 @@ export function Dashboard(p: Props) {
                                   ))}
                                 </div>
                               )}
-                              <small style={{ color: "var(--muted, #888)", display: "block", marginTop: "0.4rem" }}>
+                              <small style={{ color: "var(--muted, #64748B)", display: "block", marginTop: "0.4rem" }}>
                                 Registrado em: {new Date(al.created_at).toLocaleString("pt-BR", { timeZone: timezone })}
                               </small>
                             </div>
