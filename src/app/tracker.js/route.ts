@@ -10,6 +10,11 @@ export function GET() {
     var STORAGE_KEY = 'utmliso_attr';
     var SESSION_KEY = 'utmliso_sid';
 
+    function getCookie(name) {
+      var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]).slice(0, 300) : null;
+    }
+
     function getSession() {
       var s = '';
       try { s = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY) || ''; } catch(e) {}
@@ -41,7 +46,13 @@ export function GET() {
           fresh = true;
         }
       }
-      if (fresh) {
+
+      var fbp = getCookie('_fbp');
+      var fbc = getCookie('_fbc');
+      if (fbp) current.fbp = fbp;
+      if (fbc) current.fbc = fbc;
+
+      if (fresh || fbp || fbc) {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current)); } catch(e) {}
       }
       return current;
@@ -53,13 +64,25 @@ export function GET() {
 
     function sendEvent(type, extraUrl) {
       try {
+        var eventId = 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 11);
+        
+        // Dispara o Pixel nativo no browser com o exato mesmo eventID para deduplicação da Meta
+        if (window.fbq && typeof window.fbq === 'function') {
+          var fbEvent = type === 'pageview' ? 'PageView' : (type === 'checkout' ? 'InitiateCheckout' : 'ViewContent');
+          try {
+            window.fbq('track', fbEvent, {}, { eventID: eventId });
+          } catch(err) {}
+        }
+
         var payload = JSON.stringify({
           key: key,
           event_type: type,
+          event_id: eventId,
           session_id: sessionId,
           url: extraUrl || window.location.href,
           attribution: attr
         });
+
         if (navigator.sendBeacon) {
           navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }));
         } else {

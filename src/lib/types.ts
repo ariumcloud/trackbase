@@ -23,7 +23,11 @@ export type LinkRow = {
 };
 export type DashboardSummary = {
   sales_count: number;
+  unique_buyers: number;
   gross_revenue: number;
+  platform_fees: number;
+  net_revenue: number;
+  operating_profit: number | null;
   refunded_count: number;
   refunded_amount: number;
   meta_spend: number | null;
@@ -32,6 +36,16 @@ export type DashboardSummary = {
   pageviews: number;
   ctas: number;
   checkouts: number;
+  by_product_type: Record<string, { count: number; revenue: number }>;
+  by_country: Record<string, { count: number; revenue: number }>;
+};
+export type PixelRow = {
+  id: string;
+  pixel_id: string;
+  offer_id: string | null;
+  test_event_code: string | null;
+  active: boolean;
+  created_at: string;
 };
 export type Integration = {
   id: string;
@@ -48,6 +62,11 @@ export type SaleRow = {
   provider: string;
   status: string;
   amount: number;
+  gross_amount?: number;
+  fee_amount?: number;
+  net_amount?: number;
+  product_type?: "main" | "order_bump" | "upsell" | "downsell";
+  parent_transaction_id?: string | null;
   currency: string | null;
   country: string | null;
   attribution: Record<string, string>;

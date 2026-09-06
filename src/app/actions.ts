@@ -1,6 +1,6 @@
 "use server";
 import { db, admin } from "@/lib/supabase/server";
-import { authorize, digest, rateLimit } from "@/lib/security";
+import { authorize, digest, rateLimit, encrypt } from "@/lib/security";
 import { linkSchema, webUrl } from "@/lib/utm";
 import { z } from "zod";
 import { redirect } from "next/navigation";
@@ -211,3 +211,89 @@ export async function cleanupTests(workspace: string): Promise<ActionResult> {
     return { error: "Não foi possível remover os dados de teste." };
   }
 }
+
+export async function savePixel(
+  workspace: string,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    const parsed = z
+      .object({
+        pixel_id: z.string().trim().regex(/^\d{8,25}$/, "ID do Pixel inválido (deve conter apenas números)."),
+        capi_token: z.string().trim().min(20, "O token de acesso CAPI da Meta deve ser preenchido."),
+        offer_id: z.string().uuid().optional().or(z.literal("")),
+        test_event_code: z.string().trim().max(50).optional(),
+      })
+      .parse(Object.fromEntries(form));
+
+    const service = admin();
+    const ciphertext = encrypt(parsed.capi_token);
+
+    const { error } = await service.from("utm_pixels").upsert(
+      {
+        workspace_id: workspace,
+        pixel_id: parsed.pixel_id,
+        offer_id: parsed.offer_id ? parsed.offer_id : null,
+        capi_token_ciphertext: ciphertext,
+        test_event_code: parsed.test_event_code || null,
+        active: true,
+      },
+      { onConflict: "workspace_id,pixel_id,offer_id" },
+    );
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e) {
+    return {
+      error:
+        e instanceof z.ZodError
+          ? e.issues[0]?.message || "Dados inválidos."
+          : "Não foi possível salvar a configuração do Pixel/CAPI.",
+    };
+  }
+}
+
+export async function deletePixel(
+  workspace: string,
+  pixelId: string,
+): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    const service = admin();
+    const { error } = await service
+      .from("utm_pixels")
+      .delete()
+      .eq("workspace_id", workspace)
+      .eq("id", pixelId);
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível excluir o Pixel." };
+  }
+}
+
+export async function markAlertRead(
+  workspace: string,
+  alertId: string,
+): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    const service = admin();
+    const { error } = await service
+      .from("utm_alerts")
+      .update({ read: true })
+      .eq("workspace_id", workspace)
+      .eq("id", alertId);
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível atualizar o alerta." };
+  }
+}
+

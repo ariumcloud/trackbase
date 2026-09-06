@@ -3,6 +3,7 @@ import { z } from "zod";
 export const trackPayloadSchema = z.object({
   key: z.string().trim().min(8).max(100),
   event_type: z.enum(["pageview", "cta", "checkout"]),
+  event_id: z.string().trim().max(100).optional(),
   session_id: z.string().trim().min(1).max(80),
   url: z.string().max(2048),
   attribution: z

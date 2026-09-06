@@ -152,3 +152,83 @@ test("validação estrita de checkouts autorizados rejeita domínios fraudulento
   );
   assert.equal(untouched, "https://golpista.com/checkout");
 });
+
+test("normalização de pagamentos extrai order bump, taxas e parent_transaction", () => {
+  // Hotmart com order bump e taxas
+  const hotmartBump = {
+    id: "evt_bump",
+    event: "PURCHASE_APPROVED",
+    creation_date: 1724330400000,
+    data: {
+      product: { id: 99 },
+      buyer: { email: "CLIENTE@EXAMPLE.COM", name: "Fulano de Tal", phone: "+55 (11) 99999-8888" },
+      purchase: {
+        transaction: "HP_BUMP_1",
+        order_bump: true,
+        parent_purchase_transaction: "HP_MAIN_1",
+        price: { value: 29.9, currency_value: "BRL" },
+        fee: { total_fee: 2.99 },
+      },
+    },
+  };
+  const rBump = normalizePayment("hotmart", hotmartBump);
+  assert.equal(rBump.product_type, "order_bump");
+  assert.equal(rBump.parent_transaction_id, "HP_MAIN_1");
+  assert.equal(rBump.gross_amount, 29.9);
+  assert.equal(rBump.fee_amount, 2.99);
+  assert.equal(rBump.net_amount, 26.91);
+  assert.equal(rBump.buyer_email, "CLIENTE@EXAMPLE.COM");
+
+  // Cakto com upsell e taxas
+  const caktoUpsell = {
+    event: "purchase_approved",
+    data: {
+      id: "cakto_upsell_1",
+      amount: 97.0,
+      fee: 9.7,
+      type: "upsell",
+      parent_id: "cakto_main_1",
+      product: { id: "p_up" },
+      paidAt: "2024-08-22T11:39:57-03:00",
+      buyer: { email: "comprador@teste.com" },
+    },
+  };
+  const rCakto = normalizePayment("cakto", caktoUpsell, "BRL");
+  assert.equal(rCakto.product_type, "upsell");
+  assert.equal(rCakto.parent_transaction_id, "cakto_main_1");
+  assert.equal(rCakto.gross_amount, 97.0);
+  assert.equal(rCakto.fee_amount, 9.7);
+  assert.equal(rCakto.net_amount, 87.3);
+});
+
+test("Meta CAPI aplica hashing SHA-256 somente em PII e preserva IP, UA, fbp e fbc brutos", async () => {
+  const { normalizeCapiUserData, hashPii } = await import("../src/lib/capi-shared");
+
+  const raw = {
+    email: "Teste.Usuario@gmail.com",
+    phone: "+55 (11) 98765-4321",
+    firstName: "Maria",
+    lastName: "Silva",
+    clientIp: "189.120.45.10",
+    clientUserAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    fbp: "fb.1.1680000000.123456789",
+    fbc: "fb.1.1680000000.IwAR0abc123",
+  };
+
+  const normalized = normalizeCapiUserData(raw);
+
+  // PII DEVE ser hashed com SHA-256 e em array conforme spec da Meta
+  assert.deepEqual(normalized.em, [hashPii("teste.usuario@gmail.com")]);
+  assert.deepEqual(normalized.ph, [hashPii("5511987654321")]);
+  assert.deepEqual(normalized.fn, [hashPii("maria")]);
+  assert.deepEqual(normalized.ln, [hashPii("silva")]);
+
+  // NÃO deve ter email em texto claro
+  assert.ok(!JSON.stringify(normalized).includes("Teste.Usuario@gmail.com"));
+
+  // Dados técnicos NÃO DEVEM ser hasheados
+  assert.equal(normalized.client_ip_address, "189.120.45.10");
+  assert.equal(normalized.client_user_agent, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)");
+  assert.equal(normalized.fbp, "fb.1.1680000000.123456789");
+  assert.equal(normalized.fbc, "fb.1.1680000000.IwAR0abc123");
+});

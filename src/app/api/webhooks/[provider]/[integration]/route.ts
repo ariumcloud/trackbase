@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
 import { body, digest, matches, rateLimit } from "@/lib/security";
 import { normalizePayment } from "@/lib/payments";
+import { sendCapiEvent } from "@/lib/capi";
 import { z } from "zod";
 export async function POST(
   request: Request,
@@ -22,7 +23,7 @@ export async function POST(
     const service = admin();
     const { data: i } = await service
       .from("utm_integrations")
-      .select("id,workspace_id,external_product_id,external_offer_id,currency")
+      .select("id,workspace_id,offer_id,external_product_id,external_offer_id,currency")
       .eq("id", integration)
       .eq("provider", provider)
       .single();
@@ -102,6 +103,36 @@ export async function POST(
       p_integration: integration,
       p_payment: payment,
     });
+
+    if (data === "processed" && !payment.is_test) {
+      const eventName =
+        payment.status === "approved"
+          ? "Purchase"
+          : payment.status === "refunded"
+            ? "Refund"
+            : null;
+
+      if (eventName) {
+        sendCapiEvent({
+          workspaceId: i.workspace_id,
+          offerId: i.offer_id,
+          eventName,
+          eventId: `tx_${payment.transaction_id}_${payment.product_type}`,
+          customData: {
+            value: payment.gross_amount,
+            currency: payment.currency,
+          },
+          userData: {
+            email: payment.buyer_email,
+            phone: payment.buyer_phone,
+            firstName: payment.buyer_name,
+            fbp: payment.attribution?.fbp || null,
+            fbc: payment.attribution?.fbc || null,
+          },
+        }).catch(() => {});
+      }
+    }
+
     return NextResponse.json(
       error
         ? { error: "Falha temporária ao persistir." }

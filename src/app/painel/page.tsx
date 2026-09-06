@@ -2,6 +2,7 @@ import { db, configured } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/components/dashboard";
 import { dayInZone } from "@/lib/metrics";
+import { evaluateAlerts, type AlertItem } from "@/lib/alerts";
 import type {
   Workspace,
   Offer,
@@ -12,6 +13,7 @@ import type {
   Entity,
   WebhookLog,
   DashboardSummary,
+  PixelRow,
 } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -42,11 +44,14 @@ export default async function Page({
         insights={[]}
         entities={[]}
         logs={[]}
+        pixels={[]}
+        alerts={[]}
         summary={null}
         initialTab={p.tab}
         appUrl={process.env.APP_URL || "http://localhost:3000"}
       />
     );
+
   const client = await db();
   const {
     data: { user },
@@ -72,7 +77,7 @@ export default async function Page({
   const since = `${begin.toISOString().slice(0, 10)}T00:00:00Z`;
   const until = `${today}T23:59:59Z`;
 
-  const [offers, links, integrations, sales, insights, entities, logs, summaryRes] = w
+  const [offers, links, integrations, sales, insights, entities, logs, pixels, summaryRes, alerts] = w
     ? await Promise.all([
         client
           .from("utm_offers")
@@ -92,7 +97,7 @@ export default async function Page({
         client
           .from("utm_sales")
           .select(
-            "id,offer_id,provider,status,amount,currency,country,attribution,is_test,occurred_at",
+            "id,offer_id,provider,status,amount,gross_amount,fee_amount,net_amount,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
           )
           .eq("workspace_id", w.id)
           .order("occurred_at", { ascending: false })
@@ -119,6 +124,11 @@ export default async function Page({
           .eq("workspace_id", w.id)
           .order("received_at", { ascending: false })
           .limit(50),
+        client
+          .from("utm_pixels")
+          .select("id,pixel_id,offer_id,test_event_code,active,created_at")
+          .eq("workspace_id", w.id)
+          .order("created_at", { ascending: false }),
         client.rpc("utm_dashboard_summary", {
           p_workspace: w.id,
           p_since: since,
@@ -126,12 +136,13 @@ export default async function Page({
           p_currency: currency,
           p_offer_id: offerFilter,
         }),
+        evaluateAlerts(w.id).catch(() => [] as AlertItem[]),
       ])
-    : [empty, empty, empty, empty, empty, empty, empty, { data: null, error: null }];
+    : [empty, empty, empty, empty, empty, empty, empty, empty, { data: null, error: null }, [] as AlertItem[]];
 
   const error =
     we ||
-    [offers, links, integrations, sales, insights, entities, logs].some(
+    [offers, links, integrations, sales, insights, entities, logs, pixels].some(
       (r) => r.error,
     )
       ? "Não foi possível carregar todos os dados. Verifique a conexão e as migrations."
@@ -150,6 +161,8 @@ export default async function Page({
       insights={(insights.data ?? []) as InsightRow[]}
       entities={(entities.data ?? []) as Entity[]}
       logs={(logs.data ?? []) as WebhookLog[]}
+      pixels={(pixels.data ?? []) as PixelRow[]}
+      alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
       initialTab={p.tab}
       appUrl={process.env.APP_URL || "http://localhost:3000"}

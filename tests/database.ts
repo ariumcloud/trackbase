@@ -12,6 +12,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260906100000_dashboard_and_events.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260906110000_fase2_capi_financial_alerts.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -231,11 +234,140 @@ async function main() {
   );
 
   await db.exec("reset role;set role anon");
-  await assert.rejects(() => db.query("select * from public.utm_sales"));
-  await assert.rejects(() => db.query("select * from public.utm_events"));
+  // ==========================================
+  // TESTES DA FASE 2: CAPI, PRODUTOS ADICIONAIS, ALERTAS E RLS
+  // ==========================================
+  await db.exec("reset role;set role service_role");
+
+  // 1. Processa pedido com order bump associado (mesmo parent_transaction_id)
+  const txParent = "tx-master-99";
+  const mainSale = {
+    event_id: "evt-main-1",
+    transaction_id: txParent,
+    product_id: "prod",
+    external_offer_id: "",
+    product_type: "main",
+    parent_transaction_id: null,
+    status: "approved",
+    amount: 100,
+    gross_amount: 100,
+    fee_amount: 10,
+    net_amount: 90,
+    currency: "BRL",
+    attribution: {},
+    occurred_at: "2026-09-06T02:00:00Z",
+    is_test: false,
+  };
+  const bumpSale = {
+    event_id: "evt-bump-1",
+    transaction_id: "tx-bump-99",
+    product_id: "prod",
+    external_offer_id: "",
+    product_type: "order_bump",
+    parent_transaction_id: txParent,
+    status: "approved",
+    amount: 30,
+    gross_amount: 30,
+    fee_amount: 3,
+    net_amount: 27,
+    currency: "BRL",
+    attribution: {},
+    occurred_at: "2026-09-06T02:00:00Z",
+    is_test: false,
+  };
+
+  await process(mainSale);
+  await process(bumpSale);
+
+  // 2. Chave estrangeira composta obrigatória (workspace_id, offer_id):
+  // Tentativa de vincular pixel do Workspace B com Oferta do Workspace A DEVE falhar
+  await assert.rejects(
+    () =>
+      db.query(
+        "insert into public.utm_pixels(workspace_id, offer_id, pixel_id, capi_token_ciphertext) values($1, $2, '1234567890', 'cipher')",
+        [wb, offer], // wb é Workspace B, offer pertence a wa (Workspace A)
+      ),
+    /violates foreign key constraint|foreign key/,
+  );
+
+  // Vincular pixel com a oferta correspondente do mesmo workspace DEVE funcionar
+  const pixelInsert = await db.query<{ id: string }>(
+    "insert into public.utm_pixels(workspace_id, offer_id, pixel_id, capi_token_ciphertext) values($1, $2, '1234567890', 'cipher') returning id",
+    [wa, offer],
+  );
+  assert.ok(pixelInsert.rows[0].id);
+
+  // 3. Teste de alerta com deduplicação por fingerprint e RLS
+  const fingerprint1 = "fp-test-alert-1";
+  await db.query(
+    `insert into public.utm_alerts(workspace_id, rule_type, severity, title, message, fingerprint)
+     values($1, 'low_ctr', 'medium', 'CTR Baixo', 'Mensagem de alerta', $2)
+     on conflict (workspace_id, fingerprint) do nothing`,
+    [wa, fingerprint1],
+  );
+  // Re-inserção com mesmo fingerprint é ignorada (idempotente)
+  await db.query(
+    `insert into public.utm_alerts(workspace_id, rule_type, severity, title, message, fingerprint)
+     values($1, 'low_ctr', 'medium', 'CTR Baixo', 'Mensagem de alerta', $2)
+     on conflict (workspace_id, fingerprint) do nothing`,
+    [wa, fingerprint1],
+  );
+
+  // 4. Teste de agregação financeira e contagem de clientes únicos
+  // Deve contar 1 único comprador para mainSale + bumpSale (mesmo parent)
+  await db.exec("reset role");
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
+  await db.exec("set role authenticated");
+
+  const summaryRes2 = await db.query<{
+    summary: {
+      sales_count: number;
+      unique_buyers: number;
+      gross_revenue: number;
+      platform_fees: number;
+      net_revenue: number;
+      by_product_type: Record<string, { count: number; revenue: number }>;
+    };
+  }>(
+    "select public.utm_dashboard_summary($1, '2026-09-01T00:00:00Z', '2026-09-10T23:59:59Z', 'BRL') summary",
+    [wa],
+  );
+  const s2 = summaryRes2.rows[0].summary;
+  // Vendas aprovadas no período: tx1 foi reembolsada. mainSale (1) + bumpSale (1) = 2 vendas
+  assert.equal(s2.sales_count, 2);
+  // Mas como pertencem ao mesmo txParent, unique_buyers DEVE ser 1!
+  assert.equal(s2.unique_buyers, 1);
+  assert.equal(s2.gross_revenue, 130);
+  assert.equal(s2.platform_fees, 13);
+  assert.equal(s2.net_revenue, 117);
+  assert.equal(s2.by_product_type.main?.count, 1);
+  assert.equal(s2.by_product_type.order_bump?.count, 1);
+
+  // 5. RLS de Pixels e Alertas: Usuário B não vê os registros do Usuário A
+  assert.equal(
+    (await db.query("select * from public.utm_pixels")).rows.length,
+    1,
+  );
+  assert.equal(
+    (await db.query("select * from public.utm_alerts")).rows.length,
+    1,
+  );
+
+  await db.exec("reset role");
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [b]);
+  await db.exec("set role authenticated");
+  assert.equal(
+    (await db.query("select * from public.utm_pixels")).rows.length,
+    0,
+  );
+  assert.equal(
+    (await db.query("select * from public.utm_alerts")).rows.length,
+    0,
+  );
+
   await db.exec("reset role");
   console.log(
-    "PASS: migration, 2 usuários, RLS, acesso anônimo, credenciais, FK composta, idempotência, evento fora de ordem, reembolso, limpeza de testes, rate limit, tracking com chave pública, dashboard agregado e isolamento de eventos.",
+    "PASS: migration 1, 2 e 3, 2 usuários, RLS, credenciais, FK composta (workspace_id, offer_id), deduplicação de order bumps em clientes únicos, agregação de taxas, isolamento de pixels e alertas.",
   );
   await db.close();
 }

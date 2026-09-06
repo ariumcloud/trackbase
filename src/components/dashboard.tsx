@@ -25,6 +25,11 @@ import {
   ShieldCheck,
   Search,
   SlidersHorizontal,
+  Bell,
+  AlertTriangle,
+  Trash2,
+  Tag,
+  Percent,
 } from "lucide-react";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import {
@@ -33,9 +38,13 @@ import {
   savePaymentIntegration,
   cleanupTests,
   logout,
+  savePixel,
+  deletePixel,
+  markAlertRead,
 } from "@/app/actions";
 import { buildLink, metaDefaults } from "@/lib/utm";
 import { calculate, dayInZone } from "@/lib/metrics";
+import type { AlertItem } from "@/lib/alerts";
 import type {
   Workspace,
   Offer,
@@ -46,6 +55,7 @@ import type {
   Entity,
   WebhookLog,
   DashboardSummary,
+  PixelRow,
 } from "@/lib/types";
 type Props = {
   setup?: boolean;
@@ -58,6 +68,8 @@ type Props = {
   insights: InsightRow[];
   entities: Entity[];
   logs: WebhookLog[];
+  pixels: PixelRow[];
+  alerts: AlertItem[];
   summary?: DashboardSummary | null;
   initialTab?: string;
   appUrl: string;
@@ -68,7 +80,8 @@ const tabs = [
   { id: "ofertas", name: "Minhas ofertas", icon: Layers },
   { id: "links", name: "Links e UTMs", icon: Link2 },
   { id: "campanhas", name: "Campanhas", icon: BarChart3 },
-  { id: "integracoes", name: "Integrações", icon: Plug },
+  { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
+  { id: "alertas", name: "Alertas", icon: Bell },
 ];
 const titles: Record<string, [string, string]> = {
   visao: [
@@ -89,7 +102,11 @@ const titles: Record<string, [string, string]> = {
   ],
   integracoes: [
     "Conecte os pontos.",
-    "Suas fontes de tráfego e vendas, na mesma operação.",
+    "Suas fontes de tráfego, vendas e Pixels/CAPI na mesma operação.",
+  ],
+  alertas: [
+    "Alertas inteligentes.",
+    "Monitore gargalos de conversão, custos anormais e falhas de integração.",
   ],
 };
 function Clipboard({
@@ -177,8 +194,11 @@ export function Dashboard(p: Props) {
   const useSummary = Boolean(s && provider === "all");
   const fallback = calculate(sales, insights, currency);
 
-  const revenue = useSummary ? Number(s!.gross_revenue) : fallback.revenue;
+  const grossRevenue = useSummary ? Number(s!.gross_revenue) : fallback.revenue;
+  const platformFees = useSummary ? Number(s!.platform_fees || 0) : 0;
+  const netRevenue = useSummary ? Number(s!.net_revenue || s!.gross_revenue) : fallback.revenue;
   const purchases = useSummary ? Number(s!.sales_count) : fallback.purchases;
+  const uniqueBuyers = useSummary ? Number(s!.unique_buyers || s!.sales_count) : fallback.purchases;
   const spend = useSummary
     ? (s!.meta_spend !== null ? Number(s!.meta_spend) : null)
     : fallback.spend;
@@ -188,21 +208,41 @@ export function Dashboard(p: Props) {
   const ctas = useSummary ? Number(s!.ctas) : 0;
   const checkouts = useSummary ? Number(s!.checkouts) : 0;
 
-  const profit = spend === null ? null : revenue - spend;
-  const roas = spend && spend > 0 ? revenue / spend : null;
-  const roi = spend && spend > 0 ? ((revenue - spend) / spend) * 100 : null;
-  const cpa = spend !== null && purchases > 0 ? spend / purchases : null;
+  const operatingProfit = spend === null ? null : netRevenue - spend;
+  const netMargin = operatingProfit !== null && grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : null;
+  const roas = spend && spend > 0 ? grossRevenue / spend : null;
+  const roi = spend && spend > 0 ? ((netRevenue - spend) / spend) * 100 : null;
+  const cpa = spend !== null && uniqueBuyers > 0 ? spend / uniqueBuyers : null;
+  const averageTicket = purchases > 0 ? grossRevenue / purchases : null;
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
   const cpc = clicks > 0 && spend !== null ? spend / clicks : null;
 
+  const refundedCount = useSummary ? Number(s!.refunded_count) : sales.filter(x => ["refunded", "chargeback"].includes(x.status)).length;
+  const refundedAmount = useSummary ? Number(s!.refunded_amount) : 0;
+  const totalOrders = purchases + refundedCount;
+  const refundRate = totalOrders > 0 ? (refundedCount / totalOrders) * 100 : null;
+
+  const byProduct = s?.by_product_type || {};
+  const byCountry = s?.by_country || {};
+
   const metrics = {
-    revenue,
+    revenue: grossRevenue,
+    grossRevenue,
+    platformFees,
+    netRevenue,
+    operatingProfit,
+    netMargin,
     purchases,
+    uniqueBuyers,
     spend,
-    profit,
+    profit: operatingProfit,
     roas,
     roi,
     cpa,
+    averageTicket,
+    refundedCount,
+    refundedAmount,
+    refundRate,
     ctr,
     cpc,
     clicks,
@@ -210,6 +250,8 @@ export function Dashboard(p: Props) {
     pageviews,
     ctas,
     checkouts,
+    byProduct,
+    byCountry,
   };
 
   const hasPayments = p.integrations.some(
@@ -347,6 +389,18 @@ export function Dashboard(p: Props) {
               {t.name}
               {t.id === "links" && p.links.length > 0 && (
                 <span className="nav-count">{p.links.length}</span>
+              )}
+              {t.id === "alertas" && p.alerts.filter((a) => !a.read).length > 0 && (
+                <span
+                  className="nav-count"
+                  style={{
+                    background: "#fee2e2",
+                    color: "#991b1b",
+                    fontWeight: 700,
+                  }}
+                >
+                  {p.alerts.filter((a) => !a.read).length}
+                </span>
               )}
             </button>
           ))}
@@ -535,38 +589,68 @@ export function Dashboard(p: Props) {
                     icon: Wallet,
                   },
                   {
-                    name: "Faturamento",
-                    value: hasPayments ? money(metrics.revenue) : "—",
-                    hint: `${metrics.purchases} vendas aprovadas · sem testes`,
+                    name: "Receita Bruta",
+                    value: hasPayments ? money(metrics.grossRevenue) : "—",
+                    hint: `${metrics.purchases} compras aprovadas · sem testes`,
                     icon: ShoppingBag,
                   },
                   {
-                    name: "Resultado bruto",
-                    value:
-                      hasPayments && offer === "all"
-                        ? money(metrics.profit)
-                        : "—",
-                    hint:
-                      offer !== "all"
-                        ? "Gasto de mídia não isolado para esta oferta"
-                        : "Faturamento menos mídia, antes de taxas",
+                    name: "Taxas da Plataforma",
+                    value: hasPayments ? money(metrics.platformFees) : "—",
+                    hint: "Taxas de processamento da Hotmart/Cakto",
+                    icon: Tag,
+                  },
+                  {
+                    name: "Receita Líquida",
+                    value: hasPayments ? money(metrics.netRevenue) : "—",
+                    hint: "Receita após dedução de taxas da plataforma",
                     icon: Activity,
                   },
                   {
-                    name: "ROAS",
+                    name: "Lucro Operacional",
                     value:
-                      hasPayments && offer === "all" && metrics.roas !== null
-                        ? `${metrics.roas.toFixed(2)}x`
+                      hasPayments && offer === "all" && metrics.operatingProfit !== null
+                        ? money(metrics.operatingProfit)
                         : "—",
                     hint:
                       offer !== "all"
                         ? "Mídia não isolada por oferta"
-                        : "Retorno sobre investimento em mídia",
+                        : "Receita líquida menos investimento em mídia",
+                    icon: Wallet,
+                  },
+                  {
+                    name: "Margem Líquida",
+                    value:
+                      hasPayments && offer === "all" && metrics.netMargin !== null
+                        ? `${metrics.netMargin.toFixed(1)}%`
+                        : "—",
+                    hint: "Lucro operacional sobre receita bruta",
+                    icon: Percent,
+                  },
+                  {
+                    name: "ROAS / ROI",
+                    value:
+                      hasPayments && offer === "all" && metrics.roas !== null
+                        ? `${metrics.roas.toFixed(2)}x · ${metrics.roi !== null ? metrics.roi.toFixed(0) + "%" : ""}`
+                        : "—",
+                    hint:
+                      offer !== "all"
+                        ? "Mídia não isolada por oferta"
+                        : "Retorno sobre investimento em anúncios",
                     icon: ArrowUpRight,
+                  },
+                  {
+                    name: "Clientes Únicos",
+                    value: hasPayments ? `${metrics.uniqueBuyers} clientes` : "—",
+                    hint:
+                      metrics.purchases > metrics.uniqueBuyers
+                        ? `${metrics.purchases - metrics.uniqueBuyers} compras adicionais (bumps/upsells)`
+                        : `Ticket médio: ${money(metrics.averageTicket)}`,
+                    icon: MousePointer2,
                   },
                 ].map((m, i) => (
                   <section
-                    className={`metric-card ${i === 2 ? "featured" : ""}`}
+                    className={`metric-card ${i === 4 ? "featured" : ""}`}
                     key={m.name}
                   >
                     <div className="metric-label">
@@ -835,6 +919,104 @@ export function Dashboard(p: Props) {
                   />
                 )}
               </section>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                  gap: "1.25rem",
+                  marginTop: "1.25rem",
+                  marginBottom: "1.25rem",
+                }}
+              >
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Desdobramento por Produto</h2>
+                      <p>Receita separada por produto principal, order bump, upsell e downsell</p>
+                    </div>
+                  </div>
+                  {Object.keys(byProduct).length ? (
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tipo de Produto</th>
+                            <th>Vendas</th>
+                            <th>Receita Bruta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(byProduct).map(([type, stats]) => {
+                            const label =
+                              type === "main"
+                                ? "Produto Principal"
+                                : type === "order_bump"
+                                  ? "Order Bump"
+                                  : type === "upsell"
+                                    ? "Upsell"
+                                    : type === "downsell"
+                                      ? "Downsell"
+                                      : type;
+                            return (
+                              <tr key={type}>
+                                <td>
+                                  <strong>{label}</strong>
+                                </td>
+                                <td>{stats.count}</td>
+                                <td>{money(stats.revenue)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <Empty
+                      title="Nenhum dado por tipo"
+                      description="As vendas processadas aparecerão divididas por produto principal e adicionais."
+                    />
+                  )}
+                </section>
+
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Desdobramento por País</h2>
+                      <p>Origem geográfica dos compradores com conversão</p>
+                    </div>
+                  </div>
+                  {Object.keys(byCountry).length ? (
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>País</th>
+                            <th>Vendas</th>
+                            <th>Receita</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(byCountry).map(([code, stats]) => (
+                            <tr key={code}>
+                              <td>
+                                <strong>{code.toUpperCase()}</strong>
+                              </td>
+                              <td>{stats.count}</td>
+                              <td>{money(stats.revenue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <Empty
+                      title="Nenhum dado geográfico"
+                      description="Conforme os pedidos chegarem via webhook, os países serão listados aqui."
+                    />
+                  )}
+                </section>
+              </div>
+
               <div className="footer-note">
                 <ShieldCheck size={14} /> Dados isolados por workspace{" "}
                 <span>•</span> Valores de moedas diferentes nunca são somados.
@@ -1154,6 +1336,132 @@ export function Dashboard(p: Props) {
                   Remover somente vendas marcadas como teste
                 </button>
               )}
+
+              <section className="panel" style={{ marginTop: "1.5rem" }}>
+                <div className="panel-heading">
+                  <div>
+                    <h2>Meta Pixel & Conversions API (CAPI)</h2>
+                    <p>
+                      Disparos server-side redundantes com deduplicação por event_id
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gap: "1.5rem",
+                    marginTop: "1rem",
+                  }}
+                >
+                  <div>
+                    <ActionForm
+                      action={(f) => savePixel(workspace, f)}
+                      label="Salvar Pixel / Token CAPI"
+                      onSuccess={() => {}}
+                    >
+                      <label>
+                        Pixel ID (Meta)
+                        <input
+                          name="pixel_id"
+                          placeholder="Ex: 123456789012345"
+                          required
+                          pattern="^\d{8,25}$"
+                        />
+                      </label>
+                      <label>
+                        Oferta vinculada (opcional)
+                        <select name="offer_id">
+                          <option value="">Global do workspace (todas as ofertas)</option>
+                          {p.offers.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Token de Acesso da Conversions API (CAPI)
+                        <input
+                          name="capi_token"
+                          type="password"
+                          placeholder="EAA..."
+                          required
+                          autoComplete="new-password"
+                        />
+                      </label>
+                      <label>
+                        Test Event Code (opcional para depuração no Gerenciador)
+                        <input
+                          name="test_event_code"
+                          placeholder="Ex: TEST12345"
+                        />
+                      </label>
+                      <p className="form-help">
+                        O token CAPI é criptografado com AES-256 no banco e nunca é exposto ao navegador.
+                      </p>
+                    </ActionForm>
+                  </div>
+
+                  <div>
+                    <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Pixels Ativos</h3>
+                    {p.pixels && p.pixels.length > 0 ? (
+                      <div style={{ display: "grid", gap: "0.75rem" }}>
+                        {p.pixels.map((px) => {
+                          const linkedOffer = p.offers.find((o) => o.id === px.offer_id);
+                          return (
+                            <div
+                              key={px.id}
+                              style={{
+                                padding: "0.85rem 1rem",
+                                borderRadius: "8px",
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.08)",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <div>
+                                <strong style={{ display: "block", fontSize: "0.95rem" }}>
+                                  Pixel: {px.pixel_id}
+                                </strong>
+                                <small style={{ color: "var(--muted, #888)", display: "block" }}>
+                                  Escopo: {linkedOffer ? linkedOffer.name : "Global (Workspace)"}
+                                </small>
+                                {px.test_event_code && (
+                                  <small style={{ color: "#a5b4fc", display: "block" }}>
+                                    Teste ativo: {px.test_event_code}
+                                  </small>
+                                )}
+                              </div>
+                              <button
+                                className="icon-button"
+                                aria-label="Excluir Pixel"
+                                disabled={pending}
+                                onClick={() =>
+                                  run(async () => {
+                                    const res = await deletePixel(workspace, px.id);
+                                    if (res.error) throw new Error(res.error);
+                                  })
+                                }
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <Empty
+                        title="Nenhum Pixel configurado"
+                        description="Adicione seu Pixel e Token CAPI para rastreamento server-side à prova de bloqueadores."
+                      />
+                    )}
+                  </div>
+                </div>
+              </section>
             </>
           )}
           {tab === "campanhas" && (
@@ -1165,6 +1473,137 @@ export function Dashboard(p: Props) {
               request={request}
               connect={() => selectTab("integracoes")}
             />
+          )}
+          {tab === "alertas" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Alertas Inteligentes</h2>
+                  <p>Detecção de anomalias com volume mínimo de amostra e sem falsos positivos</p>
+                </div>
+                <span className="chip">
+                  {p.alerts.filter((a) => !a.read).length} não lidos
+                </span>
+              </div>
+
+              {p.alerts.length ? (
+                <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
+                  {p.alerts.map((al) => {
+                    const isCrit = al.severity === "critical";
+                    const isWarn = al.severity === "high" || al.severity === "medium";
+                    const borderColor = isCrit
+                      ? "rgba(239, 68, 68, 0.4)"
+                      : isWarn
+                        ? "rgba(245, 158, 11, 0.4)"
+                        : "rgba(59, 130, 246, 0.4)";
+                    const bgBadge = isCrit ? "#fee2e2" : isWarn ? "#fef3c7" : "#dbeafe";
+                    const textBadge = isCrit ? "#991b1b" : isWarn ? "#92400e" : "#1e40af";
+
+                    return (
+                      <article
+                        key={al.id}
+                        style={{
+                          padding: "1rem 1.25rem",
+                          borderRadius: "10px",
+                          background: al.read ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.04)",
+                          border: `1px solid ${borderColor}`,
+                          opacity: al.read ? 0.75 : 1,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: "1rem",
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
+                            <AlertTriangle
+                              size={20}
+                              style={{
+                                color: isCrit ? "#ef4444" : isWarn ? "#f59e0b" : "#3b82f6",
+                                marginTop: "2px",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <strong style={{ fontSize: "1rem" }}>{al.title}</strong>
+                                <span
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    background: bgBadge,
+                                    color: textBadge,
+                                    fontWeight: 700,
+                                    textTransform: "uppercase",
+                                  }}
+                                >
+                                  {al.severity}
+                                </span>
+                                {al.read && (
+                                  <span style={{ fontSize: "0.75rem", color: "var(--muted, #888)" }}>
+                                    (Lido)
+                                  </span>
+                                )}
+                              </div>
+                              <p style={{ margin: "0.35rem 0", color: "#ccc", fontSize: "0.9rem" }}>
+                                {al.message}
+                              </p>
+                              {al.evidence && Object.keys(al.evidence).length > 0 && (
+                                <div
+                                  style={{
+                                    marginTop: "0.5rem",
+                                    padding: "0.5rem 0.75rem",
+                                    background: "rgba(0,0,0,0.2)",
+                                    borderRadius: "6px",
+                                    fontSize: "0.8rem",
+                                    fontFamily: "monospace",
+                                    color: "#94a3b8",
+                                  }}
+                                >
+                                  {Object.entries(al.evidence).map(([k, v]) => (
+                                    <span key={k} style={{ marginRight: "1rem" }}>
+                                      {k}: <strong>{String(v)}</strong>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <small style={{ color: "var(--muted, #888)", display: "block", marginTop: "0.4rem" }}>
+                                Registrado em: {new Date(al.created_at).toLocaleString("pt-BR", { timeZone: timezone })}
+                              </small>
+                            </div>
+                          </div>
+
+                          {!al.read && (
+                            <button
+                              className="button small"
+                              disabled={pending}
+                              onClick={() =>
+                                run(async () => {
+                                  const r = await markAlertRead(workspace, al.id);
+                                  if (r.error) throw new Error(r.error);
+                                })
+                              }
+                            >
+                              Marcar como lido
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Empty
+                  icon={Bell}
+                  title="Operação saudável"
+                  description="Nenhuma anomalia crítica ou aviso pendente. Suas taxas e integrações estão dentro do esperado."
+                />
+              )}
+            </section>
           )}
         </main>
       </div>

@@ -1,0 +1,150 @@
+import "server-only";
+import { admin } from "./supabase/server";
+import { decrypt } from "./security";
+import { graphVersion } from "./meta";
+import {
+  type CapiEventName,
+  type CapiUserData,
+  type CapiCustomData,
+  type CapiPayload,
+  hashPii,
+  normalizeCapiUserData,
+} from "./capi-shared";
+
+export type {
+  CapiEventName,
+  CapiUserData,
+  CapiCustomData,
+  CapiPayload,
+};
+export { hashPii, normalizeCapiUserData };
+
+export async function sendCapiEvent(payload: CapiPayload): Promise<{
+  status: "sent" | "failed" | "skipped" | "duplicate";
+  error?: string;
+}> {
+  const service = admin();
+
+  // 1. Busca o Pixel ativo (específico da oferta ou padrão do workspace)
+  let query = service
+    .from("utm_pixels")
+    .select("pixel_id,capi_token_ciphertext,test_event_code")
+    .eq("workspace_id", payload.workspaceId)
+    .eq("active", true);
+
+  if (payload.offerId) {
+    query = query.or(`offer_id.eq.${payload.offerId},offer_id.is.null`);
+  } else {
+    query = query.is("offer_id", null);
+  }
+
+  const { data: pixels } = await query;
+  if (!pixels || pixels.length === 0) {
+    return { status: "skipped", error: "Nenhum pixel CAPI configurado para o workspace." };
+  }
+
+  const pixel = pixels[0];
+  let token: string;
+  try {
+    token = decrypt(pixel.capi_token_ciphertext);
+  } catch {
+    return { status: "failed", error: "Falha ao descriptografar token CAPI." };
+  }
+
+  // 2. Prevenção de duplicata no log da CAPI
+  const { data: existing } = await service
+    .from("utm_capi_logs")
+    .select("status")
+    .eq("workspace_id", payload.workspaceId)
+    .eq("pixel_id", pixel.pixel_id)
+    .eq("event_id", payload.eventId)
+    .eq("event_name", payload.eventName)
+    .maybeSingle();
+
+  if (existing) {
+    return { status: "duplicate" };
+  }
+
+  // 3. Montagem do payload Meta
+  const userData = normalizeCapiUserData(payload.userData);
+  const eventItem: Record<string, unknown> = {
+    event_name: payload.eventName,
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: payload.eventId,
+    action_source: "website",
+    event_source_url: payload.url || undefined,
+    user_data: userData,
+  };
+
+  if (payload.customData) {
+    const cd: Record<string, unknown> = {};
+    if (payload.customData.value != null) cd.value = payload.customData.value;
+    if (payload.customData.currency) cd.currency = payload.customData.currency;
+    if (payload.customData.content_name) cd.content_name = payload.customData.content_name;
+    if (payload.customData.content_type) cd.content_type = payload.customData.content_type;
+    if (payload.customData.content_ids) cd.content_ids = payload.customData.content_ids;
+    if (Object.keys(cd).length > 0) eventItem.custom_data = cd;
+  }
+
+  const metaBody: Record<string, unknown> = {
+    data: [eventItem],
+  };
+
+  if (pixel.test_event_code) {
+    metaBody.test_event_code = pixel.test_event_code;
+  }
+
+  const endpoint = `https://graph.facebook.com/${graphVersion()}/${pixel.pixel_id}/events?access_token=${encodeURIComponent(token)}`;
+
+  let status: "sent" | "failed" = "failed";
+  let httpCode = 0;
+  let responseSummary = "Falha de rede";
+  let retryCount = 0;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    retryCount = attempt;
+    try {
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(metaBody),
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000),
+      });
+
+      httpCode = resp.status;
+      const json = await resp.json().catch(() => null);
+
+      if (resp.ok) {
+        status = "sent";
+        responseSummary = `events_received: ${json?.events_received ?? 1}`;
+        break;
+      } else {
+        responseSummary = json?.error?.message ? String(json.error.message).slice(0, 300) : `HTTP ${httpCode}`;
+        if (httpCode < 500) {
+          // Erro 4xx do cliente (ex: token inválido) não deve sofrer retry
+          break;
+        }
+      }
+    } catch (e) {
+      responseSummary = e instanceof Error ? e.message.slice(0, 200) : "Timeout";
+    }
+  }
+
+  // 4. Registro seguro do log CAPI sem salvar tokens nem PII
+  await service.from("utm_capi_logs").upsert(
+    {
+      workspace_id: payload.workspaceId,
+      pixel_id: pixel.pixel_id,
+      event_id: payload.eventId,
+      event_name: payload.eventName,
+      status,
+      http_code: httpCode,
+      response_summary: responseSummary,
+      retry_count: retryCount,
+    },
+    { onConflict: "workspace_id,pixel_id,event_id,event_name", ignoreDuplicates: true },
+  );
+
+  return { status, error: status === "failed" ? responseSummary : undefined };
+}
