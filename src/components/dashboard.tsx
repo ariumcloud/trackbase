@@ -34,6 +34,8 @@ import {
   Percent,
   TrendingUp,
   TrendingDown,
+  Download,
+  Bot,
 } from "lucide-react";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import {
@@ -65,6 +67,11 @@ import type {
 } from "@/lib/types";
 import { ClonadorView } from "./clonador";
 import { DiagnosticoView } from "./diagnostico";
+import { GraficoDiario } from "./grafico-diario";
+import { OnboardingChecklist } from "./onboarding";
+import { AssistenteKirofy } from "./assistente";
+import { BottomBar } from "./bottom-bar";
+import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
 type Props = {
   setup?: boolean;
   workspaces: Workspace[];
@@ -93,6 +100,7 @@ const tabs = [
   { id: "clonador", name: "Clonador de Funil", icon: Copy },
   { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
+  { id: "assistente", name: "Assistente IA", icon: Bot },
   { id: "alertas", name: "Alertas", icon: Bell },
 ];
 const titles: Record<string, [string, string]> = {
@@ -123,6 +131,10 @@ const titles: Record<string, [string, string]> = {
   integracoes: [
     "Conecte os pontos.",
     "Suas fontes de tráfego, vendas e Pixels/CAPI na mesma operação.",
+  ],
+  assistente: [
+    "Assistente Kirofy IA.",
+    "Seu copiloto de tráfego direto, métricas em tempo real e CRO.",
   ],
   alertas: [
     "Alertas inteligentes.",
@@ -191,6 +203,7 @@ export function Dashboard(p: Props) {
     [offer, setOffer] = useState("all"),
     [provider, setProvider] = useState("all"),
     [notice, setNotice] = useState(""),
+    [showExportMenu, setShowExportMenu] = useState(false),
     [pending, start] = useTransition();
   const workspace = p.workspace?.id ?? "",
     timezone = p.workspace?.timezone ?? "America/Sao_Paulo";
@@ -501,13 +514,102 @@ export function Dashboard(p: Props) {
               <h1>{titles[tab][0]}</h1>
               <p>{titles[tab][1]}</p>
             </div>
-            <button
-              className="button primary"
-              onClick={() => create(tab === "ofertas" ? "offer" : "link")}
-            >
-              <Plus size={17} />
-              {tab === "ofertas" ? "Nova oferta" : "Criar link UTM"}
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
+                >
+                  <Download size={15} /> Exportar CSV
+                </button>
+                {showExportMenu && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      right: 0,
+                      marginTop: "4px",
+                      background: "#FFFFFF",
+                      border: "1px solid var(--line, #E2E8F0)",
+                      borderRadius: "8px",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                      zIndex: 50,
+                      minWidth: "180px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportSalesCsv(p.sales);
+                        setShowExportMenu(false);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "0.6rem 0.9rem",
+                        background: "none",
+                        border: "none",
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #F1F5F9",
+                      }}
+                    >
+                      📄 Vendas ({p.sales.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportCampaignsCsv(p.insights, p.entities);
+                        setShowExportMenu(false);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "0.6rem 0.9rem",
+                        background: "none",
+                        border: "none",
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #F1F5F9",
+                      }}
+                    >
+                      📊 Campanhas Meta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportLinksCsv(p.links, p.appUrl);
+                        setShowExportMenu(false);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "0.6rem 0.9rem",
+                        background: "none",
+                        border: "none",
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      🔗 Links UTM ({p.links.length})
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                className="button primary"
+                onClick={() => create(tab === "ofertas" ? "offer" : "link")}
+              >
+                <Plus size={17} />
+                {tab === "ofertas" ? "Nova oferta" : "Criar link UTM"}
+              </button>
+            </div>
           </div>
           {(notice || p.error) && (
             <div className="notice" role="status">
@@ -548,6 +650,16 @@ export function Dashboard(p: Props) {
           )}
           {tab === "visao" && (
             <>
+              <OnboardingChecklist
+                offersCount={p.offers.length}
+                hasPaymentGateway={hasPayments}
+                hasTrackerActivity={metrics.pageviews > 0 || ((p.funnels?.length ?? 0) > 0)}
+                linksCount={p.links.length}
+                hasMetaConnected={p.integrations.some((i) => i.provider === "meta" && i.status === "connected")}
+                salesCount={p.sales.length}
+                onNavigateTab={selectTab}
+                onOpenCreateOffer={() => create("offer")}
+              />
               <div className="filterbar">
                 <div className="filter-group">
                   <SlidersHorizontal size={16} />
@@ -763,6 +875,14 @@ export function Dashboard(p: Props) {
                   </section>
                 ))}
               </div>
+
+              <GraficoDiario
+                sales={sales}
+                insights={insights}
+                periodDays={Number(period) || 7}
+                timezone={timezone}
+                currency={currency}
+              />
 
               <div
                 className="panel"
@@ -1896,6 +2016,17 @@ export function Dashboard(p: Props) {
               selectTab={selectTab}
             />
           )}
+          {tab === "assistente" && (
+            <AssistenteKirofy
+              metrics={metrics}
+              currency={currency}
+              offers={p.offers}
+              links={p.links}
+              insights={p.insights}
+              entities={p.entities}
+              diagnostics={p.diagnostics}
+            />
+          )}
           {tab === "alertas" && (
             <section className="panel">
               <div className="panel-heading">
@@ -2255,6 +2386,7 @@ export function Dashboard(p: Props) {
           </section>
         </div>
       )}
+      <BottomBar currentTab={tab} onSelectTab={selectTab} />
     </div>
   );
 }

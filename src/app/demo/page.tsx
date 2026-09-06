@@ -63,6 +63,7 @@ export default function DemoPage() {
     "Campanhas",
     "Clonador de Funil",
     "Diagnóstico de Funil",
+    "Assistente IA",
     "Integrações e Pixels",
     "Alertas",
   ];
