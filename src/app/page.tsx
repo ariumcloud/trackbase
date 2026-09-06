@@ -23,51 +23,53 @@ const plans = [
     featured: false,
     items: [
       "1 workspace",
-      "Ofertas e links com limites claros",
-      "Dashboard básico",
+      "1 oferta e até 10 links UTM",
+      "Dashboard básico em tempo real",
       "Demo pública com dados fictícios",
     ],
   },
   {
     name: "Plano Liso",
-    price: "Consulte os valores",
-    suffix: "",
-    description: "Para operar suas próprias campanhas.",
-    cta: "Conhecer o plano",
-    href: "#mais-opcoes",
+    price: "R$ 50",
+    suffix: "/mês",
+    description: "Para operar suas próprias campanhas com clareza e controle.",
+    cta: "Começar agora",
+    href: "/login",
     featured: true,
     items: [
-      "Meta Ads e plataformas de checkout",
-      "Pixel e CAPI",
-      "Dashboard financeiro e atribuição",
-      "Alertas de gargalo",
+      "Meta Ads e 7 plataformas de checkout",
+      "Pixel e CAPI server-side deduplicados",
+      "Dashboard financeiro com métricas reais",
+      "Upsell, downsell e order bump separados",
+      "Alertas de gargalo e monitoramento",
     ],
   },
   {
     name: "Plano Vorcaro",
-    price: "Sob consulta",
-    suffix: "",
-    description: "Para operadores avançados e agências.",
-    cta: "Conhecer os recursos",
-    href: "#mais-opcoes",
+    price: "R$ 197",
+    suffix: "/mês",
+    description: "Para operadores avançados, alta escala e agências.",
+    cta: "Acessar Vorcaro",
+    href: "/login",
     featured: false,
     items: [
       "Tudo do Plano Liso",
-      "Mineração e clonador de funil — em evolução",
-      "Jeen e relatórios — em evolução",
-      "Recursos de agência — em evolução",
+      "Até 25 workspaces e múltiplos acessos",
+      "Clonador de funil e mineração de ofertas",
+      "Detector avançado de gargalos e Jeen AI",
+      "Relatórios operacionais e auditoria completa",
     ],
   },
 ];
 
 function MockDashboard() {
   return (
-    <div className="landing-mock" aria-label="Prévia do dashboard Lisofy">
+    <div className="landing-mock" aria-label="Prévia do dashboard Kirofy">
       <div className="mock-sidebar">
         <div className="mock-logo-wrap">
           <Image
             src="/logo.png"
-            alt="Lisofy Logo"
+            alt="Kirofy Logo"
             width={34}
             height={34}
             className="mock-logo-img"
@@ -148,12 +150,12 @@ export default function Home() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Lisofy Logo"
+            alt="Kirofy Logo"
             width={34}
             height={34}
             className="brand-logo-img"
           />
-          Lisofy
+          Kirofy
           <span className="brand-dot" />
         </Link>
         <div className="landing-nav-links">
@@ -171,7 +173,7 @@ export default function Home() {
       <section className="landing-hero">
         <div className="landing-copy">
           <span className="eyebrow">
-            RASTREAMENTO PROFISSIONAL PARA QUEM ESTÁ LISO
+            RASTREAMENTO PROFISSIONAL PARA QUEM QUER LUCRO REAL
           </span>
           <h1>
             A plataforma pra você
@@ -179,7 +181,7 @@ export default function Home() {
             <em>deixar de ser liso.</em>
           </h1>
           <p>
-            Lisofy conecta seus anúncios da Meta, páginas, checkouts e vendas em
+            Kirofy conecta seus anúncios da Meta, páginas, checkouts e vendas em
             uma operação cristalina — sem surpresas no fim do mês e sem pagar
             fortunas por software.
           </p>
@@ -304,33 +306,46 @@ export default function Home() {
 
       <section id="mais-opcoes" className="landing-section">
         <div className="section-intro">
-          <span className="eyebrow">MAIS OPÇÕES</span>
-          <h2>Setup completo — R$ 497</h2>
-          <p>Serviço separado da assinatura e da aquisição de código-fonte.</p>
+          <span className="eyebrow">ÁREA COMERCIAL</span>
+          <h2>Mais opções</h2>
+          <p>
+            Serviços adicionais de consultoria, implementação técnica e
+            código-fonte — separados da assinatura SaaS.
+          </p>
         </div>
         <div className="feature-grid">
           <article>
-            <h3>Sua operação configurada</h3>
+            <span className="chip" style={{ marginBottom: "10px" }}>PRODUTO PRINCIPAL</span>
+            <h3>Setup completo — R$ 497</h3>
             <p>
-              Setup de Meta Ads, pixels, CAPI, webhooks, UTMs e plataformas de
-              checkout.
+              Nossa equipe configura toda a sua operação: Meta Ads, pixels,
+              CAPI server-side, webhooks, parâmetros UTM e integração completa
+              com Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze e Wiapy.
             </p>
+            <Link href="/login" className="button primary" style={{ marginTop: "14px" }}>
+              Contratar setup <ArrowRight size={15} />
+            </Link>
           </article>
           <article>
-            <h3>Aprenda a implementar</h3>
+            <h3>Treinamento e Aulas</h3>
             <p>
-              Aula de implementação e orientação para criar sua própria
-              estrutura.
+              Aulas práticas e metodologia passo a passo para você ou sua equipe
+              criarem a própria estrutura de tracking à prova de falhas, sem
+              depender de ninguém.
             </p>
+            <Link href="/login" className="button ghost" style={{ marginTop: "14px" }}>
+              Saber mais <ArrowRight size={15} />
+            </Link>
           </article>
           <article>
-            <h3>Instalação e código</h3>
+            <h3>Código-fonte Kirofy</h3>
             <p>
-              Consulte as condições de instalação, treinamento e aquisição do
-              código. O setup não inclui automaticamente esses produtos.
+              Instale no seu próprio Supabase e Vercel sem mensalidade.
+              R$ 297 (código com documentação) ou R$ 397 (código com instalação
+              assistida inclusa).
             </p>
-            <Link href="/login" className="button primary">
-              Entrar para solicitar setup <ArrowRight size={15} />
+            <Link href="/login" className="button ghost" style={{ marginTop: "14px" }}>
+              Quero o código <ArrowRight size={15} />
             </Link>
           </article>
         </div>
@@ -355,15 +370,15 @@ export default function Home() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Lisofy Logo"
+            alt="Kirofy Logo"
             width={28}
             height={28}
             className="brand-logo-img"
           />
-          Lisofy
+          Kirofy
           <span className="brand-dot" />
         </Link>
-        <span>A plataforma pra você deixar de ser liso.</span>
+        <span>O rastreamento profissional para quem quer lucro real.</span>
         <Link href="/login" className="footer-login-link">
           Entrar no painel <ArrowRight size={13} />
         </Link>

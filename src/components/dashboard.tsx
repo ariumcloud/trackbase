@@ -366,12 +366,12 @@ export function Dashboard(p: Props) {
         <Link href="/painel" className="brand">
           <Image
             src="/logo.png"
-            alt="Lisofy Logo"
+            alt="Kirofy Logo"
             width={32}
             height={32}
             className="brand-logo-img"
           />
-          Lisofy
+          Kirofy
           <span className="brand-dot" />
         </Link>
         <button
@@ -443,7 +443,7 @@ export function Dashboard(p: Props) {
             </span>
             <span>
               <strong>{p.workspace?.name || "Bem-vindo"}</strong>
-              <small>Powered by Lisofy</small>
+              <small>Powered by Kirofy</small>
             </span>
             {!p.setup && (
               <button

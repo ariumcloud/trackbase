@@ -69,12 +69,12 @@ export default function DemoPage() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="Lisofy Logo"
+            alt="Kirofy Logo"
             width={32}
             height={32}
             className="brand-logo-img"
           />
-          Lisofy
+          Kirofy
           <span className="brand-dot" />
         </Link>
         <span className="demo-label">
