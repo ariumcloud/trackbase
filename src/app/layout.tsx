@@ -6,7 +6,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "UTMLiso · O rastreamento profissional para quem ainda está liso",
+  title: "Lisofy · A plataforma pra você deixar de ser liso",
   description:
     "Junte anúncios da Meta Ads, páginas, checkouts e vendas em uma operação clara, rápida e lucrativa.",
   icons: {

@@ -1,35 +1,62 @@
+export const planFeatures = [
+  "dashboard",
+  "tracking",
+  "integrations",
+  "capi",
+  "alerts",
+  "mining",
+  "cloner",
+  "advancedAlerts",
+  "agency",
+  "jeen",
+  "export",
+  "audit",
+] as const;
+export type PlanFeature = (typeof planFeatures)[number];
+export type PlanId = "devedor" | "liso" | "vorcaro";
 export const plans = {
   devedor: {
-    name: "UTMDevedor",
+    name: "Plano Devedor",
     workspaces: 1,
     offers: 1,
-    meta: 1,
-    capi: false,
-    advanced: false,
+    links: 10,
+    meta: 0,
+    features: ["dashboard"] as readonly PlanFeature[],
   },
   liso: {
-    name: "UTMLiso",
+    name: "Plano Liso",
     workspaces: 1,
     offers: 10,
+    links: 200,
     meta: 3,
-    capi: true,
-    advanced: false,
+    features: [
+      "dashboard",
+      "tracking",
+      "integrations",
+      "capi",
+      "alerts",
+    ] as readonly PlanFeature[],
   },
-  classe_media: {
-    name: "UTMClasse Média",
-    workspaces: 3,
-    offers: 50,
-    meta: 10,
-    capi: true,
-    advanced: true,
-  },
-  rico: {
-    name: "UTMRico",
+  vorcaro: {
+    name: "Plano Vorcaro",
     workspaces: 25,
     offers: 500,
+    links: 10000,
     meta: 100,
-    capi: true,
-    advanced: true,
+    features: planFeatures,
   },
 } as const;
-// Valores pagos são provisórios; aplicação de limites e cobrança pertencem à Fase 4.
+/** Compatibilidade com registros históricos; novas gravações usam os três IDs oficiais. */
+export function normalizePlan(value: string): PlanId {
+  if (value === "classe_media" || value === "rico" || value === "vorcaro")
+    return "vorcaro";
+  return value === "liso" ? "liso" : "devedor";
+}
+export function canUse(plan: string, feature: PlanFeature): boolean {
+  return plans[normalizePlan(plan)].features.includes(feature);
+}
+export function assertFeature(plan: string, feature: PlanFeature): void {
+  if (!canUse(plan, feature))
+    throw new Error("Este recurso não está incluído no seu plano.");
+}
+// Limites operacionais iniciais, centralizados; preços pagos precisam de definição comercial.

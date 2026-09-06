@@ -10,12 +10,12 @@ export default function Login() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="UTMLiso Logo"
+            alt="Lisofy Logo"
             width={38}
             height={38}
             className="brand-logo-img"
           />
-          UTM<span>Liso</span>
+          Lisofy
           <span className="brand-dot" />
         </Link>
         <div>
@@ -32,7 +32,7 @@ export default function Login() {
             reunida com números reais e sem taxas abusivas.
           </p>
         </div>
-        <small>O rastreamento profissional para quem ainda está liso.</small>
+        <small>A plataforma pra você deixar de ser liso.</small>
       </section>
       <section className="auth-form">
         <AuthForm configured={configured()} />

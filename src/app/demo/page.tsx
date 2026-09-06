@@ -69,12 +69,12 @@ export default function DemoPage() {
         <Link href="/" className="brand">
           <Image
             src="/logo.png"
-            alt="UTMLiso Logo"
+            alt="Lisofy Logo"
             width={32}
             height={32}
             className="brand-logo-img"
           />
-          UTM<span>Liso</span>
+          Lisofy
           <span className="brand-dot" />
         </Link>
         <span className="demo-label">

@@ -351,12 +351,12 @@ export function Dashboard(p: Props) {
         <Link href="/painel" className="brand">
           <Image
             src="/logo.png"
-            alt="UTMLiso Logo"
+            alt="Lisofy Logo"
             width={32}
             height={32}
             className="brand-logo-img"
           />
-          UTM<span>Liso</span>
+          Lisofy
           <span className="brand-dot" />
         </Link>
         <button
@@ -419,8 +419,8 @@ export function Dashboard(p: Props) {
             <p>Seu primeiro passo para uma operação que dá resultado.</p>
             <span className="tag">
               {p.workspace?.plan === "devedor"
-                ? "UTMDevedor · gratuito"
-                : "UTMLiso · MVP"}
+                ? "Plano Devedor · gratuito"
+                : "Lisofy · MVP"}
             </span>
           </div>
           <div className="sidebar-user">
@@ -429,7 +429,7 @@ export function Dashboard(p: Props) {
             </span>
             <span>
               <strong>{p.workspace?.name || "Bem-vindo"}</strong>
-              <small>Powered by UTMLiso</small>
+              <small>Powered by Lisofy</small>
             </span>
             {!p.setup && (
               <button
