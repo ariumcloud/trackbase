@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -30,6 +31,8 @@ import {
   Trash2,
   Tag,
   Percent,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import {
@@ -346,7 +349,14 @@ export function Dashboard(p: Props) {
     <div className="app-shell">
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
         <Link href="/painel" className="brand">
-          <span className="brand-icon">u↗</span> UTM<span>Liso</span>
+          <Image
+            src="/logo.png"
+            alt="UTMLiso Logo"
+            width={32}
+            height={32}
+            className="brand-logo-img"
+          />
+          UTM<span>Liso</span>
           <span className="brand-dot" />
         </Link>
         <button
@@ -391,14 +401,7 @@ export function Dashboard(p: Props) {
                 <span className="nav-count">{p.links.length}</span>
               )}
               {t.id === "alertas" && p.alerts.filter((a) => !a.read).length > 0 && (
-                <span
-                  className="nav-count"
-                  style={{
-                    background: "#fee2e2",
-                    color: "#991b1b",
-                    fontWeight: 700,
-                  }}
-                >
+                <span className="nav-count alert-count">
                   {p.alerts.filter((a) => !a.read).length}
                 </span>
               )}
@@ -587,24 +590,28 @@ export function Dashboard(p: Props) {
                         ? "Gasto da conta Meta é global da operação"
                         : "Gasto na Meta Ads",
                     icon: Wallet,
+                    tone: "neutral",
                   },
                   {
                     name: "Receita Bruta",
                     value: hasPayments ? money(metrics.grossRevenue) : "—",
                     hint: `${metrics.purchases} compras aprovadas · sem testes`,
                     icon: ShoppingBag,
+                    tone: "neutral",
                   },
                   {
                     name: "Taxas da Plataforma",
                     value: hasPayments ? money(metrics.platformFees) : "—",
                     hint: "Taxas de processamento da Hotmart/Cakto",
                     icon: Tag,
+                    tone: "neutral",
                   },
                   {
                     name: "Receita Líquida",
                     value: hasPayments ? money(metrics.netRevenue) : "—",
                     hint: "Receita após dedução de taxas da plataforma",
                     icon: Activity,
+                    tone: "neutral",
                   },
                   {
                     name: "Lucro Operacional",
@@ -617,6 +624,20 @@ export function Dashboard(p: Props) {
                         ? "Mídia não isolada por oferta"
                         : "Receita líquida menos investimento em mídia",
                     icon: Wallet,
+                    tone:
+                      metrics.operatingProfit !== null
+                        ? metrics.operatingProfit > 0
+                          ? "positive"
+                          : metrics.operatingProfit < 0
+                            ? "negative"
+                            : "neutral"
+                        : "neutral",
+                    indicator:
+                      metrics.operatingProfit !== null && metrics.operatingProfit !== 0
+                        ? metrics.operatingProfit > 0
+                          ? "up"
+                          : "down"
+                        : undefined,
                   },
                   {
                     name: "Margem Líquida",
@@ -626,6 +647,20 @@ export function Dashboard(p: Props) {
                         : "—",
                     hint: "Lucro operacional sobre receita bruta",
                     icon: Percent,
+                    tone:
+                      metrics.netMargin !== null
+                        ? metrics.netMargin > 0
+                          ? "positive"
+                          : metrics.netMargin < 0
+                            ? "negative"
+                            : "neutral"
+                        : "neutral",
+                    indicator:
+                      metrics.netMargin !== null && metrics.netMargin !== 0
+                        ? metrics.netMargin > 0
+                          ? "up"
+                          : "down"
+                        : undefined,
                   },
                   {
                     name: "ROAS / ROI",
@@ -638,6 +673,18 @@ export function Dashboard(p: Props) {
                         ? "Mídia não isolada por oferta"
                         : "Retorno sobre investimento em anúncios",
                     icon: ArrowUpRight,
+                    tone:
+                      metrics.roas !== null
+                        ? metrics.roas >= 1.0
+                          ? "positive"
+                          : "negative"
+                        : "neutral",
+                    indicator:
+                      metrics.roas !== null
+                        ? metrics.roas >= 1.0
+                          ? "up"
+                          : "down"
+                        : undefined,
                   },
                   {
                     name: "Clientes Únicos",
@@ -647,17 +694,28 @@ export function Dashboard(p: Props) {
                         ? `${metrics.purchases - metrics.uniqueBuyers} compras adicionais (bumps/upsells)`
                         : `Ticket médio: ${money(metrics.averageTicket)}`,
                     icon: MousePointer2,
+                    tone: "neutral",
                   },
-                ].map((m, i) => (
+                ].map((m) => (
                   <section
-                    className={`metric-card ${i === 4 ? "featured" : ""}`}
+                    className={`metric-card tone-${m.tone}`}
                     key={m.name}
                   >
                     <div className="metric-label">
-                      {m.name}
-                      <m.icon size={18} />
+                      <span>{m.name}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {m.indicator === "up" && (
+                          <TrendingUp size={16} className="text-positive" />
+                        )}
+                        {m.indicator === "down" && (
+                          <TrendingDown size={16} className="text-negative" />
+                        )}
+                        <m.icon size={17} />
+                      </div>
                     </div>
-                    <strong>{m.value}</strong>
+                    <strong className={m.tone !== "neutral" ? `text-${m.tone}` : ""}>
+                      {m.value}
+                    </strong>
                     <small>{m.hint}</small>
                   </section>
                 ))}
@@ -672,26 +730,26 @@ export function Dashboard(p: Props) {
                   <span className="chip">Rastreamento ponta a ponta</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.75rem", marginTop: "0.75rem" }}>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
                     <small style={{ color: "var(--muted, #888)", display: "block" }}>1. Visitas</small>
                     <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.pageviews}</strong>
                     <small style={{ color: "var(--muted, #888)" }}>Pageviews</small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
                     <small style={{ color: "var(--muted, #888)", display: "block" }}>2. Cliques em CTA</small>
                     <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.ctas}</strong>
                     <small style={{ color: "var(--muted, #888)" }}>
                       {metrics.pageviews > 0 ? `${((metrics.ctas / metrics.pageviews) * 100).toFixed(1)}% das visitas` : "Sem visitas"}
                     </small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
                     <small style={{ color: "var(--muted, #888)", display: "block" }}>3. Checkouts</small>
                     <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.checkouts}</strong>
                     <small style={{ color: "var(--muted, #888)" }}>
                       {metrics.ctas > 0 ? `${((metrics.checkouts / metrics.ctas) * 100).toFixed(1)}% dos CTAs` : "Sem CTAs"}
                     </small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-muted, #1E1B3A)", border: "1px solid var(--line, #2D2854)" }}>
                     <small style={{ color: "var(--muted, #888)", display: "block" }}>4. Compras</small>
                     <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.purchases}</strong>
                     <small style={{ color: "var(--muted, #888)" }}>
@@ -1492,12 +1550,16 @@ export function Dashboard(p: Props) {
                     const isCrit = al.severity === "critical";
                     const isWarn = al.severity === "high" || al.severity === "medium";
                     const borderColor = isCrit
-                      ? "rgba(239, 68, 68, 0.4)"
+                      ? "rgba(239, 51, 64, 0.4)"
                       : isWarn
                         ? "rgba(245, 158, 11, 0.4)"
-                        : "rgba(59, 130, 246, 0.4)";
-                    const bgBadge = isCrit ? "#fee2e2" : isWarn ? "#fef3c7" : "#dbeafe";
-                    const textBadge = isCrit ? "#991b1b" : isWarn ? "#92400e" : "#1e40af";
+                        : "rgba(167, 139, 250, 0.4)";
+                    const bgBadge = isCrit
+                      ? "rgba(239, 51, 64, 0.2)"
+                      : isWarn
+                        ? "rgba(245, 158, 11, 0.2)"
+                        : "rgba(167, 139, 250, 0.2)";
+                    const textBadge = isCrit ? "#FF6B75" : isWarn ? "#FCD34D" : "#C4B5FD";
 
                     return (
                       <article
@@ -1505,7 +1567,7 @@ export function Dashboard(p: Props) {
                         style={{
                           padding: "1rem 1.25rem",
                           borderRadius: "10px",
-                          background: al.read ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.04)",
+                          background: al.read ? "rgba(255,255,255,0.01)" : "rgba(30, 27, 58, 0.6)",
                           border: `1px solid ${borderColor}`,
                           opacity: al.read ? 0.75 : 1,
                         }}
@@ -1522,7 +1584,7 @@ export function Dashboard(p: Props) {
                             <AlertTriangle
                               size={20}
                               style={{
-                                color: isCrit ? "#ef4444" : isWarn ? "#f59e0b" : "#3b82f6",
+                                color: isCrit ? "#EF3340" : isWarn ? "#f59e0b" : "#A78BFA",
                                 marginTop: "2px",
                                 flexShrink: 0,
                               }}

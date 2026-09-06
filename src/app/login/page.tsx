@@ -1,12 +1,22 @@
 import { AuthForm } from "@/components/forms";
 import { configured } from "@/lib/supabase/server";
 import Link from "next/link";
+import Image from "next/image";
+
 export default function Login() {
   return (
     <div className="auth-page">
       <section className="auth-story">
         <Link href="/" className="brand">
-          <span className="brand-icon">u↗</span> UTM<span>Liso</span>
+          <Image
+            src="/logo.png"
+            alt="UTMLiso Logo"
+            width={38}
+            height={38}
+            className="brand-logo-img"
+          />
+          UTM<span>Liso</span>
+          <span className="brand-dot" />
         </Link>
         <div>
           <span className="eyebrow">MENOS ACHISMO. MAIS RESULTADO.</span>
@@ -18,8 +28,8 @@ export default function Login() {
             <em>Descubra qual vende.</em>
           </h1>
           <p>
-            Da primeira visita à compra. Sua operação inteira, com os números
-            que realmente importam.
+            Da primeira visita até o dinheiro na conta. Sua operação inteira
+            reunida com números reais e sem taxas abusivas.
           </p>
         </div>
         <small>O rastreamento profissional para quem ainda está liso.</small>
