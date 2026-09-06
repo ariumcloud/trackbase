@@ -1,6 +1,7 @@
+import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { authorize, digest, encrypt } from "@/lib/security";
+import { digest, encrypt } from "@/lib/security";
 import { admin, db } from "@/lib/supabase/server";
 import { graphVersion } from "@/lib/meta";
 async function exchange(parameters: Record<string, string>) {
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       .select("workspace_id")
       .single();
     if (error || !s) throw new Error();
-    await authorize(s.workspace_id, true);
+    await requireFeature(s.workspace_id, "integrations");
     const base = {
       client_id: process.env.META_APP_ID!,
       client_secret: process.env.META_APP_SECRET!,
@@ -67,16 +68,14 @@ export async function GET(request: Request) {
       .select("id")
       .single();
     if (ie) throw ie;
-    const { error: ce } = await service
-      .from("utm_credentials")
-      .insert({
-        workspace_id: s.workspace_id,
-        integration_id: i.id,
-        token_ciphertext: ciphertext,
-        expires_at: token.expires_in
-          ? new Date(Date.now() + token.expires_in * 1000).toISOString()
-          : null,
-      });
+    const { error: ce } = await service.from("utm_credentials").insert({
+      workspace_id: s.workspace_id,
+      integration_id: i.id,
+      token_ciphertext: ciphertext,
+      expires_at: token.expires_in
+        ? new Date(Date.now() + token.expires_in * 1000).toISOString()
+        : null,
+    });
     if (ce) {
       await service.from("utm_integrations").delete().eq("id", i.id);
       throw ce;

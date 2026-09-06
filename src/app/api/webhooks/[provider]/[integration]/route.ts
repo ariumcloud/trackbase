@@ -23,7 +23,9 @@ export async function POST(
     const service = admin();
     const { data: i } = await service
       .from("utm_integrations")
-      .select("id,workspace_id,offer_id,external_product_id,external_offer_id,currency")
+      .select(
+        "id,workspace_id,offer_id,external_product_id,external_offer_id,currency",
+      )
       .eq("id", integration)
       .eq("provider", provider)
       .single();
@@ -60,40 +62,36 @@ export async function POST(
         i.currency,
       );
     } catch {
-      const { error } = await service
-        .from("utm_webhook_logs")
-        .upsert(
-          {
-            workspace_id: i.workspace_id,
-            integration_id: integration,
-            event_id: `invalid:${digest(JSON.stringify(payload))}`,
-            status: "invalid",
-            reason: "Evento, valor ou data não reconhecidos.",
-          },
-          { onConflict: "integration_id,event_id", ignoreDuplicates: true },
-        );
+      const { error } = await service.from("utm_webhook_logs").upsert(
+        {
+          workspace_id: i.workspace_id,
+          integration_id: integration,
+          event_id: `invalid:${digest(JSON.stringify(payload))}`,
+          status: "invalid",
+          reason: "Evento, valor ou data não reconhecidos.",
+        },
+        { onConflict: "integration_id,event_id", ignoreDuplicates: true },
+      );
       return NextResponse.json(
         { received: !error, status: "invalid" },
-        { status: error ? 503 : 202 },
+        { status: error ? 503 : 400 },
       );
     }
     if (
       payment.product_id !== i.external_product_id ||
       (i.external_offer_id && payment.external_offer_id !== i.external_offer_id)
     ) {
-      const { error } = await service
-        .from("utm_webhook_logs")
-        .upsert(
-          {
-            workspace_id: i.workspace_id,
-            integration_id: integration,
-            event_id: payment.event_id,
-            status: "ignored",
-            reason: "Produto/oferta não corresponde à integração.",
-            is_test: payment.is_test,
-          },
-          { onConflict: "integration_id,event_id", ignoreDuplicates: true },
-        );
+      const { error } = await service.from("utm_webhook_logs").upsert(
+        {
+          workspace_id: i.workspace_id,
+          integration_id: integration,
+          event_id: payment.event_id,
+          status: "ignored",
+          reason: "Produto/oferta não corresponde à integração.",
+          is_test: payment.is_test,
+        },
+        { onConflict: "integration_id,event_id", ignoreDuplicates: true },
+      );
       return NextResponse.json(
         { status: "ignored" },
         { status: error ? 503 : 202 },
@@ -113,7 +111,7 @@ export async function POST(
             : null;
 
       if (eventName) {
-        sendCapiEvent({
+        await sendCapiEvent({
           workspaceId: i.workspace_id,
           offerId: i.offer_id,
           eventName,

@@ -1,6 +1,7 @@
+import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authorize, body, sameOrigin } from "@/lib/security";
+import { body, sameOrigin } from "@/lib/security";
 import { credentials, graph, MetaError } from "@/lib/meta";
 import { admin } from "@/lib/supabase/server";
 export async function POST(request: Request) {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
         status: z.enum(["ACTIVE", "PAUSED"]),
       })
       .parse(await body(request));
-    await authorize(v.workspace, true);
+    await requireFeature(v.workspace, "integrations");
     const { token, integration } = await credentials(
       v.workspace,
       v.integration,

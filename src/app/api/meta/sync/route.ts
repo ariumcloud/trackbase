@@ -1,6 +1,7 @@
+import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authorize, body, sameOrigin, rateLimit } from "@/lib/security";
+import { body, sameOrigin, rateLimit } from "@/lib/security";
 import { credentials, pages, type RawInsight, MetaError } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { admin } from "@/lib/supabase/server";
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
     const v = z
       .object({ workspace: z.string().uuid(), integration: z.string().uuid() })
       .parse(await body(request));
-    await authorize(v.workspace, true);
+    await requireFeature(v.workspace, "integrations");
     if (!(await rateLimit(`sync:${v.integration}`, 2)))
       return NextResponse.json(
         { error: "Aguarde um minuto entre sincronizações." },

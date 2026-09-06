@@ -1,4 +1,5 @@
 "use server";
+import { requireFeature } from "@/lib/feature-access";
 import { db, admin } from "@/lib/supabase/server";
 import { authorize, digest, rateLimit, encrypt } from "@/lib/security";
 import { linkSchema, webUrl } from "@/lib/utm";
@@ -142,7 +143,7 @@ export async function savePaymentIntegration(
   form: FormData,
 ): Promise<ActionResult> {
   try {
-    const { client } = await authorize(workspace, true);
+    const { client } = await requireFeature(workspace, "integrations");
     const value = z
       .object({
         provider: z.enum(["hotmart", "cakto"]),
@@ -217,11 +218,20 @@ export async function savePixel(
   form: FormData,
 ): Promise<ActionResult> {
   try {
-    await authorize(workspace, true);
+    await requireFeature(workspace, "capi");
     const parsed = z
       .object({
-        pixel_id: z.string().trim().regex(/^\d{8,25}$/, "ID do Pixel inválido (deve conter apenas números)."),
-        capi_token: z.string().trim().min(20, "O token de acesso CAPI da Meta deve ser preenchido."),
+        pixel_id: z
+          .string()
+          .trim()
+          .regex(
+            /^\d{8,25}$/,
+            "ID do Pixel inválido (deve conter apenas números).",
+          ),
+        capi_token: z
+          .string()
+          .trim()
+          .min(20, "O token de acesso CAPI da Meta deve ser preenchido."),
         offer_id: z.string().uuid().optional().or(z.literal("")),
         test_event_code: z.string().trim().max(50).optional(),
       })
@@ -296,4 +306,3 @@ export async function markAlertRead(
     return { error: "Não foi possível atualizar o alerta." };
   }
 }
-

@@ -1,6 +1,7 @@
+import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authorize, body, sameOrigin } from "@/lib/security";
+import { body, sameOrigin } from "@/lib/security";
 import { credentials, pages, type Account, MetaError } from "@/lib/meta";
 import { admin } from "@/lib/supabase/server";
 export async function GET(request: Request) {
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
     const p = new URL(request.url).searchParams,
       w = p.get("workspace") ?? "",
       id = p.get("integration") ?? "";
-    await authorize(w, true);
+    await requireFeature(w, "integrations");
     const { token } = await credentials(w, id);
     return NextResponse.json({
       accounts: await pages<Account>("me/adaccounts", token, {
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
         account: z.string().regex(/^act_\d+$/),
       })
       .parse(await body(request));
-    await authorize(v.workspace, true);
+    await requireFeature(v.workspace, "integrations");
     const { token, integration } = await credentials(
       v.workspace,
       v.integration,

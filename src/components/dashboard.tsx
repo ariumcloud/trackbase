@@ -1,4 +1,5 @@
 "use client";
+import { plans, normalizePlan } from "@/lib/plans";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -199,20 +200,31 @@ export function Dashboard(p: Props) {
 
   const grossRevenue = useSummary ? Number(s!.gross_revenue) : fallback.revenue;
   const platformFees = useSummary ? Number(s!.platform_fees || 0) : 0;
-  const netRevenue = useSummary ? Number(s!.net_revenue || s!.gross_revenue) : fallback.revenue;
+  const netRevenue = useSummary
+    ? Number(s!.net_revenue || s!.gross_revenue)
+    : fallback.revenue;
   const purchases = useSummary ? Number(s!.sales_count) : fallback.purchases;
-  const uniqueBuyers = useSummary ? Number(s!.unique_buyers || s!.sales_count) : fallback.purchases;
+  const uniqueBuyers = useSummary
+    ? Number(s!.unique_buyers || s!.sales_count)
+    : fallback.purchases;
   const spend = useSummary
-    ? (s!.meta_spend !== null ? Number(s!.meta_spend) : null)
+    ? s!.meta_spend !== null
+      ? Number(s!.meta_spend)
+      : null
     : fallback.spend;
   const clicks = useSummary ? Number(s!.meta_clicks) : fallback.clicks;
-  const impressions = useSummary ? Number(s!.meta_impressions) : fallback.impressions;
+  const impressions = useSummary
+    ? Number(s!.meta_impressions)
+    : fallback.impressions;
   const pageviews = useSummary ? Number(s!.pageviews) : 0;
   const ctas = useSummary ? Number(s!.ctas) : 0;
   const checkouts = useSummary ? Number(s!.checkouts) : 0;
 
   const operatingProfit = spend === null ? null : netRevenue - spend;
-  const netMargin = operatingProfit !== null && grossRevenue > 0 ? (operatingProfit / grossRevenue) * 100 : null;
+  const netMargin =
+    operatingProfit !== null && grossRevenue > 0
+      ? (operatingProfit / grossRevenue) * 100
+      : null;
   const roas = spend && spend > 0 ? grossRevenue / spend : null;
   const roi = spend && spend > 0 ? ((netRevenue - spend) / spend) * 100 : null;
   const cpa = spend !== null && uniqueBuyers > 0 ? spend / uniqueBuyers : null;
@@ -220,10 +232,13 @@ export function Dashboard(p: Props) {
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
   const cpc = clicks > 0 && spend !== null ? spend / clicks : null;
 
-  const refundedCount = useSummary ? Number(s!.refunded_count) : sales.filter(x => ["refunded", "chargeback"].includes(x.status)).length;
+  const refundedCount = useSummary
+    ? Number(s!.refunded_count)
+    : sales.filter((x) => ["refunded", "chargeback"].includes(x.status)).length;
   const refundedAmount = useSummary ? Number(s!.refunded_amount) : 0;
   const totalOrders = purchases + refundedCount;
-  const refundRate = totalOrders > 0 ? (refundedCount / totalOrders) * 100 : null;
+  const refundRate =
+    totalOrders > 0 ? (refundedCount / totalOrders) * 100 : null;
 
   const byProduct = s?.by_product_type || {};
   const byCountry = s?.by_country || {};
@@ -400,11 +415,12 @@ export function Dashboard(p: Props) {
               {t.id === "links" && p.links.length > 0 && (
                 <span className="nav-count">{p.links.length}</span>
               )}
-              {t.id === "alertas" && p.alerts.filter((a) => !a.read).length > 0 && (
-                <span className="nav-count alert-count">
-                  {p.alerts.filter((a) => !a.read).length}
-                </span>
-              )}
+              {t.id === "alertas" &&
+                p.alerts.filter((a) => !a.read).length > 0 && (
+                  <span className="nav-count alert-count">
+                    {p.alerts.filter((a) => !a.read).length}
+                  </span>
+                )}
             </button>
           ))}
         </nav>
@@ -418,9 +434,7 @@ export function Dashboard(p: Props) {
             </strong>
             <p>Seu primeiro passo para uma operação que dá resultado.</p>
             <span className="tag">
-              {p.workspace?.plan === "devedor"
-                ? "Plano Devedor · gratuito"
-                : "Lisofy · MVP"}
+              {plans[normalizePlan(p.workspace?.plan ?? "devedor")].name}
             </span>
           </div>
           <div className="sidebar-user">
@@ -582,9 +596,7 @@ export function Dashboard(p: Props) {
                   {
                     name: "Investimento",
                     value:
-                      offer !== "all"
-                        ? "Não atribuível"
-                        : money(metrics.spend),
+                      offer !== "all" ? "Não atribuível" : money(metrics.spend),
                     hint:
                       offer !== "all"
                         ? "Gasto da conta Meta é global da operação"
@@ -616,7 +628,9 @@ export function Dashboard(p: Props) {
                   {
                     name: "Lucro Operacional",
                     value:
-                      hasPayments && offer === "all" && metrics.operatingProfit !== null
+                      hasPayments &&
+                      offer === "all" &&
+                      metrics.operatingProfit !== null
                         ? money(metrics.operatingProfit)
                         : "—",
                     hint:
@@ -633,7 +647,8 @@ export function Dashboard(p: Props) {
                             : "neutral"
                         : "neutral",
                     indicator:
-                      metrics.operatingProfit !== null && metrics.operatingProfit !== 0
+                      metrics.operatingProfit !== null &&
+                      metrics.operatingProfit !== 0
                         ? metrics.operatingProfit > 0
                           ? "up"
                           : "down"
@@ -642,7 +657,9 @@ export function Dashboard(p: Props) {
                   {
                     name: "Margem Líquida",
                     value:
-                      hasPayments && offer === "all" && metrics.netMargin !== null
+                      hasPayments &&
+                      offer === "all" &&
+                      metrics.netMargin !== null
                         ? `${metrics.netMargin.toFixed(1)}%`
                         : "—",
                     hint: "Lucro operacional sobre receita bruta",
@@ -688,7 +705,9 @@ export function Dashboard(p: Props) {
                   },
                   {
                     name: "Clientes Únicos",
-                    value: hasPayments ? `${metrics.uniqueBuyers} clientes` : "—",
+                    value: hasPayments
+                      ? `${metrics.uniqueBuyers} clientes`
+                      : "—",
                     hint:
                       metrics.purchases > metrics.uniqueBuyers
                         ? `${metrics.purchases - metrics.uniqueBuyers} compras adicionais (bumps/upsells)`
@@ -703,7 +722,13 @@ export function Dashboard(p: Props) {
                   >
                     <div className="metric-label">
                       <span>{m.name}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
                         {m.indicator === "up" && (
                           <TrendingUp size={16} className="text-positive" />
                         )}
@@ -713,7 +738,9 @@ export function Dashboard(p: Props) {
                         <m.icon size={17} />
                       </div>
                     </div>
-                    <strong className={m.tone !== "neutral" ? `text-${m.tone}` : ""}>
+                    <strong
+                      className={m.tone !== "neutral" ? `text-${m.tone}` : ""}
+                    >
                       {m.value}
                     </strong>
                     <small>{m.hint}</small>
@@ -721,39 +748,152 @@ export function Dashboard(p: Props) {
                 ))}
               </div>
 
-              <div className="panel" style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+              <div
+                className="panel"
+                style={{ marginTop: "1rem", marginBottom: "1rem" }}
+              >
                 <div className="panel-heading">
                   <div>
                     <h2>Funil da Operação</h2>
-                    <p>Visitas na página → Cliques em CTA → Checkouts iniciados → Compras aprovadas</p>
+                    <p>
+                      Visitas na página → Cliques em CTA → Checkouts iniciados →
+                      Compras aprovadas
+                    </p>
                   </div>
                   <span className="chip">Rastreamento ponta a ponta</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.75rem", marginTop: "0.75rem" }}>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
-                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>1. Visitas</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.pageviews}</strong>
-                    <small style={{ color: "var(--muted, #64748B)" }}>Pageviews</small>
-                  </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
-                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>2. Cliques em CTA</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.ctas}</strong>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: "0.75rem",
+                    marginTop: "0.75rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "0.75rem 1rem",
+                      borderRadius: "8px",
+                      background: "var(--surface-subtle, #F9FAFB)",
+                      border: "1px solid var(--line, #E5E7EB)",
+                    }}
+                  >
+                    <small
+                      style={{
+                        color: "var(--muted, #64748B)",
+                        display: "block",
+                      }}
+                    >
+                      1. Visitas
+                    </small>
+                    <strong
+                      style={{
+                        fontSize: "1.35rem",
+                        display: "block",
+                        margin: "0.2rem 0",
+                        color: "var(--ink, #0F172A)",
+                      }}
+                    >
+                      {metrics.pageviews}
+                    </strong>
                     <small style={{ color: "var(--muted, #64748B)" }}>
-                      {metrics.pageviews > 0 ? `${((metrics.ctas / metrics.pageviews) * 100).toFixed(1)}% das visitas` : "Sem visitas"}
+                      Pageviews
                     </small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
-                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>3. Checkouts</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.checkouts}</strong>
+                  <div
+                    style={{
+                      padding: "0.75rem 1rem",
+                      borderRadius: "8px",
+                      background: "var(--surface-subtle, #F9FAFB)",
+                      border: "1px solid var(--line, #E5E7EB)",
+                    }}
+                  >
+                    <small
+                      style={{
+                        color: "var(--muted, #64748B)",
+                        display: "block",
+                      }}
+                    >
+                      2. Cliques em CTA
+                    </small>
+                    <strong
+                      style={{
+                        fontSize: "1.35rem",
+                        display: "block",
+                        margin: "0.2rem 0",
+                        color: "var(--ink, #0F172A)",
+                      }}
+                    >
+                      {metrics.ctas}
+                    </strong>
                     <small style={{ color: "var(--muted, #64748B)" }}>
-                      {metrics.ctas > 0 ? `${((metrics.checkouts / metrics.ctas) * 100).toFixed(1)}% dos CTAs` : "Sem CTAs"}
+                      {metrics.pageviews > 0
+                        ? `${((metrics.ctas / metrics.pageviews) * 100).toFixed(1)}% das visitas`
+                        : "Sem visitas"}
                     </small>
                   </div>
-                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "var(--surface-subtle, #F9FAFB)", border: "1px solid var(--line, #E5E7EB)" }}>
-                    <small style={{ color: "var(--muted, #64748B)", display: "block" }}>4. Compras</small>
-                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0", color: "var(--ink, #0F172A)" }}>{metrics.purchases}</strong>
+                  <div
+                    style={{
+                      padding: "0.75rem 1rem",
+                      borderRadius: "8px",
+                      background: "var(--surface-subtle, #F9FAFB)",
+                      border: "1px solid var(--line, #E5E7EB)",
+                    }}
+                  >
+                    <small
+                      style={{
+                        color: "var(--muted, #64748B)",
+                        display: "block",
+                      }}
+                    >
+                      3. Checkouts
+                    </small>
+                    <strong
+                      style={{
+                        fontSize: "1.35rem",
+                        display: "block",
+                        margin: "0.2rem 0",
+                        color: "var(--ink, #0F172A)",
+                      }}
+                    >
+                      {metrics.checkouts}
+                    </strong>
                     <small style={{ color: "var(--muted, #64748B)" }}>
-                      {metrics.checkouts > 0 ? `${((metrics.purchases / metrics.checkouts) * 100).toFixed(1)}% conversão` : "Aguardando"}
+                      {metrics.ctas > 0
+                        ? `${((metrics.checkouts / metrics.ctas) * 100).toFixed(1)}% dos CTAs`
+                        : "Sem CTAs"}
+                    </small>
+                  </div>
+                  <div
+                    style={{
+                      padding: "0.75rem 1rem",
+                      borderRadius: "8px",
+                      background: "var(--surface-subtle, #F9FAFB)",
+                      border: "1px solid var(--line, #E5E7EB)",
+                    }}
+                  >
+                    <small
+                      style={{
+                        color: "var(--muted, #64748B)",
+                        display: "block",
+                      }}
+                    >
+                      4. Compras
+                    </small>
+                    <strong
+                      style={{
+                        fontSize: "1.35rem",
+                        display: "block",
+                        margin: "0.2rem 0",
+                        color: "var(--ink, #0F172A)",
+                      }}
+                    >
+                      {metrics.purchases}
+                    </strong>
+                    <small style={{ color: "var(--muted, #64748B)" }}>
+                      {metrics.checkouts > 0
+                        ? `${((metrics.purchases / metrics.checkouts) * 100).toFixed(1)}% conversão`
+                        : "Aguardando"}
                     </small>
                   </div>
                 </div>
@@ -990,7 +1130,10 @@ export function Dashboard(p: Props) {
                   <div className="panel-heading">
                     <div>
                       <h2>Desdobramento por Produto</h2>
-                      <p>Receita separada por produto principal, order bump, upsell e downsell</p>
+                      <p>
+                        Receita separada por produto principal, order bump,
+                        upsell e downsell
+                      </p>
                     </div>
                   </div>
                   {Object.keys(byProduct).length ? (
@@ -1098,12 +1241,44 @@ export function Dashboard(p: Props) {
                       <h2>{o.name}</h2>
                       <p className="url-text">{o.landing_url}</p>
                       {o.public_key && (
-                        <div style={{ marginTop: "0.75rem", padding: "0.6rem", background: "var(--surface-subtle, #F9FAFB)", borderRadius: "6px", border: "1px solid var(--line, #E5E7EB)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
-                            <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>Script da Página / Quiz:</small>
-                            <Clipboard value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`} label="Copiar script" />
+                        <div
+                          style={{
+                            marginTop: "0.75rem",
+                            padding: "0.6rem",
+                            background: "var(--surface-subtle, #F9FAFB)",
+                            borderRadius: "6px",
+                            border: "1px solid var(--line, #E5E7EB)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: "0.3rem",
+                            }}
+                          >
+                            <small
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "var(--muted, #64748B)",
+                              }}
+                            >
+                              Script da Página / Quiz:
+                            </small>
+                            <Clipboard
+                              value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
+                              label="Copiar script"
+                            />
                           </div>
-                          <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "var(--brand-accent, #5B34EA)" }}>
+                          <code
+                            style={{
+                              fontSize: "0.7rem",
+                              wordBreak: "break-all",
+                              display: "block",
+                              color: "var(--brand-accent, #5B34EA)",
+                            }}
+                          >
                             {`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
                           </code>
                         </div>
@@ -1176,12 +1351,45 @@ export function Dashboard(p: Props) {
                           <textarea readOnly value={built.parameters} />
                         </label>
                         {l.public_key && (
-                          <div style={{ marginTop: "0.5rem", marginBottom: "0.75rem", padding: "0.5rem", background: "var(--surface-subtle, #F9FAFB)", borderRadius: "6px", border: "1px solid var(--line, #E5E7EB)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                              <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>Script individual deste link:</small>
-                              <Clipboard value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`} label="Copiar script" />
+                          <div
+                            style={{
+                              marginTop: "0.5rem",
+                              marginBottom: "0.75rem",
+                              padding: "0.5rem",
+                              background: "var(--surface-subtle, #F9FAFB)",
+                              borderRadius: "6px",
+                              border: "1px solid var(--line, #E5E7EB)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "0.25rem",
+                              }}
+                            >
+                              <small
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "var(--muted, #64748B)",
+                                }}
+                              >
+                                Script individual deste link:
+                              </small>
+                              <Clipboard
+                                value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
+                                label="Copiar script"
+                              />
                             </div>
-                            <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "var(--brand-accent, #5B34EA)" }}>
+                            <code
+                              style={{
+                                fontSize: "0.7rem",
+                                wordBreak: "break-all",
+                                display: "block",
+                                color: "var(--brand-accent, #5B34EA)",
+                              }}
+                            >
                               {`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
                             </code>
                           </div>
@@ -1400,7 +1608,8 @@ export function Dashboard(p: Props) {
                   <div>
                     <h2>Meta Pixel & Conversions API (CAPI)</h2>
                     <p>
-                      Disparos server-side redundantes com deduplicação por event_id
+                      Disparos server-side redundantes com deduplicação por
+                      event_id
                     </p>
                   </div>
                 </div>
@@ -1431,7 +1640,9 @@ export function Dashboard(p: Props) {
                       <label>
                         Oferta vinculada (opcional)
                         <select name="offer_id">
-                          <option value="">Global do workspace (todas as ofertas)</option>
+                          <option value="">
+                            Global do workspace (todas as ofertas)
+                          </option>
                           {p.offers.map((o) => (
                             <option key={o.id} value={o.id}>
                               {o.name}
@@ -1457,17 +1668,22 @@ export function Dashboard(p: Props) {
                         />
                       </label>
                       <p className="form-help">
-                        O token CAPI é criptografado com AES-256 no banco e nunca é exposto ao navegador.
+                        O token CAPI é criptografado com AES-256 no banco e
+                        nunca é exposto ao navegador.
                       </p>
                     </ActionForm>
                   </div>
 
                   <div>
-                    <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Pixels Ativos</h3>
+                    <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
+                      Pixels Ativos
+                    </h3>
                     {p.pixels && p.pixels.length > 0 ? (
                       <div style={{ display: "grid", gap: "0.75rem" }}>
                         {p.pixels.map((px) => {
-                          const linkedOffer = p.offers.find((o) => o.id === px.offer_id);
+                          const linkedOffer = p.offers.find(
+                            (o) => o.id === px.offer_id,
+                          );
                           return (
                             <div
                               key={px.id}
@@ -1482,14 +1698,33 @@ export function Dashboard(p: Props) {
                               }}
                             >
                               <div>
-                                <strong style={{ display: "block", fontSize: "0.95rem" }}>
+                                <strong
+                                  style={{
+                                    display: "block",
+                                    fontSize: "0.95rem",
+                                  }}
+                                >
                                   Pixel: {px.pixel_id}
                                 </strong>
-                                <small style={{ color: "var(--muted, #64748B)", display: "block" }}>
-                                  Escopo: {linkedOffer ? linkedOffer.name : "Global (Workspace)"}
+                                <small
+                                  style={{
+                                    color: "var(--muted, #64748B)",
+                                    display: "block",
+                                  }}
+                                >
+                                  Escopo:{" "}
+                                  {linkedOffer
+                                    ? linkedOffer.name
+                                    : "Global (Workspace)"}
                                 </small>
                                 {px.test_event_code && (
-                                  <small style={{ color: "var(--brand-accent, #5B34EA)", display: "block", fontWeight: 600 }}>
+                                  <small
+                                    style={{
+                                      color: "var(--brand-accent, #5B34EA)",
+                                      display: "block",
+                                      fontWeight: 600,
+                                    }}
+                                  >
                                     Teste ativo: {px.test_event_code}
                                   </small>
                                 )}
@@ -1500,7 +1735,10 @@ export function Dashboard(p: Props) {
                                 disabled={pending}
                                 onClick={() =>
                                   run(async () => {
-                                    const res = await deletePixel(workspace, px.id);
+                                    const res = await deletePixel(
+                                      workspace,
+                                      px.id,
+                                    );
                                     if (res.error) throw new Error(res.error);
                                   })
                                 }
@@ -1537,7 +1775,10 @@ export function Dashboard(p: Props) {
               <div className="panel-heading">
                 <div>
                   <h2>Alertas Inteligentes</h2>
-                  <p>Detecção de anomalias com volume mínimo de amostra e sem falsos positivos</p>
+                  <p>
+                    Detecção de anomalias com volume mínimo de amostra e sem
+                    falsos positivos
+                  </p>
                 </div>
                 <span className="chip">
                   {p.alerts.filter((a) => !a.read).length} não lidos
@@ -1545,10 +1786,13 @@ export function Dashboard(p: Props) {
               </div>
 
               {p.alerts.length ? (
-                <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
+                <div
+                  style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}
+                >
                   {p.alerts.map((al) => {
                     const isCrit = al.severity === "critical";
-                    const isWarn = al.severity === "high" || al.severity === "medium";
+                    const isWarn =
+                      al.severity === "high" || al.severity === "medium";
                     const borderColor = isCrit
                       ? "var(--red-border, #FECACA)"
                       : isWarn
@@ -1559,7 +1803,11 @@ export function Dashboard(p: Props) {
                       : isWarn
                         ? "var(--yellow-soft, #FEF3C7)"
                         : "var(--brand-soft, #F3F0FF)";
-                    const textBadge = isCrit ? "var(--red-text, #B91C1C)" : isWarn ? "var(--yellow-text, #B45309)" : "var(--brand-text, #3B1E78)";
+                    const textBadge = isCrit
+                      ? "var(--red-text, #B91C1C)"
+                      : isWarn
+                        ? "var(--yellow-text, #B45309)"
+                        : "var(--brand-text, #3B1E78)";
 
                     return (
                       <article
@@ -1567,7 +1815,9 @@ export function Dashboard(p: Props) {
                         style={{
                           padding: "1rem 1.25rem",
                           borderRadius: "10px",
-                          background: al.read ? "var(--surface-subtle, #F9FAFB)" : "var(--surface, #FFFFFF)",
+                          background: al.read
+                            ? "var(--surface-subtle, #F9FAFB)"
+                            : "var(--surface, #FFFFFF)",
                           border: `1px solid ${borderColor}`,
                           boxShadow: "var(--shadow-sm)",
                           opacity: al.read ? 0.75 : 1,
@@ -1581,18 +1831,41 @@ export function Dashboard(p: Props) {
                             gap: "1rem",
                           }}
                         >
-                          <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "0.75rem",
+                              alignItems: "flex-start",
+                            }}
+                          >
                             <AlertTriangle
                               size={20}
                               style={{
-                                color: isCrit ? "var(--red, #EF3340)" : isWarn ? "var(--yellow, #F59E0B)" : "var(--brand-accent, #5B34EA)",
+                                color: isCrit
+                                  ? "var(--red, #EF3340)"
+                                  : isWarn
+                                    ? "var(--yellow, #F59E0B)"
+                                    : "var(--brand-accent, #5B34EA)",
                                 marginTop: "2px",
                                 flexShrink: 0,
                               }}
                             />
                             <div>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                <strong style={{ fontSize: "1rem", color: "var(--ink, #0F172A)" }}>{al.title}</strong>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.5rem",
+                                }}
+                              >
+                                <strong
+                                  style={{
+                                    fontSize: "1rem",
+                                    color: "var(--ink, #0F172A)",
+                                  }}
+                                >
+                                  {al.title}
+                                </strong>
                                 <span
                                   style={{
                                     fontSize: "0.7rem",
@@ -1608,36 +1881,64 @@ export function Dashboard(p: Props) {
                                   {al.severity}
                                 </span>
                                 {al.read && (
-                                  <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>
+                                  <span
+                                    style={{
+                                      fontSize: "0.75rem",
+                                      color: "var(--muted, #64748B)",
+                                    }}
+                                  >
                                     (Lido)
                                   </span>
                                 )}
                               </div>
-                              <p style={{ margin: "0.35rem 0", color: "var(--ink-secondary, #334155)", fontSize: "0.9rem" }}>
+                              <p
+                                style={{
+                                  margin: "0.35rem 0",
+                                  color: "var(--ink-secondary, #334155)",
+                                  fontSize: "0.9rem",
+                                }}
+                              >
                                 {al.message}
                               </p>
-                              {al.evidence && Object.keys(al.evidence).length > 0 && (
-                                <div
-                                  style={{
-                                    marginTop: "0.5rem",
-                                    padding: "0.5rem 0.75rem",
-                                    background: "var(--surface-muted, #F3F4F6)",
-                                    border: "1px solid var(--line, #E5E7EB)",
-                                    borderRadius: "6px",
-                                    fontSize: "0.8rem",
-                                    fontFamily: "monospace",
-                                    color: "var(--ink-secondary, #334155)",
-                                  }}
-                                >
-                                  {Object.entries(al.evidence).map(([k, v]) => (
-                                    <span key={k} style={{ marginRight: "1rem" }}>
-                                      {k}: <strong>{String(v)}</strong>
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              <small style={{ color: "var(--muted, #64748B)", display: "block", marginTop: "0.4rem" }}>
-                                Registrado em: {new Date(al.created_at).toLocaleString("pt-BR", { timeZone: timezone })}
+                              {al.evidence &&
+                                Object.keys(al.evidence).length > 0 && (
+                                  <div
+                                    style={{
+                                      marginTop: "0.5rem",
+                                      padding: "0.5rem 0.75rem",
+                                      background:
+                                        "var(--surface-muted, #F3F4F6)",
+                                      border: "1px solid var(--line, #E5E7EB)",
+                                      borderRadius: "6px",
+                                      fontSize: "0.8rem",
+                                      fontFamily: "monospace",
+                                      color: "var(--ink-secondary, #334155)",
+                                    }}
+                                  >
+                                    {Object.entries(al.evidence).map(
+                                      ([k, v]) => (
+                                        <span
+                                          key={k}
+                                          style={{ marginRight: "1rem" }}
+                                        >
+                                          {k}: <strong>{String(v)}</strong>
+                                        </span>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              <small
+                                style={{
+                                  color: "var(--muted, #64748B)",
+                                  display: "block",
+                                  marginTop: "0.4rem",
+                                }}
+                              >
+                                Registrado em:{" "}
+                                {new Date(al.created_at).toLocaleString(
+                                  "pt-BR",
+                                  { timeZone: timezone },
+                                )}
                               </small>
                             </div>
                           </div>
@@ -1648,7 +1949,10 @@ export function Dashboard(p: Props) {
                               disabled={pending}
                               onClick={() =>
                                 run(async () => {
-                                  const r = await markAlertRead(workspace, al.id);
+                                  const r = await markAlertRead(
+                                    workspace,
+                                    al.id,
+                                  );
                                   if (r.error) throw new Error(r.error);
                                 })
                               }

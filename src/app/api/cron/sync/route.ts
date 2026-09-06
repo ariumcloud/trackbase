@@ -1,3 +1,4 @@
+import { canUse } from "@/lib/plans";
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
 import { credentials, pages, type RawInsight } from "@/lib/meta";
@@ -11,7 +12,10 @@ export async function GET(request: Request) {
     const secret = process.env.CRON_SECRET;
 
     if (!secret || authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Acesso não autorizado." },
+        { status: 401 },
+      );
     }
 
     const service = admin();
@@ -23,15 +27,44 @@ export async function GET(request: Request) {
       .not("account_id", "is", null);
 
     if (error || !integrations || integrations.length === 0) {
-      return NextResponse.json({ ok: true, synced: 0, message: "Nenhuma integração Meta pendente de sincronização." });
+      return NextResponse.json({
+        ok: true,
+        synced: 0,
+        message: "Nenhuma integração Meta pendente de sincronização.",
+      });
     }
 
-    const results: Array<{ id: string; name: string; status: string; error?: string }> = [];
+    const results: Array<{
+      id: string;
+      name: string;
+      status: string;
+      error?: string;
+    }> = [];
 
     for (const integration of integrations) {
       try {
-        const { token } = await credentials(integration.workspace_id, integration.id);
-        const until = dayInZone(new Date(), integration.account_timezone || "UTC");
+        const { data: workspace, error: planError } = await service
+          .from("utm_workspaces")
+          .select("plan")
+          .eq("id", integration.workspace_id)
+          .single();
+        if (planError) throw new Error("Falha ao consultar plano.");
+        if (!workspace || !canUse(workspace.plan, "integrations")) {
+          results.push({
+            id: integration.id,
+            name: integration.name,
+            status: "skipped",
+          });
+          continue;
+        }
+        const { token } = await credentials(
+          integration.workspace_id,
+          integration.id,
+        );
+        const until = dayInZone(
+          new Date(),
+          integration.account_timezone || "UTC",
+        );
         const start = new Date(`${until}T12:00:00Z`);
         start.setUTCDate(start.getUTCDate() - 3); // Últimos 3 dias
         const since = start.toISOString().slice(0, 10);
@@ -92,11 +125,12 @@ export async function GET(request: Request) {
             r.actions?.find((a) => a.action_type === "purchase")?.value ?? 0,
           ),
           meta_revenue: Number(
-            r.action_values?.find((a) => a.action_type === "purchase")?.value ?? 0,
+            r.action_values?.find((a) => a.action_type === "purchase")?.value ??
+              0,
           ),
         }));
 
-        await service.rpc("utm_commit_meta_sync", {
+        const { error: syncError } = await service.rpc("utm_commit_meta_sync", {
           p_integration: integration.id,
           p_since: since,
           p_until: until,
@@ -104,7 +138,12 @@ export async function GET(request: Request) {
           p_insights: rows,
         });
 
-        results.push({ id: integration.id, name: integration.name, status: "success" });
+        if (syncError) throw new Error("Falha ao persistir sincronização.");
+        results.push({
+          id: integration.id,
+          name: integration.name,
+          status: "success",
+        });
       } catch (err) {
         results.push({
           id: integration.id,
@@ -117,6 +156,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, synced: results.length, results });
   } catch {
-    return NextResponse.json({ error: "Falha na rotina de cron." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Falha na rotina de cron." },
+      { status: 500 },
+    );
   }
 }

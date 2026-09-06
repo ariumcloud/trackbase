@@ -1,4 +1,5 @@
 import "server-only";
+import { canUse } from "./plans";
 import { admin } from "./supabase/server";
 import { decrypt } from "./security";
 import { graphVersion } from "./meta";
@@ -11,12 +12,7 @@ import {
   normalizeCapiUserData,
 } from "./capi-shared";
 
-export type {
-  CapiEventName,
-  CapiUserData,
-  CapiCustomData,
-  CapiPayload,
-};
+export type { CapiEventName, CapiUserData, CapiCustomData, CapiPayload };
 export { hashPii, normalizeCapiUserData };
 
 export async function sendCapiEvent(payload: CapiPayload): Promise<{
@@ -24,6 +20,13 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
   error?: string;
 }> {
   const service = admin();
+  const { data: workspace, error: planError } = await service
+    .from("utm_workspaces")
+    .select("plan")
+    .eq("id", payload.workspaceId)
+    .single();
+  if (planError || !workspace || !canUse(workspace.plan, "capi"))
+    return { status: "skipped", error: "CAPI indisponível para este plano." };
 
   // 1. Busca o Pixel ativo (específico da oferta ou padrão do workspace)
   let query = service
@@ -40,7 +43,10 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
 
   const { data: pixels } = await query;
   if (!pixels || pixels.length === 0) {
-    return { status: "skipped", error: "Nenhum pixel CAPI configurado para o workspace." };
+    return {
+      status: "skipped",
+      error: "Nenhum pixel CAPI configurado para o workspace.",
+    };
   }
 
   const pixel = pixels[0];
@@ -80,9 +86,12 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     const cd: Record<string, unknown> = {};
     if (payload.customData.value != null) cd.value = payload.customData.value;
     if (payload.customData.currency) cd.currency = payload.customData.currency;
-    if (payload.customData.content_name) cd.content_name = payload.customData.content_name;
-    if (payload.customData.content_type) cd.content_type = payload.customData.content_type;
-    if (payload.customData.content_ids) cd.content_ids = payload.customData.content_ids;
+    if (payload.customData.content_name)
+      cd.content_name = payload.customData.content_name;
+    if (payload.customData.content_type)
+      cd.content_type = payload.customData.content_type;
+    if (payload.customData.content_ids)
+      cd.content_ids = payload.customData.content_ids;
     if (Object.keys(cd).length > 0) eventItem.custom_data = cd;
   }
 
@@ -94,7 +103,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     metaBody.test_event_code = pixel.test_event_code;
   }
 
-  const endpoint = `https://graph.facebook.com/${graphVersion()}/${pixel.pixel_id}/events?access_token=${encodeURIComponent(token)}`;
+  const endpoint = `https://graph.facebook.com/${graphVersion()}/${pixel.pixel_id}/events`;
 
   let status: "sent" | "failed" = "failed";
   let httpCode = 0;
@@ -106,7 +115,10 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     try {
       const resp = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(metaBody),
         cache: "no-store",
         signal: AbortSignal.timeout(10000),
@@ -120,14 +132,14 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
         responseSummary = `events_received: ${json?.events_received ?? 1}`;
         break;
       } else {
-        responseSummary = json?.error?.message ? String(json.error.message).slice(0, 300) : `HTTP ${httpCode}`;
+        responseSummary = `Meta HTTP ${httpCode}; código ${Number(json?.error?.code) || 0}`;
         if (httpCode < 500) {
           // Erro 4xx do cliente (ex: token inválido) não deve sofrer retry
           break;
         }
       }
-    } catch (e) {
-      responseSummary = e instanceof Error ? e.message.slice(0, 200) : "Timeout";
+    } catch {
+      responseSummary = "Falha de rede ou timeout";
     }
   }
 
@@ -143,7 +155,10 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
       response_summary: responseSummary,
       retry_count: retryCount,
     },
-    { onConflict: "workspace_id,pixel_id,event_id,event_name", ignoreDuplicates: true },
+    {
+      onConflict: "workspace_id,pixel_id,event_id,event_name",
+      ignoreDuplicates: true,
+    },
   );
 
   return { status, error: status === "failed" ? responseSummary : undefined };

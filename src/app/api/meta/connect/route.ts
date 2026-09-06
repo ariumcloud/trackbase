@@ -1,13 +1,14 @@
+import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
-import { authorize, digest } from "@/lib/security";
+import { digest } from "@/lib/security";
 import { admin } from "@/lib/supabase/server";
 import { graphVersion } from "@/lib/meta";
 export async function GET(request: Request) {
   try {
     const workspace = new URL(request.url).searchParams.get("workspace") ?? "";
-    const { user } = await authorize(workspace, true);
+    const { user } = await requireFeature(workspace, "integrations");
     if (
       !process.env.META_APP_ID ||
       !process.env.META_APP_SECRET ||
