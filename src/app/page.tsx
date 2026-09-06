@@ -592,7 +592,15 @@ export default function Home() {
           Trackbase
           <span className="brand-dot" />
         </Link>
-        <span>O rastreamento profissional para quem quer lucro real.</span>
+        <div style={{ display: "flex", gap: "1.25rem", fontSize: "0.85rem", alignItems: "center" }}>
+          <Link href="/termos" style={{ color: "#64748B" }}>
+            Termos de Serviço
+          </Link>
+          <span style={{ color: "#CBD5E1" }}>·</span>
+          <Link href="/privacidade" style={{ color: "#64748B" }}>
+            Política de Privacidade
+          </Link>
+        </div>
         <Link href="/login" className="footer-login-link">
           Entrar no painel <ArrowRight size={13} />
         </Link>
