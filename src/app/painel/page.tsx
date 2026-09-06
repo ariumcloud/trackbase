@@ -1,6 +1,7 @@
 import { db, configured } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/components/dashboard";
+import { dayInZone } from "@/lib/metrics";
 import type {
   Workspace,
   Offer,
@@ -10,12 +11,22 @@ import type {
   InsightRow,
   Entity,
   WebhookLog,
+  DashboardSummary,
 } from "@/lib/types";
+
 export const dynamic = "force-dynamic";
+
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ workspace?: string; tab?: string; error?: string }>;
+  searchParams: Promise<{
+    workspace?: string;
+    tab?: string;
+    error?: string;
+    period?: string;
+    currency?: string;
+    offer?: string;
+  }>;
 }) {
   const p = await searchParams;
   if (!configured())
@@ -31,6 +42,7 @@ export default async function Page({
         insights={[]}
         entities={[]}
         logs={[]}
+        summary={null}
         initialTab={p.tab}
         appUrl={process.env.APP_URL || "http://localhost:3000"}
       />
@@ -40,23 +52,36 @@ export default async function Page({
     data: { user },
   } = await client.auth.getUser();
   if (!user) redirect("/login");
+
   const { data: workspaces, error: we } = await client
     .from("utm_workspaces")
     .select("id,name,timezone,plan")
     .order("created_at");
   const w: Workspace | null =
     workspaces?.find((w) => w.id === p.workspace) ?? workspaces?.[0] ?? null;
+
   const empty = { data: [], error: null };
-  const [offers, links, integrations, sales, insights, entities, logs] = w
+
+  const periodDays = Number(p.period) || 7;
+  const currency = p.currency || "BRL";
+  const offerFilter = p.offer && p.offer !== "all" ? p.offer : null;
+  const timezone = w?.timezone || "America/Sao_Paulo";
+  const today = dayInZone(new Date(), timezone);
+  const begin = new Date(`${today}T12:00:00Z`);
+  begin.setUTCDate(begin.getUTCDate() - periodDays + 1);
+  const since = `${begin.toISOString().slice(0, 10)}T00:00:00Z`;
+  const until = `${today}T23:59:59Z`;
+
+  const [offers, links, integrations, sales, insights, entities, logs, summaryRes] = w
     ? await Promise.all([
         client
           .from("utm_offers")
-          .select("id,name,landing_url,currency")
+          .select("id,name,landing_url,currency,public_key")
           .eq("workspace_id", w.id)
           .order("created_at", { ascending: false }),
         client
           .from("utm_links")
-          .select("id,name,url,offer_id,params,active,created_at")
+          .select("id,name,url,offer_id,params,active,public_key,created_at")
           .eq("workspace_id", w.id)
           .order("created_at", { ascending: false }),
         client
@@ -71,7 +96,7 @@ export default async function Page({
           )
           .eq("workspace_id", w.id)
           .order("occurred_at", { ascending: false })
-          .limit(1000),
+          .limit(200),
         client
           .from("utm_insights")
           .select(
@@ -79,13 +104,13 @@ export default async function Page({
           )
           .eq("workspace_id", w.id)
           .order("day", { ascending: false })
-          .limit(1000),
+          .limit(200),
         client
           .from("utm_ad_entities")
           .select("integration_id,external_id,kind,name,status")
           .eq("workspace_id", w.id)
           .order("name")
-          .limit(1000),
+          .limit(500),
         client
           .from("utm_webhook_logs")
           .select(
@@ -94,8 +119,16 @@ export default async function Page({
           .eq("workspace_id", w.id)
           .order("received_at", { ascending: false })
           .limit(50),
+        client.rpc("utm_dashboard_summary", {
+          p_workspace: w.id,
+          p_since: since,
+          p_until: until,
+          p_currency: currency,
+          p_offer_id: offerFilter,
+        }),
       ])
-    : [empty, empty, empty, empty, empty, empty, empty];
+    : [empty, empty, empty, empty, empty, empty, empty, { data: null, error: null }];
+
   const error =
     we ||
     [offers, links, integrations, sales, insights, entities, logs].some(
@@ -104,9 +137,8 @@ export default async function Page({
       ? "Não foi possível carregar todos os dados. Verifique a conexão e as migrations."
       : p.error === "meta"
         ? "A conexão Meta não foi concluída. Confira as permissões e tente novamente."
-        : sales.data?.length === 1000 || insights.data?.length === 1000
-          ? "Há mais de 1.000 registros. Este painel MVP mostra uma janela limitada; totais podem estar incompletos."
-          : undefined;
+        : undefined;
+
   return (
     <Dashboard
       workspaces={(workspaces ?? []) as Workspace[]}
@@ -118,6 +150,7 @@ export default async function Page({
       insights={(insights.data ?? []) as InsightRow[]}
       entities={(entities.data ?? []) as Entity[]}
       logs={(logs.data ?? []) as WebhookLog[]}
+      summary={(summaryRes.data ?? null) as DashboardSummary | null}
       initialTab={p.tab}
       appUrl={process.env.APP_URL || "http://localhost:3000"}
       error={error}

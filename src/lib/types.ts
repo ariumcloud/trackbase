@@ -9,6 +9,7 @@ export type Offer = {
   name: string;
   landing_url: string;
   currency: string;
+  public_key?: string;
 };
 export type LinkRow = {
   id: string;
@@ -17,7 +18,20 @@ export type LinkRow = {
   offer_id: string;
   params: Record<string, string>;
   active: boolean;
+  public_key?: string;
   created_at: string;
+};
+export type DashboardSummary = {
+  sales_count: number;
+  gross_revenue: number;
+  refunded_count: number;
+  refunded_amount: number;
+  meta_spend: number | null;
+  meta_clicks: number;
+  meta_impressions: number;
+  pageviews: number;
+  ctas: number;
+  checkouts: number;
 };
 export type Integration = {
   id: string;

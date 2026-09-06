@@ -9,6 +9,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260906021328_utmliso_mvp.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260906100000_dashboard_and_events.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -144,11 +147,95 @@ async function main() {
     ).rows[0].ok,
     false,
   );
+  // Testes de Chave Pública e Rastreamento de Eventos
+  const offerRow = (
+    await db.query<{ public_key: string }>(
+      "select public_key from public.utm_offers where id=$1",
+      [offer],
+    )
+  ).rows[0];
+  assert.ok(offerRow.public_key && offerRow.public_key.length >= 16);
+
+  // Ingestão com chave pública válida
+  const trackRes = await db.query<{ status: string }>(
+    "select public.utm_track_event($1, $2) status",
+    [
+      offerRow.public_key,
+      JSON.stringify({
+        event_type: "pageview",
+        session_id: "sess-123",
+        url: "https://example.com/landing?utm_source=meta",
+        attribution: { utm_source: "meta" },
+      }),
+    ],
+  );
+  assert.equal(trackRes.rows[0].status, "recorded");
+
+  await db.query("select public.utm_track_event($1, $2)", [
+    offerRow.public_key,
+    JSON.stringify({
+      event_type: "checkout",
+      session_id: "sess-123",
+      url: "https://example.com/checkout",
+      attribution: { utm_source: "meta" },
+    }),
+  ]);
+
+  // Rejeição com chave pública inexistente
+  await assert.rejects(() =>
+    db.query("select public.utm_track_event('chave_falsa', $1)", [
+      JSON.stringify({
+        event_type: "pageview",
+        session_id: "sess-123",
+      }),
+    ]),
+  );
+
+  // Teste de Dashboard Summary Agregado
+  // 1. Usuário B tentando acessar dados do Workspace A deve ser rejeitado
+  await assert.rejects(() =>
+    db.query(
+      "select public.utm_dashboard_summary($1, '2026-09-01T00:00:00Z', '2026-09-10T23:59:59Z', 'BRL') summary",
+      [wa],
+    ),
+  );
+
+  // 2. Usuário A acessando seu próprio workspace com sucesso
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
+  const summaryRes = await db.query<{
+    summary: { pageviews: number; checkouts: number; refunded_count: number };
+  }>(
+    "select public.utm_dashboard_summary($1, '2026-09-01T00:00:00Z', '2026-09-10T23:59:59Z', 'BRL') summary",
+    [wa],
+  );
+  const summary = summaryRes.rows[0].summary;
+  assert.equal(summary.pageviews, 1);
+  assert.equal(summary.checkouts, 1);
+  assert.equal(summary.refunded_count, 1);
+
+  // RLS de utm_events
+  await db.exec("reset role");
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
+  await db.exec("set role authenticated");
+  assert.equal(
+    (await db.query("select * from public.utm_events")).rows.length,
+    2,
+  );
+
+  await db.exec("reset role");
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [b]);
+  await db.exec("set role authenticated");
+  assert.equal(
+    (await db.query("select * from public.utm_events")).rows.length,
+    0,
+  );
+
   await db.exec("reset role;set role anon");
   await assert.rejects(() => db.query("select * from public.utm_sales"));
+  await assert.rejects(() => db.query("select * from public.utm_events"));
   await db.exec("reset role");
   console.log(
-    "PASS: migration, 2 usuários, RLS, acesso anônimo, credenciais, FK composta, idempotência, evento fora de ordem, reembolso, limpeza de testes e rate limit.",
+    "PASS: migration, 2 usuários, RLS, acesso anônimo, credenciais, FK composta, idempotência, evento fora de ordem, reembolso, limpeza de testes, rate limit, tracking com chave pública, dashboard agregado e isolamento de eventos.",
   );
   await db.close();
 }

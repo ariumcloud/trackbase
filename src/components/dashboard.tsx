@@ -45,6 +45,7 @@ import type {
   InsightRow,
   Entity,
   WebhookLog,
+  DashboardSummary,
 } from "@/lib/types";
 type Props = {
   setup?: boolean;
@@ -57,6 +58,7 @@ type Props = {
   insights: InsightRow[];
   entities: Entity[];
   logs: WebhookLog[];
+  summary?: DashboardSummary | null;
   initialTab?: string;
   appUrl: string;
   error?: string;
@@ -170,7 +172,46 @@ export function Dashboard(p: Props) {
     offer === "all" && provider === "all"
       ? p.insights.filter((i) => i.day >= since)
       : [];
-  const metrics = calculate(sales, insights, currency);
+
+  const s = p.summary;
+  const useSummary = Boolean(s && provider === "all");
+  const fallback = calculate(sales, insights, currency);
+
+  const revenue = useSummary ? Number(s!.gross_revenue) : fallback.revenue;
+  const purchases = useSummary ? Number(s!.sales_count) : fallback.purchases;
+  const spend = useSummary
+    ? (s!.meta_spend !== null ? Number(s!.meta_spend) : null)
+    : fallback.spend;
+  const clicks = useSummary ? Number(s!.meta_clicks) : fallback.clicks;
+  const impressions = useSummary ? Number(s!.meta_impressions) : fallback.impressions;
+  const pageviews = useSummary ? Number(s!.pageviews) : 0;
+  const ctas = useSummary ? Number(s!.ctas) : 0;
+  const checkouts = useSummary ? Number(s!.checkouts) : 0;
+
+  const profit = spend === null ? null : revenue - spend;
+  const roas = spend && spend > 0 ? revenue / spend : null;
+  const roi = spend && spend > 0 ? ((revenue - spend) / spend) * 100 : null;
+  const cpa = spend !== null && purchases > 0 ? spend / purchases : null;
+  const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
+  const cpc = clicks > 0 && spend !== null ? spend / clicks : null;
+
+  const metrics = {
+    revenue,
+    purchases,
+    spend,
+    profit,
+    roas,
+    roi,
+    cpa,
+    ctr,
+    cpc,
+    clicks,
+    impressions,
+    pageviews,
+    ctas,
+    checkouts,
+  };
+
   const hasPayments = p.integrations.some(
     (i) => i.provider !== "meta" && i.status === "connected",
   );
@@ -180,6 +221,48 @@ export function Dashboard(p: Props) {
       : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(
           v,
         );
+
+  const changePeriod = (val: string) => {
+    setPeriod(val);
+    router.replace(
+      `/painel?${new URLSearchParams({
+        ...(workspace ? { workspace } : {}),
+        tab,
+        period: val,
+        currency,
+        ...(offer !== "all" ? { offer } : {}),
+      })}`,
+      { scroll: false },
+    );
+  };
+
+  const changeCurrency = (val: string) => {
+    setCurrency(val);
+    router.replace(
+      `/painel?${new URLSearchParams({
+        ...(workspace ? { workspace } : {}),
+        tab,
+        period,
+        currency: val,
+        ...(offer !== "all" ? { offer } : {}),
+      })}`,
+      { scroll: false },
+    );
+  };
+
+  const changeOffer = (val: string) => {
+    setOffer(val);
+    router.replace(
+      `/painel?${new URLSearchParams({
+        ...(workspace ? { workspace } : {}),
+        tab,
+        period,
+        currency,
+        ...(val !== "all" ? { offer: val } : {}),
+      })}`,
+      { scroll: false },
+    );
+  };
   const selectTab = (value: string) => {
     setTab(value);
     setMobile(false);
@@ -384,7 +467,7 @@ export function Dashboard(p: Props) {
                   <select
                     aria-label="Período"
                     value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
+                    onChange={(e) => changePeriod(e.target.value)}
                   >
                     <option value="1">Hoje</option>
                     <option value="7">Últimos 7 dias</option>
@@ -393,7 +476,7 @@ export function Dashboard(p: Props) {
                   <select
                     aria-label="Oferta"
                     value={offer}
-                    onChange={(e) => setOffer(e.target.value)}
+                    onChange={(e) => changeOffer(e.target.value)}
                   >
                     <option value="all">Todas as ofertas</option>
                     {p.offers.map((o) => (
@@ -417,7 +500,7 @@ export function Dashboard(p: Props) {
                   <select
                     aria-label="Moeda"
                     value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
+                    onChange={(e) => changeCurrency(e.target.value)}
                   >
                     {[
                       ...new Set([
@@ -436,33 +519,49 @@ export function Dashboard(p: Props) {
                   <span className="timezone">{timezone}</span>
                 </div>
               </div>
+
               <div className="metrics-grid">
                 {[
                   {
                     name: "Investimento",
-                    value: money(metrics.spend),
-                    hint: "Gasto na Meta Ads",
+                    value:
+                      offer !== "all"
+                        ? "Não atribuível"
+                        : money(metrics.spend),
+                    hint:
+                      offer !== "all"
+                        ? "Gasto da conta Meta é global da operação"
+                        : "Gasto na Meta Ads",
                     icon: Wallet,
                   },
                   {
                     name: "Faturamento",
                     value: hasPayments ? money(metrics.revenue) : "—",
-                    hint: "Vendas aprovadas · sem testes",
+                    hint: `${metrics.purchases} vendas aprovadas · sem testes`,
                     icon: ShoppingBag,
                   },
                   {
                     name: "Resultado bruto",
-                    value: hasPayments ? money(metrics.profit) : "—",
-                    hint: "Faturamento menos mídia, antes de taxas",
+                    value:
+                      hasPayments && offer === "all"
+                        ? money(metrics.profit)
+                        : "—",
+                    hint:
+                      offer !== "all"
+                        ? "Gasto de mídia não isolado para esta oferta"
+                        : "Faturamento menos mídia, antes de taxas",
                     icon: Activity,
                   },
                   {
                     name: "ROAS",
                     value:
-                      hasPayments && metrics.roas !== null
+                      hasPayments && offer === "all" && metrics.roas !== null
                         ? `${metrics.roas.toFixed(2)}x`
                         : "—",
-                    hint: "Retorno sobre investimento em mídia",
+                    hint:
+                      offer !== "all"
+                        ? "Mídia não isolada por oferta"
+                        : "Retorno sobre investimento em mídia",
                     icon: ArrowUpRight,
                   },
                 ].map((m, i) => (
@@ -478,6 +577,44 @@ export function Dashboard(p: Props) {
                     <small>{m.hint}</small>
                   </section>
                 ))}
+              </div>
+
+              <div className="panel" style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+                <div className="panel-heading">
+                  <div>
+                    <h2>Funil da Operação</h2>
+                    <p>Visitas na página → Cliques em CTA → Checkouts iniciados → Compras aprovadas</p>
+                  </div>
+                  <span className="chip">Rastreamento ponta a ponta</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.75rem", marginTop: "0.75rem" }}>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <small style={{ color: "var(--muted, #888)", display: "block" }}>1. Visitas</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.pageviews}</strong>
+                    <small style={{ color: "var(--muted, #888)" }}>Pageviews</small>
+                  </div>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <small style={{ color: "var(--muted, #888)", display: "block" }}>2. Cliques em CTA</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.ctas}</strong>
+                    <small style={{ color: "var(--muted, #888)" }}>
+                      {metrics.pageviews > 0 ? `${((metrics.ctas / metrics.pageviews) * 100).toFixed(1)}% das visitas` : "Sem visitas"}
+                    </small>
+                  </div>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <small style={{ color: "var(--muted, #888)", display: "block" }}>3. Checkouts</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.checkouts}</strong>
+                    <small style={{ color: "var(--muted, #888)" }}>
+                      {metrics.ctas > 0 ? `${((metrics.checkouts / metrics.ctas) * 100).toFixed(1)}% dos CTAs` : "Sem CTAs"}
+                    </small>
+                  </div>
+                  <div style={{ padding: "0.75rem 1rem", borderRadius: "8px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <small style={{ color: "var(--muted, #888)", display: "block" }}>4. Compras</small>
+                    <strong style={{ fontSize: "1.35rem", display: "block", margin: "0.2rem 0" }}>{metrics.purchases}</strong>
+                    <small style={{ color: "var(--muted, #888)" }}>
+                      {metrics.checkouts > 0 ? `${((metrics.purchases / metrics.checkouts) * 100).toFixed(1)}% conversão` : "Aguardando"}
+                    </small>
+                  </div>
+                </div>
               </div>
               <div className="dashboard-grid">
                 <section className="panel performance">
@@ -720,6 +857,17 @@ export function Dashboard(p: Props) {
                       <span className="chip">{o.currency}</span>
                       <h2>{o.name}</h2>
                       <p className="url-text">{o.landing_url}</p>
+                      {o.public_key && (
+                        <div style={{ marginTop: "0.75rem", padding: "0.6rem", background: "rgba(0,0,0,0.2)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+                            <small style={{ fontSize: "0.75rem", color: "var(--muted, #888)" }}>Script da Página / Quiz:</small>
+                            <Clipboard value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`} label="Copiar script" />
+                          </div>
+                          <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "#a5b4fc" }}>
+                            {`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
+                          </code>
+                        </div>
+                      )}
                       <div className="offer-footer">
                         <span>
                           {p.links.filter((l) => l.offer_id === o.id).length}{" "}
@@ -787,6 +935,17 @@ export function Dashboard(p: Props) {
                           Parâmetros de URL da Meta
                           <textarea readOnly value={built.parameters} />
                         </label>
+                        {l.public_key && (
+                          <div style={{ marginTop: "0.5rem", marginBottom: "0.75rem", padding: "0.5rem", background: "rgba(0,0,0,0.15)", borderRadius: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                              <small style={{ fontSize: "0.75rem", color: "var(--muted, #888)" }}>Script individual deste link:</small>
+                              <Clipboard value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`} label="Copiar script" />
+                            </div>
+                            <code style={{ fontSize: "0.7rem", wordBreak: "break-all", display: "block", color: "#a5b4fc" }}>
+                              {`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
+                            </code>
+                          </div>
+                        )}
                         <div className="link-actions">
                           <Clipboard value={built.full} label="Copiar link" />
                           <Clipboard

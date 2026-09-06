@@ -113,3 +113,42 @@ test("timezone respeita virada do dia no Brasil", () =>
     dayInZone(new Date("2026-09-06T01:00:00Z"), "America/Sao_Paulo"),
     "2026-09-05",
   ));
+
+test("validação estrita de checkouts autorizados rejeita domínios fraudulentos", async () => {
+  const { isAllowedCheckout, decorateLink } = await import("../src/lib/tracker");
+
+  // Válidos
+  assert.equal(isAllowedCheckout("https://hotmart.com/pay"), true);
+  assert.equal(isAllowedCheckout("https://pay.hotmart.com/checkout/123"), true);
+  assert.equal(isAllowedCheckout("https://cakto.com/checkout"), true);
+  assert.equal(isAllowedCheckout("https://pay.cakto.com.br/checkout"), true);
+  assert.equal(isAllowedCheckout("https://meusite.com.br/quiz", "https://meusite.com.br"), true);
+
+  // Fraudulentos / Inválidos
+  assert.equal(isAllowedCheckout("https://fake-hotmart.com/pay"), false);
+  assert.equal(isAllowedCheckout("https://hotmart.com.evil.com/pay"), false);
+  assert.equal(isAllowedCheckout("https://evildomainhotmart.com/pay"), false);
+  assert.equal(isAllowedCheckout("https://cakto.com.attacker.com"), false);
+  assert.equal(isAllowedCheckout("https://outro-site.com.br/checkout"), false);
+  assert.equal(isAllowedCheckout("javascript:alert(1)"), false);
+  assert.equal(isAllowedCheckout("mailto:suporte@hotmart.com"), false);
+
+  // Teste de decoração de links com UTMs e SCK
+  const decorated = decorateLink(
+    "https://pay.hotmart.com/ABC",
+    { utm_source: "meta", utm_campaign: "camp_1" },
+    "sess_xyz123",
+  );
+  assert.ok(decorated.includes("utm_source=meta"));
+  assert.ok(decorated.includes("utm_campaign=camp_1"));
+  assert.ok(decorated.includes("sck=sess_xyz123"));
+  assert.ok(decorated.includes("utm_sck=sess_xyz123"));
+
+  // Não decora links externos não autorizados
+  const untouched = decorateLink(
+    "https://golpista.com/checkout",
+    { utm_source: "meta" },
+    "sess_xyz123",
+  );
+  assert.equal(untouched, "https://golpista.com/checkout");
+});
