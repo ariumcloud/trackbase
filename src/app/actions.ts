@@ -395,3 +395,167 @@ export async function markAlertRead(
     return { error: "Não foi possível atualizar o alerta." };
   }
 }
+
+export async function cloneFunnelAction(
+  workspace: string,
+  url: string,
+): Promise<{ ok?: boolean; error?: string; structure?: unknown }> {
+  try {
+    await authorize(workspace, true);
+    const { analyzeAndClonePage } = await import("@/lib/funnel-cloner");
+    return await analyzeAndClonePage(url);
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : "Falha ao analisar a URL." };
+  }
+}
+
+export async function saveFunnelAction(
+  workspace: string,
+  data: {
+    id?: string;
+    offer_id?: string | null;
+    name: string;
+    source_url?: string;
+    blocks: unknown[];
+    pixels?: unknown[];
+    settings?: Record<string, unknown>;
+    status?: "draft" | "published" | "archived";
+  },
+): Promise<{ ok?: boolean; error?: string; id?: string }> {
+  try {
+    const { client } = await authorize(workspace, true);
+    if (!data.name || data.name.trim().length < 2) {
+      return { error: "Nome do funil deve ter pelo menos 2 caracteres." };
+    }
+
+    if (data.id) {
+      const { data: updated, error } = await client
+        .from("utm_funnels")
+        .update({
+          name: data.name.trim(),
+          offer_id: data.offer_id || null,
+          blocks: data.blocks || [],
+          pixels: data.pixels || [],
+          settings: data.settings || {},
+          status: data.status || "draft",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("workspace_id", workspace)
+        .eq("id", data.id)
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      revalidatePath("/painel");
+      return { ok: true, id: updated.id };
+    }
+
+    const { data: created, error } = await client
+      .from("utm_funnels")
+      .insert({
+        workspace_id: workspace,
+        offer_id: data.offer_id || null,
+        name: data.name.trim(),
+        source_url: data.source_url || null,
+        blocks: data.blocks || [],
+        pixels: data.pixels || [],
+        settings: data.settings || {},
+        status: data.status || "draft",
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true, id: created.id };
+  } catch {
+    return { error: "Não foi possível salvar o funil no workspace." };
+  }
+}
+
+export async function duplicateFunnelAction(
+  workspace: string,
+  funnelId: string,
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const { data: orig, error: findError } = await client
+      .from("utm_funnels")
+      .select("*")
+      .eq("workspace_id", workspace)
+      .eq("id", funnelId)
+      .single();
+
+    if (findError || !orig) throw new Error("Funil não encontrado.");
+
+    const { error: insError } = await client.from("utm_funnels").insert({
+      workspace_id: workspace,
+      offer_id: orig.offer_id,
+      name: `${orig.name} (Cópia)`,
+      source_url: orig.source_url,
+      blocks: orig.blocks,
+      pixels: orig.pixels,
+      settings: orig.settings,
+      status: "draft",
+    });
+
+    if (insError) throw insError;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível duplicar o funil." };
+  }
+}
+
+export async function deleteFunnelAction(
+  workspace: string,
+  funnelId: string,
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const { error } = await client
+      .from("utm_funnels")
+      .delete()
+      .eq("workspace_id", workspace)
+      .eq("id", funnelId);
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível excluir o funil." };
+  }
+}
+
+export async function saveDiagnosticAction(
+  workspace: string,
+  data: {
+    offer_id?: string | null;
+    url?: string | null;
+    score: number;
+    category_scores: unknown;
+    bottlenecks: unknown[];
+    recommendations: string[];
+    metrics_snapshot: Record<string, unknown>;
+  },
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const { error } = await client.from("utm_funnel_diagnostics").insert({
+      workspace_id: workspace,
+      offer_id: data.offer_id || null,
+      url: data.url || null,
+      score: Math.max(0, Math.min(100, Math.round(data.score))),
+      category_scores: data.category_scores || {},
+      bottlenecks: data.bottlenecks || [],
+      recommendations: data.recommendations || [],
+      metrics_snapshot: data.metrics_snapshot || {},
+    });
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível salvar o diagnóstico." };
+  }
+}

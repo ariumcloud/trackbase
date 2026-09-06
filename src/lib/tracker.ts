@@ -38,17 +38,26 @@ export function isAllowedCheckout(targetUrl: string, currentOrigin?: string): bo
 
     const host = url.hostname.toLowerCase();
 
-    // Hotmart: exato hotmart.com ou subdomínio direto (.hotmart.com)
-    const isHotmart = host === "hotmart.com" || host.endsWith(".hotmart.com");
+    const allowedSuffixes = [
+      "hotmart.com",
+      "kiwify.com.br",
+      "kiwify.com",
+      "cakto.com",
+      "cakto.com.br",
+      "kirvano.com",
+      "kirvano.com.br",
+      "eduzz.com",
+      "monetizze.com.br",
+      "wiapy.com",
+      "wiapy.com.br",
+      "braip.com",
+      "ticto.com.br",
+      "ticto.app",
+      "greenn.com.br",
+      "perfectpay.com.br",
+    ];
 
-    // Cakto: exato cakto.com, cakto.com.br ou subdomínios diretos (.cakto.com, .cakto.com.br)
-    const isCakto =
-      host === "cakto.com" ||
-      host.endsWith(".cakto.com") ||
-      host === "cakto.com.br" ||
-      host.endsWith(".cakto.com.br");
-
-    return isHotmart || isCakto;
+    return allowedSuffixes.some((s) => host === s || host.endsWith("." + s));
   } catch {
     return false;
   }

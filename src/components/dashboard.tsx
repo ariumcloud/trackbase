@@ -60,7 +60,11 @@ import type {
   WebhookLog,
   DashboardSummary,
   PixelRow,
+  FunnelRow,
+  DiagnosticRow,
 } from "@/lib/types";
+import { ClonadorView } from "./clonador";
+import { DiagnosticoView } from "./diagnostico";
 type Props = {
   setup?: boolean;
   workspaces: Workspace[];
@@ -73,6 +77,8 @@ type Props = {
   entities: Entity[];
   logs: WebhookLog[];
   pixels: PixelRow[];
+  funnels?: FunnelRow[];
+  diagnostics?: DiagnosticRow[];
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
   initialTab?: string;
@@ -84,6 +90,8 @@ const tabs = [
   { id: "ofertas", name: "Minhas ofertas", icon: Layers },
   { id: "links", name: "Links e UTMs", icon: Link2 },
   { id: "campanhas", name: "Campanhas", icon: BarChart3 },
+  { id: "clonador", name: "Clonador de Funil", icon: Copy },
+  { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
   { id: "alertas", name: "Alertas", icon: Bell },
 ];
@@ -103,6 +111,14 @@ const titles: Record<string, [string, string]> = {
   campanhas: [
     "Encontre o que traz resultado.",
     "Campanhas, conjuntos e anúncios da sua conta Meta.",
+  ],
+  clonador: [
+    "Clonador de Funil.",
+    "Analise páginas autorizadas, edite blocos visuais e injete tracking com UTMs.",
+  ],
+  diagnostico: [
+    "Diagnóstico de Funil.",
+    "Identifique gargalos, perdas de tráfego e impacto financeiro nas suas ofertas.",
   ],
   integracoes: [
     "Conecte os pontos.",
@@ -1858,6 +1874,26 @@ export function Dashboard(p: Props) {
               run={run}
               request={request}
               connect={() => selectTab("integracoes")}
+            />
+          )}
+          {tab === "clonador" && (
+            <ClonadorView
+              workspace={workspace}
+              funnels={p.funnels || []}
+              offers={p.offers}
+              appUrl={p.appUrl}
+              run={run}
+              pending={pending}
+            />
+          )}
+          {tab === "diagnostico" && (
+            <DiagnosticoView
+              workspace={workspace}
+              offers={p.offers}
+              metrics={metrics}
+              diagnostics={p.diagnostics || []}
+              currency={currency}
+              selectTab={selectTab}
             />
           )}
           {tab === "alertas" && (

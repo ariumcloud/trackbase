@@ -14,6 +14,8 @@ import type {
   WebhookLog,
   DashboardSummary,
   PixelRow,
+  FunnelRow,
+  DiagnosticRow,
 } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +79,20 @@ export default async function Page({
   const since = `${begin.toISOString().slice(0, 10)}T00:00:00Z`;
   const until = `${today}T23:59:59Z`;
 
-  const [offers, links, integrations, sales, insights, entities, logs, pixels, summaryRes, alerts] = w
+  const [
+    offers,
+    links,
+    integrations,
+    sales,
+    insights,
+    entities,
+    logs,
+    pixels,
+    summaryRes,
+    alerts,
+    funnelsRes,
+    diagnosticsRes,
+  ] = w
     ? await Promise.all([
         client
           .from("utm_offers")
@@ -139,8 +154,32 @@ export default async function Page({
           p_offer_id: offerFilter,
         }),
         evaluateAlerts(w.id).catch(() => [] as AlertItem[]),
+        client
+          .from("utm_funnels")
+          .select("*")
+          .eq("workspace_id", w.id)
+          .order("created_at", { ascending: false }),
+        client
+          .from("utm_funnel_diagnostics")
+          .select("*")
+          .eq("workspace_id", w.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
       ])
-    : [empty, empty, empty, empty, empty, empty, empty, empty, { data: null, error: null }, [] as AlertItem[]];
+    : [
+        empty,
+        empty,
+        empty,
+        empty,
+        empty,
+        empty,
+        empty,
+        empty,
+        { data: null, error: null },
+        [] as AlertItem[],
+        empty,
+        empty,
+      ];
 
   const error =
     we ||
@@ -164,6 +203,8 @@ export default async function Page({
       entities={(entities.data ?? []) as Entity[]}
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
+      funnels={(funnelsRes.data ?? []) as FunnelRow[]}
+      diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
       initialTab={p.tab}

@@ -17,6 +17,8 @@ import {
   TrendingUp,
   X,
   AlertTriangle,
+  Copy,
+  Activity,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -59,6 +61,8 @@ export default function DemoPage() {
     "Minhas ofertas",
     "Links e UTMs",
     "Campanhas",
+    "Clonador de Funil",
+    "Diagnóstico de Funil",
     "Integrações e Pixels",
     "Alertas",
   ];
@@ -97,7 +101,7 @@ export default function DemoPage() {
       <div className="demo-shell">
         <aside className={`demo-sidebar ${menu ? "open" : ""}`}>
           <div className="demo-side-title">SUA OPERAÇÃO</div>
-          {tabs.map((item, index) => (
+          {tabs.map((item) => (
             <button
               key={item}
               className={tab === item ? "active" : ""}
@@ -106,15 +110,19 @@ export default function DemoPage() {
                 setMenu(false);
               }}
             >
-              {index === 0 ? (
+              {item === "Visão geral" ? (
                 <LayoutDashboard />
-              ) : index === 1 ? (
+              ) : item === "Minhas ofertas" ? (
                 <ShoppingBag />
-              ) : index === 2 ? (
+              ) : item === "Links e UTMs" ? (
                 <Link2 />
-              ) : index === 3 ? (
+              ) : item === "Campanhas" ? (
                 <BarChart3 />
-              ) : index === 4 ? (
+              ) : item === "Clonador de Funil" ? (
+                <Copy />
+              ) : item === "Diagnóstico de Funil" ? (
+                <Activity />
+              ) : item === "Integrações e Pixels" ? (
                 <CircleDollarSign />
               ) : (
                 <AlertTriangle />

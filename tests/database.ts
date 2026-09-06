@@ -18,6 +18,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260906120000_fase3_kirofy_providers_limits_offers.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260906130000_fase4_funnels_and_diagnostics.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -430,9 +433,32 @@ async function main() {
     /Limite de workspaces atingido/,
   );
 
+  // Teste de Funis e Diagnósticos com RLS
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
+  await db.exec("set role authenticated");
+  const funnel = await db.query<{ id: string }>(
+    "insert into public.utm_funnels(workspace_id, name, source_url, blocks, pixels) values($1, 'Funil Teste', 'https://example.com/funil', '[]'::jsonb, '[]'::jsonb) returning id",
+    [wa],
+  );
+  assert.ok(funnel.rows[0].id);
+
+  // Usuário 'a' não pode inserir funil para workspace 'wb' (RLS)
+  await assert.rejects(() =>
+    db.query(
+      "insert into public.utm_funnels(workspace_id, name, source_url) values($1, 'Funil Invasor', 'https://example.com')",
+      [wb],
+    ),
+  );
+
+  const diag = await db.query<{ id: string }>(
+    "insert into public.utm_funnel_diagnostics(workspace_id, url, score, category_scores) values($1, 'https://example.com', 85, '{\"speed\":90}'::jsonb) returning id",
+    [wa],
+  );
+  assert.ok(diag.rows[0].id);
+
   await db.exec("reset role");
   console.log(
-    "PASS: migrations 1, 2, 3 e 4, 7 provedores suportados, RLS, credenciais, FK composta, deduplicação, agregação e limites quantitativos por plano no banco.",
+    "PASS: migrations 1 a 5, 7 provedores, funis clonados, diagnósticos, RLS, FK composta e limites quantitativos no banco.",
   );
   await db.close();
 }

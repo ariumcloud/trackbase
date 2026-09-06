@@ -113,3 +113,29 @@ export type WebhookLog = {
   received_at: string;
   is_test: boolean;
 };
+export type FunnelRow = {
+  id: string;
+  workspace_id: string;
+  offer_id: string | null;
+  name: string;
+  source_url: string | null;
+  status: "draft" | "published" | "archived";
+  version: number;
+  blocks: unknown[];
+  pixels: unknown[];
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+export type DiagnosticRow = {
+  id: string;
+  workspace_id: string;
+  offer_id: string | null;
+  url: string | null;
+  score: number;
+  category_scores: Record<string, unknown>;
+  bottlenecks: unknown[];
+  recommendations: string[];
+  metrics_snapshot: Record<string, unknown>;
+  created_at: string;
+};
