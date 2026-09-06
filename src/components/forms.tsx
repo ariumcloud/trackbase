@@ -149,7 +149,15 @@ export function WorkspaceForm() {
     </ActionForm>
   );
 }
-export function OfferForm({ workspace }: { workspace: string }) {
+export function OfferForm({
+  workspace,
+  offers = [],
+}: {
+  workspace: string;
+  offers?: { id: string; name: string }[];
+}) {
+  const [productType, setProductType] = useState("main");
+
   return (
     <ActionForm
       action={(f) => saveOffer(workspace, f)}
@@ -174,17 +182,107 @@ export function OfferForm({ workspace }: { workspace: string }) {
           required
         />
       </label>
-      <label>
-        Moeda da oferta
-        <select name="currency">
-          <option>BRL</option>
-          <option>USD</option>
-          <option>EUR</option>
-          <option>MXN</option>
-          <option>COP</option>
-          <option>ARS</option>
-        </select>
-      </label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <label>
+          Tipo de produto
+          <select
+            name="product_type"
+            value={productType}
+            onChange={(e) => setProductType(e.target.value)}
+          >
+            <option value="main">Produto Principal</option>
+            <option value="order_bump">Order Bump</option>
+            <option value="upsell">Upsell</option>
+            <option value="downsell">Downsell</option>
+            <option value="subscription">Assinatura</option>
+            <option value="complementary">Complementar</option>
+            <option value="alternative">Alternativo</option>
+          </select>
+        </label>
+        <label>
+          Moeda da oferta
+          <select name="currency">
+            <option>BRL</option>
+            <option>USD</option>
+            <option>EUR</option>
+            <option>MXN</option>
+            <option>COP</option>
+            <option>ARS</option>
+          </select>
+        </label>
+      </div>
+      {productType !== "main" && offers.length > 0 && (
+        <label>
+          Oferta principal vinculada (funil)
+          <select name="parent_offer_id">
+            <option value="">Nenhuma / Independente</option>
+            {offers.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+        <label>
+          Plataforma de checkout
+          <select name="platform">
+            <option value="">Nenhuma / Outra</option>
+            <option value="hotmart">Hotmart</option>
+            <option value="kiwify">Kiwify</option>
+            <option value="cakto">Cakto</option>
+            <option value="kirvano">Kirvano</option>
+            <option value="eduzz">Eduzz</option>
+            <option value="monetizze">Monetizze</option>
+            <option value="wiapy">Wiapy</option>
+          </select>
+        </label>
+        <label>
+          Link do checkout (opcional)
+          <input
+            name="checkout_url"
+            type="url"
+            placeholder="https://pay.exemplo.com/checkout"
+          />
+        </label>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}>
+        <label>
+          Taxa % plataforma
+          <input
+            name="percent_fee"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            placeholder="9.90"
+            defaultValue="0"
+          />
+        </label>
+        <label>
+          Taxa fixa (R$)
+          <input
+            name="fixed_fee"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="1.00"
+            defaultValue="0"
+          />
+        </label>
+        <label>
+          Custo produto (R$)
+          <input
+            name="cost_per_sale"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0.00"
+            defaultValue="0"
+          />
+        </label>
+      </div>
     </ActionForm>
   );
 }

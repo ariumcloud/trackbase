@@ -81,7 +81,9 @@ export default async function Page({
     ? await Promise.all([
         client
           .from("utm_offers")
-          .select("id,name,landing_url,currency,public_key")
+          .select(
+            "id,name,landing_url,currency,public_key,product_type,platform,parent_offer_id,checkout_url,percent_fee,fixed_fee,cost_per_sale",
+          )
           .eq("workspace_id", w.id)
           .order("created_at", { ascending: false }),
         client

@@ -1143,6 +1143,7 @@ export function Dashboard(p: Props) {
                           <tr>
                             <th>Tipo de Produto</th>
                             <th>Vendas</th>
+                            <th>Adesão / Conv.</th>
                             <th>Receita Bruta</th>
                           </tr>
                         </thead>
@@ -1157,13 +1158,29 @@ export function Dashboard(p: Props) {
                                     ? "Upsell"
                                     : type === "downsell"
                                       ? "Downsell"
-                                      : type;
+                                      : type === "subscription"
+                                        ? "Assinatura"
+                                        : type === "complementary"
+                                          ? "Complementar"
+                                          : type === "alternative"
+                                            ? "Alternativo"
+                                            : type;
+                            const mainCount = byProduct["main"]?.count || 0;
+                            const rate =
+                              type === "main"
+                                ? "Base (100%)"
+                                : mainCount > 0
+                                  ? `${((stats.count / mainCount) * 100).toFixed(1)}%`
+                                  : "—";
                             return (
                               <tr key={type}>
                                 <td>
                                   <strong>{label}</strong>
                                 </td>
                                 <td>{stats.count}</td>
+                                <td>
+                                  <span className="chip">{rate}</span>
+                                </td>
                                 <td>{money(stats.revenue)}</td>
                               </tr>
                             );
@@ -1237,9 +1254,47 @@ export function Dashboard(p: Props) {
                       <span className="empty-icon">
                         <Layers size={23} />
                       </span>
-                      <span className="chip">{o.currency}</span>
+                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginBottom: "0.4rem" }}>
+                        <span className="chip">{o.currency}</span>
+                        {o.product_type && (
+                          <span className="chip">
+                            {o.product_type === "main"
+                              ? "Principal"
+                              : o.product_type === "order_bump"
+                                ? "Order Bump"
+                                : o.product_type === "upsell"
+                                  ? "Upsell"
+                                  : o.product_type === "downsell"
+                                    ? "Downsell"
+                                    : o.product_type === "subscription"
+                                      ? "Assinatura"
+                                      : o.product_type === "complementary"
+                                        ? "Complementar"
+                                        : o.product_type === "alternative"
+                                          ? "Alternativo"
+                                          : o.product_type}
+                          </span>
+                        )}
+                        {o.platform && (
+                          <span className="chip" style={{ textTransform: "capitalize" }}>
+                            {o.platform}
+                          </span>
+                        )}
+                      </div>
                       <h2>{o.name}</h2>
                       <p className="url-text">{o.landing_url}</p>
+                      {o.checkout_url && (
+                        <p className="url-text" style={{ fontSize: "0.75rem", opacity: 0.8 }}>
+                          Checkout: {o.checkout_url}
+                        </p>
+                      )}
+                      {(Number(o.percent_fee) > 0 || Number(o.fixed_fee) > 0 || Number(o.cost_per_sale) > 0) && (
+                        <p style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", margin: "0.25rem 0" }}>
+                          Taxas: {Number(o.percent_fee) > 0 ? `${o.percent_fee}% ` : ""}
+                          {Number(o.fixed_fee) > 0 ? `+ ${money(o.fixed_fee ?? null)} fixa ` : ""}
+                          {Number(o.cost_per_sale) > 0 ? `· Custo: ${money(o.cost_per_sale ?? null)}` : ""}
+                        </p>
+                      )}
                       {o.public_key && (
                         <div
                           style={{
@@ -1473,16 +1528,51 @@ export function Dashboard(p: Props) {
                   {
                     id: "hotmart",
                     name: "Hotmart",
-                    letter: "h",
+                    letter: "H",
                     text: "Receba vendas, reembolsos e atualizações por webhook.",
                     color: "orange",
                   },
                   {
+                    id: "kiwify",
+                    name: "Kiwify",
+                    letter: "K",
+                    text: "Rastreie pedidos aprovados, bumps, upsells e reembolsos.",
+                    color: "green",
+                  },
+                  {
                     id: "cakto",
                     name: "Cakto",
-                    letter: "c",
+                    letter: "C",
                     text: "Conecte seus produtos e acompanhe os pedidos aprovados.",
                     color: "green",
+                  },
+                  {
+                    id: "kirvano",
+                    name: "Kirvano",
+                    letter: "K",
+                    text: "Vendas digitais, assinaturas e webhooks em tempo real.",
+                    color: "purple",
+                  },
+                  {
+                    id: "eduzz",
+                    name: "Eduzz",
+                    letter: "E",
+                    text: "Vendas, faturas e contratos de produtos digitais e físicos.",
+                    color: "orange",
+                  },
+                  {
+                    id: "monetizze",
+                    name: "Monetizze",
+                    letter: "M",
+                    text: "Produtos físicos e digitais com comissões e pós-venda.",
+                    color: "blue",
+                  },
+                  {
+                    id: "wiapy",
+                    name: "Wiapy",
+                    letter: "W",
+                    text: "Plataforma de vendas com checkout de alta conversão.",
+                    color: "purple",
                   },
                 ].map((i) => (
                   <section className="panel integration-card" key={i.id}>
@@ -2000,12 +2090,28 @@ export function Dashboard(p: Props) {
                   ? "Cadastrar oferta"
                   : modal === "link"
                     ? "Criar link UTM"
-                    : `Conectar ${modal === "hotmart" ? "Hotmart" : "Cakto"}`}
+                    : `Conectar ${
+                        modal === "hotmart"
+                          ? "Hotmart"
+                          : modal === "kiwify"
+                            ? "Kiwify"
+                            : modal === "cakto"
+                              ? "Cakto"
+                              : modal === "kirvano"
+                                ? "Kirvano"
+                                : modal === "eduzz"
+                                  ? "Eduzz"
+                                  : modal === "monetizze"
+                                    ? "Monetizze"
+                                    : modal === "wiapy"
+                                      ? "Wiapy"
+                                      : modal
+                      }`}
             </h2>
             {modal === "workspace" ? (
               <WorkspaceForm />
             ) : modal === "offer" ? (
-              <OfferForm workspace={workspace} />
+              <OfferForm workspace={workspace} offers={p.offers} />
             ) : modal === "link" ? (
               p.offers.length ? (
                 <LinkForm
@@ -2046,11 +2152,15 @@ export function Dashboard(p: Props) {
                 </label>
                 <label>
                   ID do produto no provedor
-                  <input name="external_product_id" required />
+                  <input
+                    name="external_product_id"
+                    placeholder="Ex.: 123456 ou código do produto"
+                    required
+                  />
                 </label>
                 <label>
                   Código da oferta no provedor (opcional)
-                  <input name="external_offer_id" />
+                  <input name="external_offer_id" placeholder="Ex.: OF-01" />
                 </label>
                 <label>
                   Moeda quando o webhook não informar
@@ -2059,23 +2169,50 @@ export function Dashboard(p: Props) {
                     <option>USD</option>
                     <option>EUR</option>
                     <option>MXN</option>
+                    <option>COP</option>
+                    <option>ARS</option>
                   </select>
                 </label>
                 <label>
                   {modal === "hotmart"
                     ? "Hottok da Hotmart"
-                    : "Secret do webhook Cakto"}
+                    : modal === "kiwify"
+                      ? "Token / Assinatura do webhook Kiwify"
+                      : modal === "cakto"
+                        ? "Secret do webhook Cakto"
+                        : modal === "kirvano"
+                          ? "Token / Secret da Kirvano"
+                          : modal === "eduzz"
+                            ? "Chave secreta / API Key Eduzz"
+                            : modal === "monetizze"
+                              ? "Chave Única do webhook Monetizze"
+                              : modal === "wiapy"
+                                ? "Token de webhook Wiapy"
+                                : "Secret / Token do webhook"}
                   <input
                     name="secret"
                     type="password"
                     autoComplete="new-password"
-                    minLength={8}
+                    minLength={4}
                     required
                   />
                 </label>
                 <p className="form-help">
-                  O token será armazenado como hash. Use o mesmo valor
-                  configurado no provedor.
+                  {modal === "hotmart" &&
+                    "Copie o Hottok em Ferramentas > Webhook na Hotmart."}
+                  {modal === "kiwify" &&
+                    "Na Kiwify (Webhooks), gere uma URL e copie o token configurado."}
+                  {modal === "cakto" &&
+                    "Na Cakto (Webhooks), informe o segredo gerado no painel."}
+                  {modal === "kirvano" &&
+                    "Na Kirvano (Webhooks), copie o token de validação."}
+                  {modal === "eduzz" &&
+                    "Na Eduzz / Órbita, cadastre o webhook e cole sua chave de segurança."}
+                  {modal === "monetizze" &&
+                    "Na Monetizze (Ferramentas > Postback), informe sua Chave Única."}
+                  {modal === "wiapy" &&
+                    "Na Wiapy (Webhooks), insira a URL do Kirofy e o token gerado."}
+                  O token será armazenado como hash seguro para autenticar cada webhook.
                 </p>
               </ActionForm>
             )}
@@ -2303,13 +2440,24 @@ function IntegrationCard({
           )}
         </div>
       ) : (
-        <div className="webhook-url">
-          <input
-            aria-label="Endpoint do webhook"
-            readOnly
-            value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`}
-          />
-          <Clipboard value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", width: "100%", maxWidth: "420px" }}>
+          <div className="webhook-url">
+            <input
+              aria-label="Endpoint do webhook"
+              readOnly
+              value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`}
+            />
+            <Clipboard value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`} />
+          </div>
+          <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>
+            {i.provider === "hotmart" && "Configure em Ferramentas > Webhook na Hotmart com seu Hottok."}
+            {i.provider === "kiwify" && "Configure em Configurações > Webhooks na Kiwify com o token salvo."}
+            {i.provider === "cakto" && "Configure em Webhooks na Cakto com o secret configurado."}
+            {i.provider === "kirvano" && "Configure em Configurações > Webhooks na Kirvano com seu token."}
+            {i.provider === "eduzz" && "Configure em Ferramentas > Webhooks na Eduzz / Órbita."}
+            {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
+            {i.provider === "wiapy" && "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
+          </small>
         </div>
       )}
     </section>

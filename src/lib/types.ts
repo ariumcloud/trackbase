@@ -10,6 +10,13 @@ export type Offer = {
   landing_url: string;
   currency: string;
   public_key?: string;
+  product_type?: string;
+  platform?: string;
+  parent_offer_id?: string | null;
+  checkout_url?: string | null;
+  percent_fee?: number;
+  fixed_fee?: number;
+  cost_per_sale?: number;
 };
 export type LinkRow = {
   id: string;
@@ -65,7 +72,14 @@ export type SaleRow = {
   gross_amount?: number;
   fee_amount?: number;
   net_amount?: number;
-  product_type?: "main" | "order_bump" | "upsell" | "downsell";
+  product_type?:
+    | "main"
+    | "order_bump"
+    | "upsell"
+    | "downsell"
+    | "subscription"
+    | "complementary"
+    | "alternative";
   parent_transaction_id?: string | null;
   currency: string | null;
   country: string | null;

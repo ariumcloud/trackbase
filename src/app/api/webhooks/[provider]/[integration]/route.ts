@@ -1,25 +1,89 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
 import { body, digest, matches, rateLimit } from "@/lib/security";
-import { normalizePayment } from "@/lib/payments";
 import { sendCapiEvent } from "@/lib/capi";
+import { paymentProviders, type PaymentProvider } from "@/lib/payment-contract";
+import { paymentAdapters } from "@/lib/payment-adapters";
 import { z } from "zod";
+
+function extractWebhookToken(
+  provider: string,
+  request: Request,
+  payload: unknown,
+): string {
+  const p = (payload && typeof payload === "object" ? payload : {}) as Record<
+    string,
+    unknown
+  >;
+  const url = new URL(request.url);
+
+  if (provider === "hotmart") {
+    return (
+      request.headers.get("x-hotmart-hottok") ||
+      String(p.hottok || p.token || "")
+    );
+  }
+  if (provider === "kiwify") {
+    return (
+      request.headers.get("x-kiwify-signature") ||
+      String(p.signature || p.token || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "cakto") {
+    return (
+      request.headers.get("x-cakto-secret") || String(p.secret || p.token || "")
+    );
+  }
+  if (provider === "kirvano") {
+    return (
+      request.headers.get("x-kirvano-token") ||
+      String(p.secret || p.token || "")
+    );
+  }
+  if (provider === "eduzz") {
+    return (
+      request.headers.get("x-eduzz-signature") ||
+      request.headers.get("eduzz-token") ||
+      String(p.api_key || p.secret || p.token || "")
+    );
+  }
+  if (provider === "monetizze") {
+    return (
+      request.headers.get("x-monetizze-token") ||
+      String(p.chave_unica || p.token || p.secret || "")
+    );
+  }
+  if (provider === "wiapy") {
+    return (
+      request.headers.get("x-wiapy-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.secret || p.token || "")
+    );
+  }
+  return "";
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ provider: string; integration: string }> },
 ) {
   const { provider, integration } = await params;
+
   if (
-    !["hotmart", "cakto"].includes(provider) ||
+    !paymentProviders.includes(provider as PaymentProvider) ||
     !z.string().uuid().safeParse(integration).success
-  )
+  ) {
     return NextResponse.json({ error: "Endpoint inválido." }, { status: 404 });
+  }
+
   try {
-    if (!(await rateLimit(`webhook:${integration}`, 300)))
+    if (!(await rateLimit(`webhook:${integration}`, 300))) {
       return NextResponse.json(
         { error: "Limite de requisições." },
         { status: 429, headers: { "Retry-After": "60" } },
       );
+    }
+
     const service = admin();
     const { data: i } = await service
       .from("utm_integrations")
@@ -29,16 +93,20 @@ export async function POST(
       .eq("id", integration)
       .eq("provider", provider)
       .single();
-    if (!i)
+
+    if (!i) {
       return NextResponse.json(
         { error: "Integração inexistente." },
         { status: 404 },
       );
+    }
+
     const { data: credentials } = await service
       .from("utm_credentials")
       .select("webhook_hash")
       .eq("integration_id", integration)
       .single();
+
     let payload: unknown;
     try {
       payload = await body(request);
@@ -48,19 +116,30 @@ export async function POST(
         { status: 400 },
       );
     }
-    const token =
-      provider === "hotmart"
-        ? (request.headers.get("x-hotmart-hottok") ?? "")
-        : String((payload as Record<string, unknown>)?.secret ?? "");
-    if (!credentials?.webhook_hash || !matches(token, credentials.webhook_hash))
+
+    const token = extractWebhookToken(provider, request, payload);
+    if (!credentials?.webhook_hash || !matches(token, credentials.webhook_hash)) {
       return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-    let payment;
-    try {
-      payment = normalizePayment(
-        provider as "hotmart" | "cakto",
-        payload,
-        i.currency,
+    }
+
+    const adapter = paymentAdapters[provider as PaymentProvider];
+    if (!adapter) {
+      return NextResponse.json(
+        { error: "Provedor não implementado." },
+        { status: 400 },
       );
+    }
+
+    let normalizedEvents;
+    const receivedAt = new Date().toISOString();
+    try {
+      normalizedEvents = adapter.normalize(payload, {
+        receivedAt,
+        fallbackCurrency: i.currency,
+      });
+      if (!normalizedEvents || normalizedEvents.length === 0) {
+        throw new Error("Nenhum evento normalizado produzido.");
+      }
     } catch {
       const { error } = await service.from("utm_webhook_logs").upsert(
         {
@@ -77,65 +156,119 @@ export async function POST(
         { status: error ? 503 : 400 },
       );
     }
-    if (
-      payment.product_id !== i.external_product_id ||
-      (i.external_offer_id && payment.external_offer_id !== i.external_offer_id)
-    ) {
-      const { error } = await service.from("utm_webhook_logs").upsert(
-        {
-          workspace_id: i.workspace_id,
-          integration_id: integration,
-          event_id: payment.event_id,
-          status: "ignored",
-          reason: "Produto/oferta não corresponde à integração.",
-          is_test: payment.is_test,
-        },
-        { onConflict: "integration_id,event_id", ignoreDuplicates: true },
-      );
-      return NextResponse.json(
-        { status: "ignored" },
-        { status: error ? 503 : 202 },
-      );
-    }
-    const { data, error } = await service.rpc("utm_process_payment", {
-      p_integration: integration,
-      p_payment: payment,
-    });
 
-    if (data === "processed" && !payment.is_test) {
-      const eventName =
-        payment.status === "approved"
-          ? "Purchase"
-          : payment.status === "refunded"
-            ? "Refund"
-            : null;
+    let lastResultStatus = "processed";
+    for (const event of normalizedEvents) {
+      if (
+        event.productId !== i.external_product_id ||
+        (i.external_offer_id && event.offerId !== i.external_offer_id)
+      ) {
+        await service.from("utm_webhook_logs").upsert(
+          {
+            workspace_id: i.workspace_id,
+            integration_id: integration,
+            event_id: event.externalEventId || `prod_mismatch:${event.externalTransactionId}`,
+            status: "ignored",
+            reason: "Produto/oferta não corresponde à integração.",
+            is_test: event.isTest,
+          },
+          { onConflict: "integration_id,event_id", ignoreDuplicates: true },
+        );
+        continue;
+      }
 
-      if (eventName) {
-        await sendCapiEvent({
-          workspaceId: i.workspace_id,
-          offerId: i.offer_id,
-          eventName,
-          eventId: `tx_${payment.transaction_id}_${payment.product_type}`,
-          customData: {
-            value: payment.gross_amount,
-            currency: payment.currency,
-          },
-          userData: {
-            email: payment.buyer_email,
-            phone: payment.buyer_phone,
-            firstName: payment.buyer_name,
-            fbp: payment.attribution?.fbp || null,
-            fbc: payment.attribution?.fbc || null,
-          },
-        }).catch(() => {});
+      // Converte status do evento normalizado para persistência em utm_sales
+      const isApproved = [
+        "purchase_approved",
+        "upsell_approved",
+        "downsell_approved",
+        "order_bump_approved",
+        "subscription_created",
+        "subscription_renewed",
+      ].includes(event.type);
+
+      const isRefunded = event.type === "purchase_refunded";
+      const isChargeback = event.type === "chargeback_created";
+      const isCanceled = [
+        "purchase_canceled",
+        "purchase_expired",
+        "subscription_canceled",
+      ].includes(event.type);
+
+      const dbStatus = isApproved
+        ? "approved"
+        : isRefunded
+          ? "refunded"
+          : isChargeback
+            ? "chargeback"
+            : isCanceled
+              ? "canceled"
+              : "pending";
+
+      const dbPayment = {
+        event_id:
+          event.externalEventId ||
+          `tx_${event.externalTransactionId}_${event.productType}`,
+        transaction_id: event.externalTransactionId,
+        product_id: event.productId,
+        external_offer_id: event.offerId || "",
+        product_type: event.productType,
+        parent_transaction_id: event.parentTransactionId,
+        status: dbStatus,
+        amount: event.grossAmount ?? 0,
+        gross_amount: event.grossAmount ?? 0,
+        fee_amount: event.fees ?? 0,
+        net_amount: event.netAmount ?? ((event.grossAmount ?? 0) - (event.fees ?? 0)),
+        currency: event.grossCurrency || i.currency,
+        country: event.country,
+        attribution: event.attribution,
+        occurred_at: event.occurredAt,
+        is_test: event.isTest,
+        buyer_name: event.buyer?.name || null,
+        buyer_email: event.buyer?.email || null,
+      };
+
+      const { data, error } = await service.rpc("utm_process_payment", {
+        p_integration: integration,
+        p_payment: dbPayment,
+      });
+
+      if (error) {
+        return NextResponse.json(
+          { error: "Falha temporária ao persistir." },
+          { status: 503 },
+        );
+      }
+
+      lastResultStatus = data;
+
+      if (data === "processed" && !event.isTest) {
+        const eventName = isApproved ? "Purchase" : isRefunded ? "Refund" : null;
+
+        if (eventName) {
+          await sendCapiEvent({
+            workspaceId: i.workspace_id,
+            offerId: i.offer_id,
+            eventName,
+            eventId: `tx_${event.externalTransactionId}_${event.productType}`,
+            customData: {
+              value: event.grossAmount ?? 0,
+              currency: event.grossCurrency || i.currency,
+            },
+            userData: {
+              email: event.buyer?.email || null,
+              firstName: event.buyer?.name || null,
+              fbp: event.attribution?.fbp || null,
+              fbc: event.attribution?.fbc || null,
+            },
+          }).catch(() => {});
+        }
       }
     }
 
     return NextResponse.json(
-      error
-        ? { error: "Falha temporária ao persistir." }
-        : { received: true, status: data },
-      { status: error ? 503 : 200 },
+      { received: true, status: lastResultStatus },
+      { status: 200 },
     );
   } catch {
     return NextResponse.json(

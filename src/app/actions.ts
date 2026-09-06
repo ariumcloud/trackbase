@@ -63,11 +63,20 @@ export async function createWorkspace(form: FormData): Promise<ActionResult> {
       p_name: parsed.data.name,
       p_timezone: parsed.data.timezone,
     });
-    if (error) return { error: "Não foi possível criar o workspace." };
+    if (error) {
+      if (error.message?.includes("Limite de workspaces")) {
+        return { error: "Limite de workspaces atingido para o seu plano." };
+      }
+      return { error: "Não foi possível criar o workspace." };
+    }
     revalidatePath("/painel");
     redirect(`/painel?workspace=${data}`);
   } catch (e) {
     if (e instanceof Error && e.message === "NEXT_REDIRECT") throw e;
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.includes("Limite de workspaces")) {
+      return { error: "Limite de workspaces atingido para o seu plano." };
+    }
     return {
       error:
         "Não foi possível criar o workspace. Verifique a configuração do servidor.",
@@ -80,20 +89,74 @@ export async function saveOffer(
 ): Promise<ActionResult> {
   try {
     const { client } = await authorize(workspace, true);
+    const raw = Object.fromEntries(form);
     const value = z
       .object({
         name: z.string().trim().min(2).max(120),
         landing_url: webUrl,
         currency: z.string().regex(/^[A-Z]{3}$/),
+        product_type: z
+          .enum([
+            "main",
+            "upsell",
+            "downsell",
+            "order_bump",
+            "subscription",
+            "complementary",
+            "alternative",
+          ])
+          .optional()
+          .default("main"),
+        parent_offer_id: z.string().uuid().optional().or(z.literal("")),
+        external_product_id: z.string().trim().max(200).optional().or(z.literal("")),
+        external_offer_id: z.string().trim().max(200).optional().or(z.literal("")),
+        percent_fee: z.coerce.number().min(0).max(100).optional().default(0),
+        fixed_fee: z.coerce.number().min(0).optional().default(0),
+        cost_per_sale: z.coerce.number().min(0).optional().default(0),
+        platform: z
+          .enum([
+            "hotmart",
+            "kiwify",
+            "cakto",
+            "kirvano",
+            "eduzz",
+            "monetizze",
+            "wiapy",
+          ])
+          .optional()
+          .or(z.literal("")),
+        checkout_url: webUrl.optional().or(z.literal("")),
       })
-      .parse(Object.fromEntries(form));
-    const { error } = await client
-      .from("utm_offers")
-      .insert({ ...value, workspace_id: workspace });
-    if (error) throw error;
+      .parse(raw);
+
+    const { error } = await client.from("utm_offers").insert({
+      workspace_id: workspace,
+      name: value.name,
+      landing_url: value.landing_url,
+      currency: value.currency,
+      product_type: value.product_type,
+      parent_offer_id: value.parent_offer_id ? value.parent_offer_id : null,
+      external_product_id: value.external_product_id || null,
+      external_offer_id: value.external_offer_id || null,
+      percent_fee: value.percent_fee,
+      fixed_fee: value.fixed_fee,
+      cost_per_sale: value.cost_per_sale,
+      platform: value.platform ? value.platform : null,
+      checkout_url: value.checkout_url || null,
+    });
+    if (error) {
+      if (error.message?.includes("Limite de ofertas")) {
+        return { error: "Limite de ofertas atingido para o plano deste workspace." };
+      }
+      throw error;
+    }
     revalidatePath("/painel");
     return { ok: true };
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("Limite de ofertas")) {
+      return { error: "Limite de ofertas atingido para o plano deste workspace." };
+    }
     return {
       error: "Não foi possível salvar. Confira os campos e sua permissão.",
     };
@@ -109,10 +172,19 @@ export async function saveLink(
     const { error } = await client
       .from("utm_links")
       .insert({ ...parsed, workspace_id: workspace });
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes("Limite de links")) {
+        return { error: "Limite de links atingido para o plano deste workspace." };
+      }
+      throw error;
+    }
     revalidatePath("/painel");
     return { ok: true };
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("Limite de links")) {
+      return { error: "Limite de links atingido para o plano deste workspace." };
+    }
     return {
       error: "Não foi possível salvar o link. Confira a oferta e os campos.",
     };
@@ -146,12 +218,20 @@ export async function savePaymentIntegration(
     const { client } = await requireFeature(workspace, "integrations");
     const value = z
       .object({
-        provider: z.enum(["hotmart", "cakto"]),
+        provider: z.enum([
+          "hotmart",
+          "kiwify",
+          "cakto",
+          "kirvano",
+          "eduzz",
+          "monetizze",
+          "wiapy",
+        ]),
         offer_id: z.string().uuid(),
         external_product_id: z.string().trim().min(1).max(200),
         external_offer_id: z.string().trim().max(200),
         currency: z.string().regex(/^[A-Z]{3}$/),
-        secret: z.string().min(8).max(500),
+        secret: z.string().min(4).max(500),
       })
       .parse(Object.fromEntries(form));
     const { data: offer } = await client
@@ -168,14 +248,19 @@ export async function savePaymentIntegration(
         workspace_id: workspace,
         offer_id: offer.id,
         provider: value.provider,
-        name: `${value.provider} · ${offer.name}`,
+        name: `${value.provider.toUpperCase()} · ${offer.name}`,
         external_product_id: value.external_product_id,
         external_offer_id: value.external_offer_id || null,
         currency: value.currency,
       })
       .select("id")
       .single();
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes("Limite de integrações")) {
+        return { error: "Limite de integrações atingido para o plano deste workspace." };
+      }
+      throw error;
+    }
     const { error: secretError } = await service
       .from("utm_credentials")
       .insert({
@@ -189,7 +274,11 @@ export async function savePaymentIntegration(
     }
     revalidatePath("/painel");
     return { ok: true };
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("Limite de integrações")) {
+      return { error: "Limite de integrações atingido para o plano deste workspace." };
+    }
     return {
       error:
         "Não foi possível configurar. Verifique a oferta, o token e a configuração do servidor.",

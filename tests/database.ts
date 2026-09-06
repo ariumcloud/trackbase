@@ -15,6 +15,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260906110000_fase2_capi_financial_alerts.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260906120000_fase3_kirofy_providers_limits_offers.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -365,9 +368,71 @@ async function main() {
     0,
   );
 
+  // ==========================================
+  // TESTES DA FASE 3: 7 PROVEDORES, LIMITES POR PLANO E OFERTAS
+  // ==========================================
+  await db.exec("reset role;set role service_role");
+
+  // Teste de provedor adicional Kiwify
+  const kiwiIntegration = (
+    await db.query<{ id: string }>(
+      "insert into public.utm_integrations(workspace_id,offer_id,provider,name,external_product_id) values($1,$2,'kiwify','Kiwify Oficial','kiwi-123') returning id",
+      [wa, offer],
+    )
+  ).rows[0].id;
+  assert.ok(kiwiIntegration);
+
+  // Processa pagamento Kiwify com sucesso
+  const kiwiPayment = {
+    event_id: "evt-kiwi-1",
+    transaction_id: "tx-kiwi-1",
+    product_id: "kiwi-123",
+    external_offer_id: "",
+    product_type: "main",
+    parent_transaction_id: null,
+    status: "approved",
+    amount: 197,
+    gross_amount: 197,
+    fee_amount: 19.7,
+    net_amount: 177.3,
+    currency: "BRL",
+    attribution: { utm_source: "instagram" },
+    occurred_at: "2026-09-06T03:00:00Z",
+    is_test: false,
+  };
+  const kiwiProc = await db.query<{ status: string }>(
+    "select public.utm_process_payment($1,$2) status",
+    [kiwiIntegration, JSON.stringify(kiwiPayment)],
+  );
+  assert.equal(kiwiProc.rows[0].status, "processed");
+
+  // Teste de Limites Quantitativos no Banco
+  // Workspace wa está no plano 'devedor' (limite de 1 oferta).
+  // Tentar inserir 2ª oferta em wa DEVE falhar pelo trigger:
+  await assert.rejects(
+    () =>
+      db.query(
+        "insert into public.utm_offers(workspace_id,name,landing_url,currency) values($1,'Oferta Extra Excedente','https://example.com','BRL')",
+        [wa],
+      ),
+    /Limite de ofertas atingido/,
+  );
+
+  // Usuário 'a' já tem 1 workspace no plano 'devedor'.
+  // Tentar criar 2º workspace DEVE falhar:
+  await assert.rejects(
+    () =>
+      db.query("select public.utm_create_workspace($1,$2,$3)", [
+        a,
+        "Workspace 2 Proibido",
+        "UTC",
+      ]),
+    /Limite de workspaces atingido/,
+  );
+
   await db.exec("reset role");
   console.log(
-    "PASS: migration 1, 2 e 3, 2 usuários, RLS, credenciais, FK composta (workspace_id, offer_id), deduplicação de order bumps em clientes únicos, agregação de taxas, isolamento de pixels e alertas.",
+    "PASS: migrations 1, 2, 3 e 4, 7 provedores suportados, RLS, credenciais, FK composta, deduplicação, agregação e limites quantitativos por plano no banco.",
   );
   await db.close();
 }
