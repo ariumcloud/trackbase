@@ -559,3 +559,41 @@ export async function saveDiagnosticAction(
     return { error: "Não foi possível salvar o diagnóstico." };
   }
 }
+
+export async function savePushSettings(
+  workspace: string,
+  data: {
+    title_template: string;
+    body_template: string;
+    show_buyer: boolean;
+  },
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const parsed = z
+      .object({
+        title_template: z.string().trim().min(2).max(150),
+        body_template: z.string().trim().min(2).max(300),
+        show_buyer: z.boolean(),
+      })
+      .safeParse(data);
+
+    if (!parsed.success) {
+      return { error: "Parâmetros de notificação inválidos." };
+    }
+
+    const { error } = await client
+      .from("utm_workspaces")
+      .update({
+        push_settings: parsed.data,
+      })
+      .eq("id", workspace);
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível salvar as configurações de notificação." };
+  }
+}
+

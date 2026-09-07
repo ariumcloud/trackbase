@@ -3,6 +3,11 @@ export type Workspace = {
   name: string;
   timezone: string;
   plan: string;
+  push_settings?: {
+    title_template?: string;
+    body_template?: string;
+    show_buyer?: boolean;
+  };
 };
 export type Offer = {
   id: string;

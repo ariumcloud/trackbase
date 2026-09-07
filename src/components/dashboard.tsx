@@ -36,6 +36,7 @@ import {
   TrendingDown,
   Download,
   Bot,
+  Volume2,
 } from "lucide-react";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import {
@@ -47,6 +48,7 @@ import {
   savePixel,
   deletePixel,
   markAlertRead,
+  savePushSettings,
 } from "@/app/actions";
 import { buildLink, metaDefaults } from "@/lib/utm";
 import { calculate, dayInZone } from "@/lib/metrics";
@@ -2026,6 +2028,13 @@ export function Dashboard(p: Props) {
                   </div>
                 </div>
               </section>
+
+              <PushSettingsCard
+                workspace={workspace}
+                pushSettings={p.workspace?.push_settings}
+                pending={pending}
+                run={run}
+              />
             </>
           )}
           {tab === "campanhas" && (
@@ -2805,3 +2814,374 @@ function Campaigns({
     </section>
   );
 }
+
+function PushSettingsCard({
+  workspace,
+  pushSettings,
+  pending,
+  run,
+}: {
+  workspace: string;
+  pushSettings?: {
+    title_template?: string;
+    body_template?: string;
+    show_buyer?: boolean;
+  };
+  pending: boolean;
+  run: (fn: () => Promise<unknown>) => void;
+}) {
+  const [title, setTitle] = useState(
+    pushSettings?.title_template || "💰 Venda Realizada: {valor}!",
+  );
+  const [body, setBody] = useState(
+    pushSettings?.body_template || "Opa, caiu mais uma! {produto} via {provedor}.",
+  );
+  const [showBuyer, setShowBuyer] = useState(pushSettings?.show_buyer !== false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Play test notification sound
+  const playSound = () => {
+    try {
+      const audio = new Audio("/kaching.wav");
+      audio.volume = 0.85;
+      audio.play().catch((err) => console.log("Audio blocked:", err));
+    } catch (e) {
+      console.warn("Could not play audio:", e);
+    }
+  };
+
+  const previewTitle = title
+    .replace(/\{valor\}/gi, "R$ 197,00")
+    .replace(/\{produto\}/gi, "Oferta Escala Black")
+    .replace(/\{provedor\}/gi, "HOTMART")
+    .replace(/\{comprador\}/gi, showBuyer ? "Lucas Silva" : "");
+
+  const previewBody = body
+    .replace(/\{valor\}/gi, "R$ 197,00")
+    .replace(/\{produto\}/gi, "Oferta Escala Black")
+    .replace(/\{provedor\}/gi, "HOTMART")
+    .replace(/\{comprador\}/gi, showBuyer ? "Lucas Silva" : "");
+
+  const handleSave = () => {
+    run(async () => {
+      const res = await savePushSettings(workspace, {
+        title_template: title,
+        body_template: body,
+        show_buyer: showBuyer,
+      });
+      if (res.error) throw new Error(res.error);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    });
+  };
+
+  return (
+    <section className="panel" style={{ marginTop: "1.5rem" }}>
+      <div className="panel-heading">
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <h2>Personalização das Notificações de Venda (Push)</h2>
+            <span
+              className="chip"
+              style={{
+                background: "rgba(91, 52, 234, 0.1)",
+                color: "var(--brand-accent, #5B34EA)",
+                fontWeight: 600,
+              }}
+            >
+              Exclusivo
+            </span>
+          </div>
+          <p>
+            Personalize exatamente a mensagem que toca no seu celular a cada venda aprovada.
+          </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "1.5rem",
+          marginTop: "1rem",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                marginBottom: "0.35rem",
+                color: "var(--text-strong, #1E1744)",
+              }}
+            >
+              Título da Notificação
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex: 💰 Venda Realizada: {valor}!"
+              maxLength={150}
+              style={{
+                width: "100%",
+                padding: "0.65rem 0.85rem",
+                borderRadius: "8px",
+                border: "1px solid var(--line, #E5E7EB)",
+                fontSize: "0.9rem",
+              }}
+            />
+            <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                onClick={() => setTitle("💰 Venda Realizada: {valor}!")}
+              >
+                Padrão
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                onClick={() => setTitle("🚀 Pingou com força: {valor}!")}
+              >
+                &quot;🚀 Pingou com força&quot;
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                onClick={() => setTitle("💸 Mais uma no bolso: {valor}!")}
+              >
+                &quot;💸 Mais uma no bolso&quot;
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                marginBottom: "0.35rem",
+                color: "var(--text-strong, #1E1744)",
+              }}
+            >
+              Corpo da Notificação (Mensagem)
+            </label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Ex: Opa, caiu mais uma! {produto} via {provedor}."
+              maxLength={300}
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "0.65rem 0.85rem",
+                borderRadius: "8px",
+                border: "1px solid var(--line, #E5E7EB)",
+                fontSize: "0.9rem",
+                resize: "vertical",
+              }}
+            />
+            <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                onClick={() => setBody("Opa, caiu mais uma! {produto} via {provedor}.")}
+              >
+                &quot;Opa, caiu mais uma!&quot;
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                onClick={() => setBody("Pingou legal! {comprador} acabou de levar {produto}.")}
+              >
+                &quot;Pingou legal! &#123;comprador&#125;...&quot;
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                onClick={() => setBody("Venda aprovada no checkout! {produto} via {provedor}.")}
+              >
+                &quot;Venda aprovada no checkout!&quot;
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <input
+              type="checkbox"
+              id="show-buyer-opt"
+              checked={showBuyer}
+              onChange={(e) => setShowBuyer(e.target.checked)}
+              style={{ width: "16px", height: "16px", cursor: "pointer" }}
+            />
+            <label
+              htmlFor="show-buyer-opt"
+              style={{ fontSize: "0.85rem", color: "var(--text-strong, #1E1744)", cursor: "pointer" }}
+            >
+              Incluir nome do comprador nas variáveis
+            </label>
+          </div>
+
+          <div
+            style={{
+              padding: "0.85rem",
+              borderRadius: "8px",
+              background: "var(--surface-subtle, #F9FAFB)",
+              border: "1px dashed var(--line, #E5E7EB)",
+              fontSize: "0.8rem",
+              color: "var(--muted, #64748B)",
+            }}
+          >
+            <strong style={{ display: "block", color: "var(--text-strong, #1E1744)", marginBottom: "0.35rem" }}>
+              Tags dinâmicas disponíveis:
+            </strong>
+            <ul style={{ margin: 0, paddingLeft: "1.2rem", display: "grid", gap: "0.2rem" }}>
+              <li>
+                <code>{"{valor}"}</code>: Valor formatado da venda (Ex: R$ 197,00)
+              </li>
+              <li>
+                <code>{"{produto}"}</code>: Nome do produto ou oferta
+              </li>
+              <li>
+                <code>{"{provedor}"}</code>: Gateway (Ex: HOTMART, KIWIFY, CAKTO)
+              </li>
+              <li>
+                <code>{"{comprador}"}</code>: Primeiro nome do comprador (se disponível)
+              </li>
+            </ul>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <button
+              type="button"
+              className="button primary"
+              disabled={pending}
+              onClick={handleSave}
+            >
+              {pending ? "Salvando..." : "Salvar Notificações"}
+            </button>
+            {savedSuccess && (
+              <span style={{ color: "var(--emerald, #10B981)", fontSize: "0.85rem", fontWeight: 600 }}>
+                ✓ Preferências salvas!
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Live Mobile Push Preview */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--muted, #64748B)" }}>
+              Pré-visualização no celular:
+            </span>
+            <button
+              type="button"
+              className="button small secondary"
+              onClick={playSound}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem" }}
+              title="Testar som de caixa registradora"
+            >
+              <Volume2 size={13} />
+              Testar Som
+            </button>
+          </div>
+
+          <div
+            style={{
+              padding: "1.25rem",
+              borderRadius: "16px",
+              background: "#1E1744",
+              color: "#FFFFFF",
+              boxShadow: "0 10px 25px -5px rgba(30, 23, 68, 0.3)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "0.75rem",
+                opacity: 0.8,
+                fontSize: "0.75rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "5px",
+                    background: "var(--brand-accent, #5B34EA)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  T
+                </span>
+                <strong style={{ letterSpacing: "0.02em" }}>TRACKBASE</strong>
+              </div>
+              <span>agora</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  color: "#FFFFFF",
+                  lineHeight: "1.3",
+                }}
+              >
+                {previewTitle}
+              </div>
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                  color: "rgba(255, 255, 255, 0.82)",
+                  lineHeight: "1.4",
+                }}
+              >
+                {previewBody}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: "0.85rem",
+                paddingTop: "0.65rem",
+                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: "0.72rem",
+                color: "rgba(255, 255, 255, 0.6)",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <Volume2 size={12} color="#10B981" /> Som de caixa registradora ativo
+              </span>
+              <span style={{ color: "#5B34EA", fontWeight: 600 }}>Tocar para abrir</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+

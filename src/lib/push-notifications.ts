@@ -46,18 +46,54 @@ export async function notifySalePush(
       return;
     }
 
+    // Fetch workspace push settings (if customized)
+    const { data: ws } = await service
+      .from("utm_workspaces")
+      .select("push_settings")
+      .eq("id", workspaceId)
+      .maybeSingle();
+
+    const pushSettings = ws?.push_settings as
+      | {
+          title_template?: string;
+          body_template?: string;
+          show_buyer?: boolean;
+        }
+      | undefined;
+
     const formattedAmount = new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: event.currency || "BRL",
     }).format(event.amount);
 
-    const buyerText = event.buyerName ? ` de ${event.buyerName}` : "";
-    const productText = event.productName ? ` · ${event.productName}` : "";
+    const buyerName =
+      pushSettings?.show_buyer === false
+        ? ""
+        : event.buyerName?.trim() || "Cliente";
+    const productName = event.productName?.trim() || "Oferta Principal";
     const providerUpper = (event.provider || "").toUpperCase();
 
+    let title = pushSettings?.title_template || "💰 Venda Realizada: {valor}!";
+    let body =
+      pushSettings?.body_template ||
+      "Opa, caiu mais uma! {produto} via {provedor}.";
+
+    // Replace placeholders
+    title = title
+      .replace(/\{valor\}/gi, formattedAmount)
+      .replace(/\{produto\}/gi, productName)
+      .replace(/\{provedor\}/gi, providerUpper)
+      .replace(/\{comprador\}/gi, buyerName);
+
+    body = body
+      .replace(/\{valor\}/gi, formattedAmount)
+      .replace(/\{produto\}/gi, productName)
+      .replace(/\{provedor\}/gi, providerUpper)
+      .replace(/\{comprador\}/gi, buyerName);
+
     const payload = JSON.stringify({
-      title: `💰 Venda Realizada: ${formattedAmount}!`,
-      body: `Nova venda aprovada${buyerText}${productText} via ${providerUpper}.`,
+      title,
+      body,
       url: `/painel?workspace=${workspaceId}&tab=visao`,
       tag: `sale-${Date.now()}`,
       sound: "/kaching.wav",

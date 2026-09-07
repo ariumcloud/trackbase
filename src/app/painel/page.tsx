@@ -62,7 +62,7 @@ export default async function Page({
 
   const { data: workspaces, error: we } = await client
     .from("utm_workspaces")
-    .select("id,name,timezone,plan")
+    .select("id,name,timezone,plan,push_settings")
     .order("created_at");
   const w: Workspace | null =
     workspaces?.find((w) => w.id === p.workspace) ?? workspaces?.[0] ?? null;
