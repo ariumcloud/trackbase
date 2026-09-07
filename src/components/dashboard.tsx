@@ -97,6 +97,7 @@ type Props = {
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
   initialTab?: string;
+  initialPeriod?: string;
   appUrl: string;
   error?: string;
 };
@@ -206,7 +207,7 @@ export function Dashboard(p: Props) {
     ),
     [mobile, setMobile] = useState(false),
     [modal, setModal] = useState<string | null>(null),
-    [period, setPeriod] = useState("7"),
+    [period, setPeriod] = useState(p.initialPeriod || "7"),
     [currency, setCurrency] = useState("BRL"),
     [offer, setOffer] = useState("all"),
     [provider, setProvider] = useState("all"),
@@ -215,20 +216,39 @@ export function Dashboard(p: Props) {
     [pending, start] = useTransition();
   const workspace = p.workspace?.id ?? "",
     timezone = p.workspace?.timezone ?? "America/Sao_Paulo";
-  const today = dayInZone(new Date(), timezone),
-    begin = new Date(`${today}T12:00:00Z`);
-  begin.setUTCDate(begin.getUTCDate() - Number(period) + 1);
-  const since = begin.toISOString().slice(0, 10);
-  const sales = p.sales.filter(
-    (s) =>
-      !s.is_test &&
-      dayInZone(new Date(s.occurred_at), timezone) >= since &&
+  const today = dayInZone(new Date(), timezone);
+
+  let since: string;
+  let until: string;
+
+  if (period === "yesterday") {
+    const yDate = new Date(`${today}T12:00:00Z`);
+    yDate.setUTCDate(yDate.getUTCDate() - 1);
+    const yStr = yDate.toISOString().slice(0, 10);
+    since = yStr;
+    until = yStr;
+  } else {
+    const periodDays = Number(period) || 7;
+    const begin = new Date(`${today}T12:00:00Z`);
+    begin.setUTCDate(begin.getUTCDate() - periodDays + 1);
+    since = begin.toISOString().slice(0, 10);
+    until = today;
+  }
+
+  const sales = p.sales.filter((s) => {
+    if (s.is_test) return false;
+    const sDay = dayInZone(new Date(s.occurred_at), timezone);
+    return (
+      sDay >= since &&
+      sDay <= until &&
       (offer === "all" || s.offer_id === offer) &&
-      (provider === "all" || s.provider === provider),
-  );
+      (provider === "all" || s.provider === provider)
+    );
+  });
+
   const insights =
     offer === "all" && provider === "all"
-      ? p.insights.filter((i) => i.day >= since)
+      ? p.insights.filter((i) => i.day >= since && i.day <= until)
       : [];
 
   const s = p.summary;
@@ -710,7 +730,9 @@ export function Dashboard(p: Props) {
                     onChange={(e) => changePeriod(e.target.value)}
                   >
                     <option value="1">Hoje</option>
+                    <option value="yesterday">Ontem</option>
                     <option value="7">Últimos 7 dias</option>
+                    <option value="14">Últimos 14 dias</option>
                     <option value="30">Últimos 30 dias</option>
                   </select>
                   <select
@@ -2055,6 +2077,8 @@ export function Dashboard(p: Props) {
               currency={currency}
               workspace={workspace}
               pending={pending}
+              period={period}
+              changePeriod={changePeriod}
               run={run}
               request={request}
               connect={() => selectTab("integracoes")}

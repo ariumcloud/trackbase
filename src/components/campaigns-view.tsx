@@ -10,6 +10,7 @@ import {
   X,
   MousePointer2,
   ArrowRight,
+  Calendar,
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration } from "@/lib/types";
 
@@ -57,6 +58,8 @@ export function CampaignsView({
   currency = "BRL",
   workspace,
   pending,
+  period = "7",
+  changePeriod,
   run,
   request,
   connect,
@@ -68,6 +71,8 @@ export function CampaignsView({
   currency?: string;
   workspace: string;
   pending: boolean;
+  period?: string;
+  changePeriod?: (val: string) => void;
   run: (fn: () => Promise<unknown>) => void;
   request: (path: string, data: unknown) => Promise<unknown>;
   connect: () => void;
@@ -245,6 +250,25 @@ export function CampaignsView({
         </div>
 
         <div className="campaign-toolbar-actions">
+          {/* Filtro de Período / Datas Pré-definidas */}
+          {changePeriod && (
+            <div className="campaign-date-select-wrap">
+              <Calendar size={14} className="campaign-date-icon" />
+              <select
+                className="campaign-select with-icon"
+                value={period}
+                onChange={(e) => changePeriod(e.target.value)}
+                aria-label="Filtrar por data"
+              >
+                <option value="1">Hoje</option>
+                <option value="yesterday">Ontem</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="14">Últimos 14 dias</option>
+                <option value="30">Últimos 30 dias</option>
+              </select>
+            </div>
+          )}
+
           {/* Filtro de Status */}
           <select
             className="campaign-select"

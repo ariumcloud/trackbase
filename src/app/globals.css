@@ -2524,44 +2524,44 @@ textarea {
 }
 
 /* ==========================================================================
-   ABA DE CAMPANHAS, CONJUNTOS E ANÚNCIOS (ESTILO PROFISSIONAL / TRAFFIC SUITE)
+   ABA DE CAMPANHAS, CONJUNTOS E ANÚNCIOS (COMPACT & TRAFFIC SUITE PROFISSIONAL)
    ========================================================================== */
 .campaigns-container {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   background: #111827;
   border: 1px solid #1F2937;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   color: #F3F4F6;
 }
 
-/* Abas Superiores */
+/* Abas Superiores Compactas */
 .campaign-tabs-header {
   display: flex;
   align-items: center;
   background: #0B0F19;
   border-bottom: 1px solid #1F2937;
-  padding: 0 8px;
+  padding: 0 6px;
   overflow-x: auto;
-  gap: 4px;
+  gap: 2px;
 }
 
 .campaign-tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 20px;
+  gap: 6px;
+  padding: 10px 15px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: #9CA3AF;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
@@ -2574,13 +2574,13 @@ textarea {
   color: #38BDF8;
   background: #111827;
   border-bottom-color: #38BDF8;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
 }
 
 .campaign-tab-btn .badge-count {
-  font-size: 11px;
-  padding: 2px 7px;
+  font-size: 10.5px;
+  padding: 1px 6px;
   border-radius: 10px;
   background: #1F2937;
   color: #9CA3AF;
@@ -2591,13 +2591,13 @@ textarea {
   color: #38BDF8;
 }
 
-/* Barra de Filtros e Ferramentas */
+/* Barra de Filtros e Ferramentas Compacta */
 .campaign-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 10px 14px;
   background: #111827;
   border-bottom: 1px solid #1F2937;
   flex-wrap: wrap;
@@ -2605,14 +2605,14 @@ textarea {
 
 .campaign-search-box {
   position: relative;
-  min-width: 260px;
-  flex: 1 1 260px;
-  max-width: 380px;
+  min-width: 220px;
+  flex: 1 1 220px;
+  max-width: 320px;
 }
 
 .campaign-search-box svg {
   position: absolute;
-  left: 12px;
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: #6B7280;
@@ -2621,40 +2621,57 @@ textarea {
 
 .campaign-search-box input {
   width: 100%;
-  height: 38px;
-  padding: 0 14px 0 36px;
+  height: 32px;
+  padding: 0 10px 0 32px;
   background: #1F2937;
   border: 1px solid #374151;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #F9FAFB;
-  font-size: 13px;
+  font-size: 12px;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .campaign-search-box input:focus {
   border-color: #38BDF8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
 }
 
 .campaign-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
+.campaign-date-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.campaign-date-icon {
+  position: absolute;
+  left: 9px;
+  color: #9CA3AF;
+  pointer-events: none;
+}
+
 .campaign-select {
-  height: 38px;
-  padding: 0 30px 0 12px;
+  height: 32px;
+  padding: 0 26px 0 10px;
   background: #1F2937;
   border: 1px solid #374151;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #E5E7EB;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   outline: none;
+}
+
+.campaign-select.with-icon {
+  padding-left: 28px;
 }
 
 .campaign-select:focus {
@@ -2664,14 +2681,14 @@ textarea {
 .campaign-btn-tool {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 14px;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px;
   background: #1F2937;
   border: 1px solid #374151;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #E5E7EB;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -2686,44 +2703,44 @@ textarea {
 /* Dropdown de Configuração de Colunas */
 .columns-picker-popover {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   right: 0;
-  width: 280px;
-  max-height: 380px;
+  width: 250px;
+  max-height: 340px;
   overflow-y: auto;
   background: #1F2937;
   border: 1px solid #374151;
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  padding: 12px;
+  padding: 10px;
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .columns-picker-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #9CA3AF;
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   border-bottom: 1px solid #374151;
 }
 
 .columns-picker-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
+  gap: 7px;
+  font-size: 12px;
   color: #E5E7EB;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
+  padding: 3px 5px;
+  border-radius: 5px;
   user-select: none;
 }
 
@@ -2733,21 +2750,23 @@ textarea {
 
 .columns-picker-item input[type="checkbox"] {
   accent-color: #38BDF8;
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
 }
 
-/* Tabela Horizontal de Campanhas */
+/* Tabela Horizontal de Campanhas Compacta & Otimizada */
 .campaign-table-wrapper {
   width: 100%;
-  overflow-x: auto;
+  max-height: 70vh;
+  overflow: auto;
   background: #111827;
   scrollbar-width: thin;
-  scrollbar-color: #374151 #111827;
+  scrollbar-color: #4B5563 #111827;
 }
 
 .campaign-table-wrapper::-webkit-scrollbar {
+  width: 8px;
   height: 8px;
 }
 
@@ -2756,14 +2775,14 @@ textarea {
 }
 
 .campaign-table-wrapper::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #4B5563;
   border-radius: 4px;
 }
 
 .campaign-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 12px;
   text-align: left;
   white-space: nowrap;
 }
@@ -2771,11 +2790,11 @@ textarea {
 .campaign-table th {
   background: #0B0F19;
   color: #9CA3AF;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 12px 16px;
+  letter-spacing: 0.5px;
+  padding: 8px 12px;
   border-bottom: 1px solid #1F2937;
   border-top: 1px solid #1F2937;
   position: sticky;
@@ -2784,7 +2803,7 @@ textarea {
 }
 
 .campaign-table td {
-  padding: 12px 16px;
+  padding: 7px 12px;
   border-bottom: 1px solid #1F2937;
   color: #D1D5DB;
   background: #111827;
@@ -2801,9 +2820,9 @@ textarea {
   left: 0;
   z-index: 5;
   background: inherit;
-  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.25);
-  min-width: 240px;
-  max-width: 320px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  max-width: 240px;
 }
 
 .campaign-table th.col-sticky-name {
@@ -2814,29 +2833,32 @@ textarea {
 .campaign-name-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   overflow: hidden;
+  max-width: 220px;
 }
 
 .campaign-name-cell strong {
   color: #F9FAFB;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: block;
 }
 
 .campaign-name-cell small {
   color: #6B7280;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
-/* Switch Toggle de Status */
+/* Switch Toggle de Status Compacto */
 .status-switch {
   position: relative;
   display: inline-block;
-  width: 38px;
-  height: 20px;
+  width: 32px;
+  height: 18px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -2851,19 +2873,19 @@ textarea {
   position: absolute;
   inset: 0;
   background-color: #374151;
-  transition: 0.25s ease;
-  border-radius: 20px;
+  transition: 0.2s ease;
+  border-radius: 18px;
 }
 
 .status-slider:before {
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 12px;
+  width: 12px;
   left: 3px;
   bottom: 3px;
   background-color: #FFFFFF;
-  transition: 0.25s ease;
+  transition: 0.2s ease;
   border-radius: 50%;
 }
 
@@ -2872,7 +2894,7 @@ textarea {
 }
 
 .status-switch input:checked + .status-slider:before {
-  transform: translateX(18px);
+  transform: translateX(14px);
 }
 
 .status-switch input:disabled + .status-slider {
@@ -2900,12 +2922,13 @@ textarea {
   font-weight: 600;
 }
 
-/* Linha de Totalização */
+/* Linha de Totalização Compacta */
 .campaign-table tfoot tr td {
   background: #0B0F19;
   font-weight: 700;
   color: #F9FAFB;
   border-top: 2px solid #374151;
   border-bottom: none;
-  font-size: 12.5px;
+  font-size: 12px;
+  padding: 8px 12px;
 }

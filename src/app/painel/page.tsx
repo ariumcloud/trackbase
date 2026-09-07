@@ -70,15 +70,28 @@ export default async function Page({
 
   const empty = { data: [], error: null };
 
-  const periodDays = Number(p.period) || 7;
+  const periodParam = p.period || "7";
   const currency = p.currency || "BRL";
   const offerFilter = p.offer && p.offer !== "all" ? p.offer : null;
   const timezone = w?.timezone || "America/Sao_Paulo";
   const today = dayInZone(new Date(), timezone);
-  const begin = new Date(`${today}T12:00:00Z`);
-  begin.setUTCDate(begin.getUTCDate() - periodDays + 1);
-  const since = `${begin.toISOString().slice(0, 10)}T00:00:00Z`;
-  const until = `${today}T23:59:59Z`;
+
+  let since: string;
+  let until: string;
+
+  if (periodParam === "yesterday") {
+    const yDate = new Date(`${today}T12:00:00Z`);
+    yDate.setUTCDate(yDate.getUTCDate() - 1);
+    const yStr = yDate.toISOString().slice(0, 10);
+    since = `${yStr}T00:00:00Z`;
+    until = `${yStr}T23:59:59Z`;
+  } else {
+    const periodDays = Number(periodParam) || 7;
+    const begin = new Date(`${today}T12:00:00Z`);
+    begin.setUTCDate(begin.getUTCDate() - periodDays + 1);
+    since = `${begin.toISOString().slice(0, 10)}T00:00:00Z`;
+    until = `${today}T23:59:59Z`;
+  }
 
   const [
     offers,
@@ -230,6 +243,7 @@ export default async function Page({
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
       initialTab={p.tab}
+      initialPeriod={p.period}
       appUrl={process.env.APP_URL || "http://localhost:3000"}
       error={error}
     />
