@@ -9,7 +9,7 @@ export default function Login() {
       <section className="auth-story">
         <Link href="/" className="brand">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={38}
             height={38}
@@ -19,20 +19,17 @@ export default function Login() {
           <span className="brand-dot" />
         </Link>
         <div>
-          <span className="eyebrow">MENOS ACHISMO. MAIS RESULTADO.</span>
+          <span className="eyebrow">RASTREAMENTO É A BASE DA TUA ESCALA.</span>
           <h1>
-            Cada clique
+            Escala com clareza.
             <br />
-            tem uma história.
-            <br />
-            <em>Descubra qual vende.</em>
+            <em>Venda com controle.</em>
           </h1>
           <p>
             Da primeira visita até o dinheiro na conta. Sua operação inteira
             reunida com números reais e sem taxas abusivas.
           </p>
         </div>
-        <small>A plataforma pra você deixar de ser liso.</small>
       </section>
       <section className="auth-form">
         <AuthForm configured={configured()} />

@@ -73,7 +73,7 @@ export default function DemoPage() {
       <header className="demo-top">
         <Link href="/" className="brand">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={32}
             height={32}

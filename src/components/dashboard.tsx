@@ -410,7 +410,7 @@ export function Dashboard(p: Props) {
         <div className="sidebar-header">
           <Link href="/painel" className="brand" onClick={() => setMobile(false)}>
             <Image
-              src="/logo.png"
+              src="/Logo Roxa SVG - 1024x1024.svg"
               alt="Trackbase Logo"
               width={32}
               height={32}

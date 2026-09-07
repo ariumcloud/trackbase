@@ -16,7 +16,7 @@ export default function PrivacidadePage() {
       <nav className="landing-nav" style={{ background: "#FFFFFF", borderBottom: "1px solid #E2E8F0" }}>
         <Link href="/" className="brand">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={32}
             height={32}
@@ -168,7 +168,7 @@ export default function PrivacidadePage() {
       <footer className="landing-footer" style={{ borderTop: "1px solid #E2E8F0", background: "#FFFFFF" }}>
         <Link href="/" className="brand">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={28}
             height={28}

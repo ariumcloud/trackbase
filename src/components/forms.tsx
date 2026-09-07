@@ -98,6 +98,19 @@ export function AuthForm({ configured }: { configured: boolean }) {
                 required
               />
             </label>
+            {register && (
+              <label>
+                Celular
+                <input
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="(11) 99999-9999"
+                  required
+                />
+              </label>
+            )}
             <label>
               Senha
               <input
@@ -112,19 +125,19 @@ export function AuthForm({ configured }: { configured: boolean }) {
               />
             </label>
           </ActionForm>
-          <button
-            className="text-button"
-            onClick={() => setRegister(!register)}
-          >
-            {register
-              ? "Já tenho conta. Entrar"
-              : "Ainda não tem conta? Comece aqui"}
-          </button>
-          {!register && (
-            <a className="text-button" href="/recuperar-senha">
-              Esqueci minha senha
-            </a>
-          )}
+          <div className="auth-links">
+            <button
+              className="text-button"
+              onClick={() => setRegister(!register)}
+            >
+              {register ? "Já tenho conta. Entrar" : "Ainda não tem conta? Comece aqui"}
+            </button>
+            {!register && (
+              <a className="text-button" href="/recuperar-senha">
+                Esqueci minha senha
+              </a>
+            )}
+          </div>
         </>
       ) : (
         <div className="notice">

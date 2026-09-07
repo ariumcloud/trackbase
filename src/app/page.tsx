@@ -110,7 +110,7 @@ function MockDashboard() {
       <div className="mock-sidebar">
         <div className="mock-logo-wrap">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={34}
             height={34}
@@ -191,7 +191,7 @@ export default function Home() {
       <nav className="landing-nav">
         <Link href="/" className="brand">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={34}
             height={34}
@@ -591,7 +591,7 @@ export default function Home() {
       <footer className="landing-footer">
         <Link href="/" className="brand">
           <Image
-            src="/logo.png"
+            src="/Logo Roxa SVG - 1024x1024.svg"
             alt="Trackbase Logo"
             width={28}
             height={28}

@@ -865,6 +865,14 @@ svg {
   text-decoration: underline;
 }
 
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+
 /* ==========================================================================
    WORKSPACE DEMO INTERATIVA
    ========================================================================== */

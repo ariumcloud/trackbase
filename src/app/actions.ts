@@ -43,16 +43,24 @@ export async function updatePassword(form: FormData): Promise<ActionResult> {
 }
 export async function signup(form: FormData): Promise<ActionResult> {
   const email = z.string().email().safeParse(form.get("email")),
+    phone = z
+      .string()
+      .trim()
+      .regex(/^\+?[0-9\s().-]{10,20}$/)
+      .safeParse(form.get("phone")),
     password = z.string().min(10).max(128).safeParse(form.get("password"));
-  if (!email.success || !password.success)
+  if (!email.success || !phone.success || !password.success)
     return {
-      error: "Use um e-mail válido e senha com pelo menos 10 caracteres.",
+      error: "Use um e-mail válido, celular válido e senha com pelo menos 10 caracteres.",
     };
   const client = await db();
   const { error } = await client.auth.signUp({
     email: email.data,
     password: password.data,
-    options: { emailRedirectTo: `${process.env.APP_URL}/auth/callback` },
+    options: {
+      emailRedirectTo: `${process.env.APP_URL}/auth/callback`,
+      data: { phone: phone.data },
+    },
   });
   return error
     ? { error: "Não foi possível criar a conta. Tente novamente mais tarde." }
