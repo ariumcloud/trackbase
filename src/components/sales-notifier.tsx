@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Volume2 } from "lucide-react";
+import { Bell, Volume2, BellRing } from "lucide-react";
 
 type Props = {
   workspaceId: string;
@@ -42,7 +42,6 @@ export function SalesNotifier({ workspaceId }: Props) {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
-      // Register SW
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
@@ -55,7 +54,6 @@ export function SalesNotifier({ workspaceId }: Props) {
           console.warn("SW register error:", err);
         });
 
-      // Listen to postMessages from SW when sales arrive
       const handleMessage = (event: MessageEvent) => {
         if (event.data?.type === "PLAY_SALE_SOUND") {
           playKaching();
@@ -81,7 +79,6 @@ export function SalesNotifier({ workspaceId }: Props) {
       const registration = await navigator.serviceWorker.ready;
 
       if (isSubscribed) {
-        // Unsubscribe
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
           await subscription.unsubscribe();
@@ -95,7 +92,6 @@ export function SalesNotifier({ workspaceId }: Props) {
         setToastMessage("Notificações desativadas.");
         setTimeout(() => setToastMessage(null), 3000);
       } else {
-        // Subscribe
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
           alert("Permissão de notificações não concedida no seu navegador.");
@@ -150,83 +146,51 @@ export function SalesNotifier({ workspaceId }: Props) {
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div className="sales-notifier-cluster">
         <button
           type="button"
-          className={`button small ${isSubscribed ? "primary" : "ghost"}`}
+          className={`notifier-btn ${isSubscribed ? "active" : ""}`}
           disabled={loading || !workspaceId}
           onClick={toggleSubscription}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.4rem",
-            fontSize: "0.8rem",
-            padding: "0.35rem 0.75rem",
-          }}
-          title={isSubscribed ? "Notificações ativas" : "Receber alertas de venda com som"}
+          title={isSubscribed ? "Notificações de venda ativas (Clique para desativar)" : "Ativar alertas de venda com som de caixa registradora"}
+          aria-label="Notificações de venda"
         >
-          <Bell size={14} className={isSubscribed ? "text-white" : ""} />
-          <span>{isSubscribed ? "Vendas Ativas" : "Ativar Notificações"}</span>
+          {isSubscribed ? (
+            <>
+              <BellRing size={15} className="notifier-icon-pulse" />
+              <span className="notifier-text">Alertas Ativos</span>
+              <span className="notifier-status-badge">ON</span>
+            </>
+          ) : (
+            <>
+              <Bell size={15} />
+              <span className="notifier-text">Ativar Vendas</span>
+            </>
+          )}
         </button>
 
         <button
           type="button"
-          className="button small ghost"
+          className="notifier-btn-sound"
           onClick={() => {
             playKaching();
-            setToastMessage("💰 Som de venda testado!");
+            setToastMessage("💰 Som de venda testado! (Kaching)");
             setTimeout(() => setToastMessage(null), 3000);
           }}
           title="Testar som de venda (Kaching)"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.3rem",
-            padding: "0.35rem 0.6rem",
-            fontSize: "0.78rem",
-          }}
+          aria-label="Testar som de venda"
         >
-          <Volume2 size={14} />
-          <span>Testar Som</span>
+          <Volume2 size={15} />
+          <span className="notifier-sound-text">Testar Som</span>
         </button>
       </div>
 
       {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            zIndex: 9999,
-            background: "#17152F",
-            color: "#FFFFFF",
-            padding: "1rem 1.25rem",
-            borderRadius: "12px",
-            boxShadow: "0 12px 32px rgba(23, 21, 47, 0.35)",
-            border: "1px solid rgba(91, 52, 234, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            animation: "slideIn 0.3s ease-out",
-          }}
-        >
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              background: "#5B34EA",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "18px",
-            }}
-          >
-            💰
-          </div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Trackbase Notificações</div>
-            <div style={{ fontSize: "0.82rem", opacity: 0.85 }}>{toastMessage}</div>
+        <div className="sales-toast" role="status">
+          <div className="sales-toast-icon">💰</div>
+          <div className="sales-toast-content">
+            <div className="sales-toast-title">Trackbase Notificações</div>
+            <div className="sales-toast-body">{toastMessage}</div>
           </div>
         </div>
       )}

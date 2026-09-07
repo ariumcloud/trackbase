@@ -5,81 +5,81 @@ import {
   LayoutDashboard,
   Layers,
   Link2,
+  BarChart3,
   Copy,
   Activity,
   Bot,
+  Plug,
+  Bell,
+  Menu,
 } from "lucide-react";
 
 interface BottomBarProps {
   currentTab: string;
   onSelectTab: (tabId: string) => void;
+  onOpenMenu: () => void;
+  unreadAlertsCount?: number;
 }
 
-export function BottomBar({ currentTab, onSelectTab }: BottomBarProps) {
+export function BottomBar({
+  currentTab,
+  onSelectTab,
+  onOpenMenu,
+  unreadAlertsCount = 0,
+}: BottomBarProps) {
   const items = [
     { id: "visao", label: "Início", icon: LayoutDashboard },
     { id: "ofertas", label: "Ofertas", icon: Layers },
     { id: "links", label: "Links", icon: Link2 },
+    { id: "campanhas", label: "Campanhas", icon: BarChart3 },
     { id: "clonador", label: "Clonador", icon: Copy },
     { id: "diagnostico", label: "Diagnóstico", icon: Activity },
-    { id: "assistente", label: "Assistente", icon: Bot },
+    { id: "integracoes", label: "Integrações", icon: Plug },
+    { id: "assistente", label: "Assistente IA", icon: Bot },
+    {
+      id: "alertas",
+      label: "Alertas",
+      icon: Bell,
+      badge: unreadAlertsCount > 0 ? unreadAlertsCount : undefined,
+    },
   ];
 
   return (
-    <nav
-      className="mobile-bottom-bar"
-      style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: "60px",
-        background: "#FFFFFF",
-        borderTop: "1px solid var(--line, #E2E8F0)",
-        display: "flex",
-        justifyContent: "space-around",
-        alignItems: "center",
-        zIndex: 90,
-        boxShadow: "0 -2px 10px rgba(0,0,0,0.05)",
-        padding: "0 0.25rem",
-      }}
-      aria-label="Navegação mobile inferior"
-    >
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active = currentTab === item.id;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelectTab(item.id)}
-            style={{
-              background: "none",
-              border: "none",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "0.35rem 0.5rem",
-              color: active ? "#5B34EA" : "var(--muted, #64748B)",
-              cursor: "pointer",
-              flex: 1,
-              transition: "color 0.15s ease",
-            }}
-          >
-            <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
-            <span
-              style={{
-                fontSize: "0.68rem",
-                marginTop: "2px",
-                fontWeight: active ? 600 : 400,
-              }}
+    <nav className="mobile-bottom-bar" aria-label="Navegação mobile rápida">
+      <div className="bottom-bar-scroller">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = currentTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelectTab(item.id)}
+              className={`bottom-bar-item ${active ? "active" : ""}`}
             >
-              {item.label}
-            </span>
-          </button>
-        );
-      })}
+              <div className="bottom-bar-icon-wrap">
+                <Icon size={19} strokeWidth={active ? 2.4 : 1.8} />
+                {item.badge ? (
+                  <span className="bottom-bar-badge">{item.badge}</span>
+                ) : null}
+              </div>
+              <span className="bottom-bar-label">{item.label}</span>
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="bottom-bar-item bottom-bar-menu-btn"
+          aria-label="Mais opções e configurações"
+        >
+          <div className="bottom-bar-icon-wrap">
+            <Menu size={19} strokeWidth={1.8} />
+          </div>
+          <span className="bottom-bar-label">Menu</span>
+        </button>
+      </div>
     </nav>
   );
 }

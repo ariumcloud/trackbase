@@ -390,20 +390,39 @@ export function Dashboard(p: Props) {
         );
       }
     });
+
   return (
     <div className="app-shell">
+      {/* Overlay escuro de fundo no mobile ao abrir o menu */}
+      {mobile && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobile(false)}
+          aria-hidden="true"
+        />
+      )}
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
-        <Link href="/painel" className="brand">
-          <Image
-            src="/logo.png"
-            alt="Trackbase Logo"
-            width={32}
-            height={32}
-            className="brand-logo-img"
-          />
-          Trackbase
-          <span className="brand-dot" />
-        </Link>
+        <div className="sidebar-header">
+          <Link href="/painel" className="brand" onClick={() => setMobile(false)}>
+            <Image
+              src="/logo.png"
+              alt="Trackbase Logo"
+              width={32}
+              height={32}
+              className="brand-logo-img"
+            />
+            Trackbase
+            <span className="brand-dot" />
+          </Link>
+          <button
+            type="button"
+            className="sidebar-close-btn"
+            onClick={() => setMobile(false)}
+            aria-label="Fechar menu lateral"
+          >
+            <X size={20} />
+          </button>
+        </div>
         <button
           className="workspace-picker"
           onClick={() => create("workspace")}
@@ -471,20 +490,30 @@ export function Dashboard(p: Props) {
             <span className="user-avatar">
               {p.workspace?.name.slice(0, 1) || "U"}
             </span>
-            <span>
+            <span className="sidebar-user-details">
               <strong>{p.workspace?.name || "Bem-vindo"}</strong>
               <small>Powered by Trackbase</small>
             </span>
             {!p.setup && (
               <button
-                className="icon-button"
-                aria-label="Sair"
+                className="icon-button logout-btn"
+                aria-label="Sair da conta"
+                title="Deslogar da Trackbase"
                 onClick={() => logout()}
               >
-                <LogOut size={16} />
+                <LogOut size={17} />
               </button>
             )}
           </div>
+          {!p.setup && (
+            <button
+              type="button"
+              className="button ghost small sidebar-logout-full"
+              onClick={() => logout()}
+            >
+              <LogOut size={15} /> Desconectar da conta
+            </button>
+          )}
         </div>
       </aside>
       <div className="main-shell">
@@ -2399,7 +2428,12 @@ export function Dashboard(p: Props) {
           </section>
         </div>
       )}
-      <BottomBar currentTab={tab} onSelectTab={selectTab} />
+      <BottomBar
+        currentTab={tab}
+        onSelectTab={selectTab}
+        onOpenMenu={() => setMobile(true)}
+        unreadAlertsCount={p.alerts.filter((a) => !a.read).length}
+      />
     </div>
   );
 }
