@@ -2001,3 +2001,29 @@ textarea {
 .mobile-bottom-bar { display: none !important; }
 @media (max-width: 960px) { .sidebar { position: fixed; width: 242px; border-right: 1px solid var(--line); border-bottom: 0; }.app-shell { flex-direction: row; } }
 @media (max-width: 760px) { .sidebar { transform: translateX(-100%); transition: transform .2s ease; width: min(282px, 88vw); padding: 20px 16px; box-shadow: none; }.sidebar.open { transform: translateX(0); box-shadow: 12px 0 32px rgba(18, 12, 49, .18); }.main-shell { margin-left: 0; width: 100%; padding-bottom: 64px; }.topbar { height: 58px; padding: 0 16px; }.mobile-toggle { display: inline-flex; }.topbar-right > span:not(.top-avatar) { display: none; }.main-shell > main { padding: 22px 16px 86px; }.mobile-bottom-bar { display: flex !important; } }
+
+
+/* Trackbase dashboard structure */
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.page-heading h1 { margin: 0; font-size: clamp(30px, 3vw, 42px); line-height: 1.08; letter-spacing: -1.7px; color: var(--ink); }
+.page-heading p { margin: 10px 0 0; color: var(--muted); font-size: 16px; line-height: 1.5; }
+.eyebrow { margin-bottom: 10px; color: var(--brand-accent); font-size: 10px; font-weight: 800; letter-spacing: 1.45px; }
+.page-heading > div:last-child { flex-shrink: 0; }
+.filterbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0 22px; }
+.filter-group { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.filter-group select { height: 40px; min-width: 142px; border: 1px solid var(--line-strong); border-radius: 10px; padding: 0 34px 0 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
+.filter-group select:focus { outline: 2px solid var(--brand-border); border-color: var(--brand-accent); }
+.timezone { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
+.metric-card { min-width: 0; min-height: 154px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); }
+.metric-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 650; }
+.metric-label svg { flex: 0 0 auto; color: var(--brand-accent); }
+.metric-card > strong { display: block; overflow: hidden; text-overflow: ellipsis; margin: 22px 0 10px; color: var(--ink); font-size: clamp(22px, 2.2vw, 30px); line-height: 1; letter-spacing: -1px; white-space: nowrap; }
+.metric-card > small { display: block; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.metric-card.tone-positive { border-color: var(--green-border); background: linear-gradient(135deg, var(--surface), var(--green-soft)); }
+.metric-card.tone-negative { border-color: var(--red-border); background: linear-gradient(135deg, var(--surface), var(--red-soft)); }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(290px, 1fr); gap: 22px; margin-bottom: 22px; }
+.dashboard-grid .panel { margin-bottom: 0; }
+@media (max-width: 1180px) { .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .filterbar { align-items: flex-start; flex-direction: column; } .timezone { display: none; } .dashboard-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .page-heading { align-items: flex-start; flex-direction: column; gap: 16px; margin-bottom: 22px; } .page-heading h1 { font-size: 32px; } .page-heading p { font-size: 15px; } .page-heading > div:last-child { width: 100%; } .page-heading > div:last-child > * { flex: 1; } .filterbar { gap: 12px; padding-bottom: 18px; } .filter-group { width: 100%; flex-wrap: wrap; gap: 8px; } .filter-group > svg { display: none; } .filter-group select { flex: 1 1 142px; min-width: 0; height: 42px; font-size: 13px; } .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .metric-card { min-height: 142px; padding: 14px; border-radius: 12px; } .metric-label { font-size: 11px; } .metric-card > strong { margin: 18px 0 9px; font-size: 22px; } .metric-card > small { font-size: 10px; } }
+@media (max-width: 390px) { .metrics-grid { grid-template-columns: 1fr; } }
