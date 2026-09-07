@@ -181,15 +181,28 @@ export default async function Page({
         empty,
       ];
 
-  const error =
-    we ||
-    [offers, links, integrations, sales, insights, entities, logs, pixels].some(
-      (r) => r.error,
-    )
-      ? "Não foi possível carregar todos os dados. Verifique a conexão e as migrations."
-      : p.error === "meta"
-        ? "A conexão Meta não foi concluída. Confira as permissões e tente novamente."
-        : undefined;
+  const queries = [
+    { name: "workspaces", error: we },
+    { name: "offers", error: offers.error },
+    { name: "links", error: links.error },
+    { name: "integrations", error: integrations.error },
+    { name: "sales", error: sales.error },
+    { name: "insights", error: insights.error },
+    { name: "entities", error: entities.error },
+    { name: "logs", error: logs.error },
+    { name: "pixels", error: pixels.error },
+  ];
+
+  const failedQuery = queries.find((q) => q.error);
+  if (failedQuery) {
+    console.error("Dashboard query failed:", failedQuery.name, failedQuery.error);
+  }
+
+  const error = failedQuery
+    ? `Não foi possível carregar todos os dados (${failedQuery.name}: ${failedQuery.error?.message || "erro"}). Verifique a conexão e as migrations.`
+    : p.error === "meta"
+      ? "A conexão Meta não foi concluída. Confira as permissões e tente novamente."
+      : undefined;
 
   return (
     <Dashboard

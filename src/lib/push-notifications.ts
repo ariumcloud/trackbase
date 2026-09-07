@@ -4,7 +4,11 @@ import { admin } from "./supabase/server";
 
 let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-const vapidSubject = process.env.VAPID_SUBJECT || "mailto:suporte@trackbase.com.br";
+let rawSubject = process.env.VAPID_SUBJECT || "mailto:suporte@trackbase.com.br";
+if (rawSubject && !rawSubject.startsWith("mailto:") && !rawSubject.startsWith("http")) {
+  rawSubject = `mailto:${rawSubject}`;
+}
+const vapidSubject = rawSubject;
 
 const fallbackPublic = "BCUQChXv4HEiaFXIllkn3E4_-6a3SE_Aks-xTeO4TPvTLH0Az0yDvJhM8fsfuaDVnvzfE-OG2GQv1er2bqzmzmk";
 const fallbackPrivate = "5JjWTKB67jaxsWhKQfrfDrk0OZCTMypTYaez7uD7Nq0";
