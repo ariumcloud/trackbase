@@ -227,6 +227,10 @@ export function Dashboard(p: Props) {
     const yStr = yDate.toISOString().slice(0, 10);
     since = yStr;
     until = yStr;
+  } else if (period.includes("_")) {
+    const [startDate, endDate] = period.split("_");
+    since = startDate || today;
+    until = endDate || today;
   } else {
     const periodDays = Number(period) || 7;
     const begin = new Date(`${today}T12:00:00Z`);
@@ -568,7 +572,7 @@ export function Dashboard(p: Props) {
             <span className="top-avatar">U</span>
           </div>
         </header>
-        <main>
+        <main className={tab === "campanhas" ? "main-fluid" : ""}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>

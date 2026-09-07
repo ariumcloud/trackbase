@@ -2268,6 +2268,7 @@ textarea {
 .top-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-text); font-weight: 700; margin-left: 8px; font-size: 13px; }
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }.mobile-toggle { display: none; }
 .main-shell > main { width: min(100%, 1540px); margin: 0 auto; padding: 34px 38px 56px; }
+.main-shell > main.main-fluid { width: 100%; max-width: 100%; padding: 24px 28px 48px; }
 
 /* Sidebar & Header inside sidebar */
 .sidebar .brand { display: flex; align-items: center; gap: 8px; font-size: 23px; font-weight: 750; color: var(--ink); letter-spacing: -0.7px; }
@@ -2524,36 +2525,38 @@ textarea {
 }
 
 /* ==========================================================================
-   ABA DE CAMPANHAS, CONJUNTOS E ANÚNCIOS (COMPACT & TRAFFIC SUITE PROFISSIONAL)
+   ABA DE CAMPANHAS, CONJUNTOS E ANÚNCIOS (META ADS PRO & 1-SCROLL EXPERIENCE)
    ========================================================================== */
 .campaigns-container {
   display: flex;
   flex-direction: column;
   gap: 0;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   background: #111827;
   border: 1px solid #1F2937;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   color: #F3F4F6;
+  width: 100%;
 }
 
-/* Abas Superiores Compactas */
+/* Abas Superiores Meta */
 .campaign-tabs-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background: #0B0F19;
   border-bottom: 1px solid #1F2937;
-  padding: 0 6px;
+  padding: 0 8px;
   overflow-x: auto;
-  gap: 2px;
+  gap: 4px;
 }
 
 .campaign-tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 15px;
+  gap: 7px;
+  padding: 11px 16px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -2591,7 +2594,25 @@ textarea {
   color: #38BDF8;
 }
 
-/* Barra de Filtros e Ferramentas Compacta */
+.campaign-tabs-header-right {
+  margin-left: auto;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+.currency-indicator {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+/* Barra de Filtros e Ferramentas */
 .campaign-toolbar {
   display: flex;
   align-items: center;
@@ -2644,22 +2665,133 @@ textarea {
   flex-wrap: wrap;
 }
 
-.campaign-date-select-wrap {
-  position: relative;
+/* Botão e Popover de Datas */
+.campaign-btn-date {
   display: inline-flex;
   align-items: center;
-}
-
-.campaign-date-icon {
-  position: absolute;
-  left: 9px;
-  color: #9CA3AF;
-  pointer-events: none;
-}
-
-.campaign-select {
+  gap: 6px;
   height: 32px;
-  padding: 0 26px 0 10px;
+  padding: 0 12px;
+  background: #1F2937;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  color: #F3F4F6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.campaign-btn-date:hover {
+  background: #283548;
+  border-color: #4B5563;
+}
+
+.campaign-date-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  background: #1F2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+  padding: 8px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.campaign-date-options {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.campaign-date-opt-btn {
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: #D1D5DB;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.campaign-date-opt-btn:hover {
+  background: #374151;
+  color: #FFFFFF;
+}
+
+.campaign-date-opt-btn.active {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38BDF8;
+  font-weight: 600;
+}
+
+.campaign-custom-date-divider {
+  height: 1px;
+  background: #374151;
+  margin: 8px 0;
+}
+
+.campaign-custom-date-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 4px;
+}
+
+.custom-date-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.custom-date-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.custom-date-inputs label {
+  display: block;
+  font-size: 10px;
+  color: #9CA3AF;
+  margin-bottom: 2px;
+}
+
+.custom-date-inputs input[type="date"] {
+  width: 100%;
+  padding: 4px 6px;
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 5px;
+  color: #F9FAFB;
+  font-size: 11px;
+}
+
+.custom-date-apply {
+  width: 100%;
+  margin-top: 4px;
+  justify-content: center;
+}
+
+/* Selects Estilizados */
+.campaign-pill-select-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.campaign-select-styled {
+  height: 32px;
+  padding: 0 24px 0 10px;
   background: #1F2937;
   border: 1px solid #374151;
   border-radius: 6px;
@@ -2668,13 +2800,10 @@ textarea {
   font-weight: 500;
   cursor: pointer;
   outline: none;
+  transition: all 0.15s ease;
 }
 
-.campaign-select.with-icon {
-  padding-left: 28px;
-}
-
-.campaign-select:focus {
+.campaign-select-styled:focus {
   border-color: #38BDF8;
 }
 
@@ -2700,18 +2829,18 @@ textarea {
   color: #FFFFFF;
 }
 
-/* Dropdown de Configuração de Colunas */
+/* Dropdown de Colunas */
 .columns-picker-popover {
   position: absolute;
   top: calc(100% + 5px);
   right: 0;
   width: 250px;
-  max-height: 340px;
+  max-height: 360px;
   overflow-y: auto;
   background: #1F2937;
   border: 1px solid #374151;
   border-radius: 8px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
   padding: 10px;
   z-index: 100;
   display: flex;
@@ -2755,18 +2884,17 @@ textarea {
   cursor: pointer;
 }
 
-/* Tabela Horizontal de Campanhas Compacta & Otimizada */
+/* Tabela de Campanhas: 1 Scroll Natural e Scroll Horizontal Responsivo */
 .campaign-table-wrapper {
   width: 100%;
-  max-height: 70vh;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   background: #111827;
   scrollbar-width: thin;
   scrollbar-color: #4B5563 #111827;
 }
 
 .campaign-table-wrapper::-webkit-scrollbar {
-  width: 8px;
   height: 8px;
 }
 
@@ -2787,6 +2915,7 @@ textarea {
   white-space: nowrap;
 }
 
+/* Cabeçalhos Ordenáveis */
 .campaign-table th {
   background: #0B0F19;
   color: #9CA3AF;
@@ -2794,16 +2923,57 @@ textarea {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid #1F2937;
   border-top: 1px solid #1F2937;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  user-select: none;
+}
+
+.campaign-table th.th-sortable {
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.campaign-table th.th-sortable:hover {
+  background: #151D2C;
+  color: #E5E7EB;
+}
+
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.th-content-center {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.th-content-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.sort-icon-idle {
+  opacity: 0.35;
+  transition: opacity 0.12s;
+}
+
+.campaign-table th.th-sortable:hover .sort-icon-idle {
+  opacity: 0.8;
+}
+
+.sort-icon-active {
+  color: #38BDF8;
 }
 
 .campaign-table td {
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid #1F2937;
   color: #D1D5DB;
   background: #111827;
@@ -2820,27 +2990,27 @@ textarea {
   left: 0;
   z-index: 5;
   background: inherit;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
-  min-width: 180px;
-  max-width: 240px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.35);
+  min-width: 220px;
+  max-width: 320px;
 }
 
 .campaign-table th.col-sticky-name {
-  z-index: 15;
+  z-index: 10;
   background: #0B0F19;
 }
 
 .campaign-name-cell {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   overflow: hidden;
-  max-width: 220px;
+  max-width: 300px;
 }
 
 .campaign-name-cell strong {
   color: #F9FAFB;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2853,7 +3023,7 @@ textarea {
   font-size: 10.5px;
 }
 
-/* Switch Toggle de Status Compacto */
+/* Switch Toggle de Status */
 .status-switch {
   position: relative;
   display: inline-block;
@@ -2922,13 +3092,26 @@ textarea {
   font-weight: 600;
 }
 
-/* Linha de Totalização Compacta */
+/* Linha de Totalização Flutuante (Sticky Bottom) */
+.campaign-table tfoot {
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+}
+
 .campaign-table tfoot tr td {
-  background: #0B0F19;
+  background: #0B0F19 !important;
   font-weight: 700;
   color: #F9FAFB;
-  border-top: 2px solid #374151;
+  border-top: 2px solid #38BDF8;
   border-bottom: none;
   font-size: 12px;
-  padding: 8px 12px;
+  padding: 10px 12px;
+  box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.45);
 }
+
+.campaign-table tfoot tr td.col-sticky-name {
+  z-index: 15;
+  background: #0B0F19 !important;
+}
+

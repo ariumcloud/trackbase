@@ -11,6 +11,10 @@ import {
   MousePointer2,
   ArrowRight,
   Calendar,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration } from "@/lib/types";
 
@@ -18,36 +22,38 @@ export type ColumnKey =
   | "status"
   | "name"
   | "sales"
+  | "cpa"
   | "spend"
   | "revenue"
-  | "cpa"
   | "profit"
   | "roas"
   | "margin"
   | "roi"
   | "cpc"
   | "ctr"
+  | "cpm"
   | "clicks"
   | "impressions";
 
 export const DEFAULT_COLUMNS: Record<
   ColumnKey,
-  { label: string; defaultVisible: boolean }
+  { label: string; defaultVisible: boolean; numeric?: boolean }
 > = {
-  status: { label: "Status", defaultVisible: true },
-  name: { label: "Identificação", defaultVisible: true },
-  sales: { label: "Vendas", defaultVisible: true },
-  cpa: { label: "CPA", defaultVisible: true },
-  spend: { label: "Gastos", defaultVisible: true },
-  revenue: { label: "Faturamento", defaultVisible: true },
-  profit: { label: "Lucro", defaultVisible: true },
-  roas: { label: "ROAS", defaultVisible: true },
-  margin: { label: "Margem", defaultVisible: true },
-  roi: { label: "ROI", defaultVisible: true },
-  cpc: { label: "CPC", defaultVisible: true },
-  ctr: { label: "CTR", defaultVisible: true },
-  clicks: { label: "Cliques", defaultVisible: false },
-  impressions: { label: "Impressões", defaultVisible: false },
+  status: { label: "Status", defaultVisible: true, numeric: false },
+  name: { label: "Identificação", defaultVisible: true, numeric: false },
+  sales: { label: "Vendas", defaultVisible: true, numeric: true },
+  cpa: { label: "CPA", defaultVisible: true, numeric: true },
+  spend: { label: "Gastos", defaultVisible: true, numeric: true },
+  revenue: { label: "Faturamento", defaultVisible: true, numeric: true },
+  profit: { label: "Lucro", defaultVisible: true, numeric: true },
+  roas: { label: "ROAS", defaultVisible: true, numeric: true },
+  margin: { label: "Margem", defaultVisible: true, numeric: true },
+  roi: { label: "ROI", defaultVisible: true, numeric: true },
+  cpc: { label: "CPC", defaultVisible: true, numeric: true },
+  ctr: { label: "CTR", defaultVisible: true, numeric: true },
+  cpm: { label: "CPM", defaultVisible: true, numeric: true },
+  clicks: { label: "Cliques", defaultVisible: false, numeric: true },
+  impressions: { label: "Impressões", defaultVisible: false, numeric: true },
 };
 
 export function CampaignsView({
@@ -82,10 +88,20 @@ export function CampaignsView({
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
   const [showColPicker, setShowColPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Ordenação por colunas (crescente / decrescente)
+  const [sortKey, setSortKey] = useState<ColumnKey | null>("profit");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Período personalizado
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
   const [visibleCols, setVisibleCols] = useState<Record<ColumnKey, boolean>>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("trackbase_campaign_cols");
+        const saved = localStorage.getItem("trackbase_campaign_cols_v2");
         if (saved) return JSON.parse(saved);
       } catch {}
     }
@@ -101,12 +117,33 @@ export function CampaignsView({
       const next = { ...prev, [key]: !prev[key] };
       if (typeof window !== "undefined") {
         try {
-          localStorage.setItem("trackbase_campaign_cols", JSON.stringify(next));
+          localStorage.setItem("trackbase_campaign_cols_v2", JSON.stringify(next));
         } catch {}
       }
       return next;
     });
   };
+
+  const handleSort = (key: ColumnKey) => {
+    if (sortKey === key) {
+      if (sortOrder === "desc") {
+        setSortOrder("asc");
+      } else {
+        setSortKey(null);
+        setSortOrder("desc");
+      }
+    } else {
+      setSortKey(key);
+      setSortOrder("desc");
+    }
+  };
+
+  // Moeda detectada dinamicamente da conta Meta / insights
+  const detectedCurrency =
+    insights.find((i) => i.currency)?.currency ||
+    integrations.find((i) => i.provider === "meta" && i.currency)?.currency ||
+    currency ||
+    "BRL";
 
   // 1. Agregação de dados dos insights da Meta por ID (campanha, conjunto ou anúncio)
   const insightsMap = new Map<
@@ -152,7 +189,7 @@ export function CampaignsView({
   }
 
   // 3. Filtragem das linhas da entidade
-  const rows = entities.filter((e) => {
+  const filteredEntities = entities.filter((e) => {
     if (e.kind !== kind) return false;
     if (selectedIntegration !== "all" && e.integration_id !== selectedIntegration)
       return false;
@@ -166,25 +203,144 @@ export function CampaignsView({
     return true;
   });
 
-  // Totais agregados no rodapé
+  // 4. Mapeamento de métricas completas para ordenação
+  interface RowData {
+    entity: Entity;
+    spend: number;
+    clicks: number;
+    impressions: number;
+    salesCount: number;
+    revenue: number;
+    profit: number;
+    roas: number | null;
+    cpa: number | null;
+    margin: number | null;
+    roi: number | null;
+    cpc: number | null;
+    ctr: number | null;
+    cpm: number | null;
+  }
+
+  const computedRows: RowData[] = filteredEntities.map((e) => {
+    const ins = insightsMap.get(e.external_id) || {
+      spend: 0,
+      clicks: 0,
+      impressions: 0,
+    };
+    const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0 };
+    const profit = sls.revenue - ins.spend;
+    const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
+    const cpa = sls.count > 0 ? ins.spend / sls.count : null;
+    const margin = sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;
+    const roi = ins.spend > 0 ? (profit / ins.spend) * 100 : null;
+    const cpc = ins.clicks > 0 ? ins.spend / ins.clicks : null;
+    const ctr =
+      ins.impressions > 0 ? (ins.clicks / ins.impressions) * 100 : null;
+    const cpm =
+      ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
+
+    return {
+      entity: e,
+      spend: ins.spend,
+      clicks: ins.clicks,
+      impressions: ins.impressions,
+      salesCount: sls.count,
+      revenue: sls.revenue,
+      profit,
+      roas,
+      cpa,
+      margin,
+      roi,
+      cpc,
+      ctr,
+      cpm,
+    };
+  });
+
+  // 5. Ordenação dinâmica por coluna clicada
+  if (sortKey) {
+    computedRows.sort((a, b) => {
+      let aVal = 0;
+      let bVal = 0;
+      switch (sortKey) {
+        case "status":
+          return sortOrder === "asc"
+            ? a.entity.status.localeCompare(b.entity.status)
+            : b.entity.status.localeCompare(a.entity.status);
+        case "name":
+          return sortOrder === "asc"
+            ? a.entity.name.localeCompare(b.entity.name)
+            : b.entity.name.localeCompare(a.entity.name);
+        case "sales":
+          aVal = a.salesCount;
+          bVal = b.salesCount;
+          break;
+        case "spend":
+          aVal = a.spend;
+          bVal = b.spend;
+          break;
+        case "revenue":
+          aVal = a.revenue;
+          bVal = b.revenue;
+          break;
+        case "cpa":
+          aVal = a.cpa ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          bVal = b.cpa ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          break;
+        case "profit":
+          aVal = a.profit;
+          bVal = b.profit;
+          break;
+        case "roas":
+          aVal = a.roas ?? -Infinity;
+          bVal = b.roas ?? -Infinity;
+          break;
+        case "margin":
+          aVal = a.margin ?? -Infinity;
+          bVal = b.margin ?? -Infinity;
+          break;
+        case "roi":
+          aVal = a.roi ?? -Infinity;
+          bVal = b.roi ?? -Infinity;
+          break;
+        case "cpc":
+          aVal = a.cpc ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          bVal = b.cpc ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          break;
+        case "ctr":
+          aVal = a.ctr ?? -Infinity;
+          bVal = b.ctr ?? -Infinity;
+          break;
+        case "cpm":
+          aVal = a.cpm ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          bVal = b.cpm ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          break;
+        case "clicks":
+          aVal = a.clicks;
+          bVal = b.clicks;
+          break;
+        case "impressions":
+          aVal = a.impressions;
+          bVal = b.impressions;
+          break;
+      }
+      return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+    });
+  }
+
+  // Totais agregados
   let totalSales = 0;
   let totalSpend = 0;
   let totalRevenue = 0;
   let totalClicks = 0;
   let totalImpressions = 0;
 
-  for (const row of rows) {
-    const ins = insightsMap.get(row.external_id) || {
-      spend: 0,
-      clicks: 0,
-      impressions: 0,
-    };
-    const sls = salesMap.get(row.external_id) || { count: 0, revenue: 0 };
-    totalSales += sls.count;
-    totalSpend += ins.spend;
-    totalRevenue += sls.revenue;
-    totalClicks += ins.clicks;
-    totalImpressions += ins.impressions;
+  for (const row of computedRows) {
+    totalSales += row.salesCount;
+    totalSpend += row.spend;
+    totalRevenue += row.revenue;
+    totalClicks += row.clicks;
+    totalImpressions += row.impressions;
   }
 
   const totalProfit = totalRevenue - totalSpend;
@@ -192,16 +348,17 @@ export function CampaignsView({
   const totalCpa = totalSales > 0 ? totalSpend / totalSales : null;
   const totalMargin =
     totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : null;
-  const totalRoi =
-    totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
+  const totalRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
   const totalCpc = totalClicks > 0 ? totalSpend / totalClicks : null;
   const totalCtr =
     totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : null;
+  const totalCpm =
+    totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null;
 
   const formatMoney = (val: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
-      currency: currency || "BRL",
+      currency: detectedCurrency,
     }).format(val);
   };
 
@@ -211,9 +368,40 @@ export function CampaignsView({
     ad: entities.filter((e) => e.kind === "ad").length,
   };
 
+  const getDateLabel = () => {
+    if (period === "1") return "Hoje";
+    if (period === "yesterday") return "Ontem";
+    if (period === "7") return "Últimos 7 dias";
+    if (period === "14") return "Últimos 14 dias";
+    if (period === "30") return "Últimos 30 dias";
+    if (period?.includes("_")) {
+      const [s, e] = period.split("_");
+      return `${s.slice(5)} até ${e.slice(5)}`;
+    }
+    return `Período (${period})`;
+  };
+
+  const applyCustomDates = () => {
+    if (customStart && customEnd && changePeriod) {
+      changePeriod(`${customStart}_${customEnd}`);
+      setShowDatePicker(false);
+    }
+  };
+
+  const renderSortIndicator = (col: ColumnKey) => {
+    if (sortKey !== col) {
+      return <ArrowUpDown size={11} className="sort-icon-idle" />;
+    }
+    return sortOrder === "asc" ? (
+      <ArrowUp size={11} className="sort-icon-active" />
+    ) : (
+      <ArrowDown size={11} className="sort-icon-active" />
+    );
+  };
+
   return (
     <section className="campaigns-container">
-      {/* Abas Superiores Estilizadas */}
+      {/* Abas Superiores Meta */}
       <div className="campaign-tabs-header">
         {[
           { key: "campaign" as const, label: "Campanhas", icon: BarChart3 },
@@ -229,18 +417,24 @@ export function CampaignsView({
               onClick={() => setKind(tab.key)}
               type="button"
             >
-              <Icon size={16} />
+              <Icon size={15} />
               <span>{tab.label}</span>
               <span className="badge-count">{kindCounts[tab.key]}</span>
             </button>
           );
         })}
+
+        <div className="campaign-tabs-header-right">
+          <span className="currency-indicator" title={`Moeda de exibição: ${detectedCurrency}`}>
+            {detectedCurrency}
+          </span>
+        </div>
       </div>
 
       {/* Barra de Filtros e Ferramentas */}
       <div className="campaign-toolbar">
         <div className="campaign-search-box">
-          <Search size={16} />
+          <Search size={15} />
           <input
             aria-label="Buscar campanha, conjunto ou anúncio"
             value={search}
@@ -250,54 +444,112 @@ export function CampaignsView({
         </div>
 
         <div className="campaign-toolbar-actions">
-          {/* Filtro de Período / Datas Pré-definidas */}
+          {/* Seletor de Data Premium / Meta style com Personalizado */}
           {changePeriod && (
-            <div className="campaign-date-select-wrap">
-              <Calendar size={14} className="campaign-date-icon" />
-              <select
-                className="campaign-select with-icon"
-                value={period}
-                onChange={(e) => changePeriod(e.target.value)}
-                aria-label="Filtrar por data"
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                className="campaign-btn-date"
+                onClick={() => setShowDatePicker(!showDatePicker)}
               >
-                <option value="1">Hoje</option>
-                <option value="yesterday">Ontem</option>
-                <option value="7">Últimos 7 dias</option>
-                <option value="14">Últimos 14 dias</option>
-                <option value="30">Últimos 30 dias</option>
-              </select>
+                <Calendar size={14} />
+                <span>{getDateLabel()}</span>
+                <ChevronDown size={13} />
+              </button>
+
+              {showDatePicker && (
+                <div className="campaign-date-popover">
+                  <div className="campaign-date-options">
+                    {[
+                      { val: "1", label: "Hoje" },
+                      { val: "yesterday", label: "Ontem" },
+                      { val: "7", label: "Últimos 7 dias" },
+                      { val: "14", label: "Últimos 14 dias" },
+                      { val: "30", label: "Últimos 30 dias" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        className={`campaign-date-opt-btn ${period === opt.val ? "active" : ""}`}
+                        onClick={() => {
+                          changePeriod(opt.val);
+                          setShowDatePicker(false);
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="campaign-custom-date-divider" />
+
+                  <div className="campaign-custom-date-box">
+                    <span className="custom-date-title">Data personalizada</span>
+                    <div className="custom-date-inputs">
+                      <div>
+                        <label>De</label>
+                        <input
+                          type="date"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label>Até</label>
+                        <input
+                          type="date"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="button primary small custom-date-apply"
+                      disabled={!customStart || !customEnd}
+                      onClick={applyCustomDates}
+                    >
+                      Aplicar data
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Filtro de Status */}
-          <select
-            className="campaign-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filtrar por status"
-          >
-            <option value="all">Status: Qualquer</option>
-            <option value="ACTIVE">Ativo</option>
-            <option value="PAUSED">Pausado</option>
-          </select>
+          {/* Filtro de Status Estilizado */}
+          <div className="campaign-pill-select-wrap">
+            <select
+              className="campaign-select-styled"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filtrar por status"
+            >
+              <option value="all">Status: Todos</option>
+              <option value="ACTIVE">Apenas Ativos</option>
+              <option value="PAUSED">Apenas Pausados</option>
+            </select>
+          </div>
 
           {/* Filtro de Contas / Integrações Meta se houver mais de uma */}
           {integrations.filter((i) => i.provider === "meta").length > 1 && (
-            <select
-              className="campaign-select"
-              value={selectedIntegration}
-              onChange={(e) => setSelectedIntegration(e.target.value)}
-              aria-label="Filtrar por conta"
-            >
-              <option value="all">Todas as contas</option>
-              {integrations
-                .filter((i) => i.provider === "meta")
-                .map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-            </select>
+            <div className="campaign-pill-select-wrap">
+              <select
+                className="campaign-select-styled"
+                value={selectedIntegration}
+                onChange={(e) => setSelectedIntegration(e.target.value)}
+                aria-label="Filtrar por conta"
+              >
+                <option value="all">Todas as contas</option>
+                {integrations
+                  .filter((i) => i.provider === "meta")
+                  .map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
           )}
 
           {/* Botão de Personalização de Colunas */}
@@ -307,8 +559,8 @@ export function CampaignsView({
               className="campaign-btn-tool"
               onClick={() => setShowColPicker(!showColPicker)}
             >
-              <Columns size={15} />
-              <span>Personalizar Colunas</span>
+              <Columns size={14} />
+              <span>Colunas</span>
             </button>
 
             {showColPicker && (
@@ -345,66 +597,202 @@ export function CampaignsView({
         </div>
       </div>
 
-      {/* Tabela de Dados com Rolagem Horizontal Suave */}
-      {rows.length > 0 ? (
+      {/* Tabela de Dados com Rolagem Horizontal Suave e Ordenação Interativa */}
+      {computedRows.length > 0 ? (
         <div className="campaign-table-wrapper">
           <table className="campaign-table">
             <thead>
               <tr>
                 {visibleCols.status && (
-                  <th style={{ width: "70px", textAlign: "center" }}>Status</th>
-                )}
-                {visibleCols.name && (
-                  <th className="col-sticky-name">
-                    {kind === "campaign"
-                      ? "Campanha"
-                      : kind === "adset"
-                        ? "Conjunto"
-                        : "Anúncio"}
+                  <th
+                    style={{ width: "65px", textAlign: "center" }}
+                    onClick={() => handleSort("status")}
+                    className="th-sortable"
+                  >
+                    <div className="th-content-center">
+                      <span>Status</span>
+                      {renderSortIndicator("status")}
+                    </div>
                   </th>
                 )}
-                {visibleCols.sales && <th style={{ textAlign: "right" }}>Vendas</th>}
-                {visibleCols.cpa && <th style={{ textAlign: "right" }}>CPA</th>}
-                {visibleCols.spend && <th style={{ textAlign: "right" }}>Gastos</th>}
-                {visibleCols.revenue && (
-                  <th style={{ textAlign: "right" }}>Faturamento</th>
+                {visibleCols.name && (
+                  <th
+                    className="col-sticky-name th-sortable"
+                    onClick={() => handleSort("name")}
+                  >
+                    <div className="th-content">
+                      <span>
+                        {kind === "campaign"
+                          ? "Campanha"
+                          : kind === "adset"
+                            ? "Conjunto"
+                            : "Anúncio"}
+                      </span>
+                      {renderSortIndicator("name")}
+                    </div>
+                  </th>
                 )}
-                {visibleCols.profit && <th style={{ textAlign: "right" }}>Lucro</th>}
-                {visibleCols.roas && <th style={{ textAlign: "right" }}>ROAS</th>}
-                {visibleCols.margin && <th style={{ textAlign: "right" }}>Margem</th>}
-                {visibleCols.roi && <th style={{ textAlign: "right" }}>ROI</th>}
-                {visibleCols.cpc && <th style={{ textAlign: "right" }}>CPC</th>}
-                {visibleCols.ctr && <th style={{ textAlign: "right" }}>CTR</th>}
-                {visibleCols.clicks && <th style={{ textAlign: "right" }}>Cliques</th>}
+                {visibleCols.sales && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("sales")}
+                  >
+                    <div className="th-content-right">
+                      <span>Vendas</span>
+                      {renderSortIndicator("sales")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.cpa && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("cpa")}
+                  >
+                    <div className="th-content-right">
+                      <span>CPA</span>
+                      {renderSortIndicator("cpa")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.spend && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("spend")}
+                  >
+                    <div className="th-content-right">
+                      <span>Gastos</span>
+                      {renderSortIndicator("spend")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.revenue && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("revenue")}
+                  >
+                    <div className="th-content-right">
+                      <span>Faturamento</span>
+                      {renderSortIndicator("revenue")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.profit && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("profit")}
+                  >
+                    <div className="th-content-right">
+                      <span>Lucro</span>
+                      {renderSortIndicator("profit")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.roas && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("roas")}
+                  >
+                    <div className="th-content-right">
+                      <span>ROAS</span>
+                      {renderSortIndicator("roas")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.margin && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("margin")}
+                  >
+                    <div className="th-content-right">
+                      <span>Margem</span>
+                      {renderSortIndicator("margin")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.roi && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("roi")}
+                  >
+                    <div className="th-content-right">
+                      <span>ROI</span>
+                      {renderSortIndicator("roi")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.cpc && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("cpc")}
+                  >
+                    <div className="th-content-right">
+                      <span>CPC</span>
+                      {renderSortIndicator("cpc")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.ctr && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("ctr")}
+                  >
+                    <div className="th-content-right">
+                      <span>CTR</span>
+                      {renderSortIndicator("ctr")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.cpm && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("cpm")}
+                  >
+                    <div className="th-content-right">
+                      <span>CPM</span>
+                      {renderSortIndicator("cpm")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.clicks && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("clicks")}
+                  >
+                    <div className="th-content-right">
+                      <span>Cliques</span>
+                      {renderSortIndicator("clicks")}
+                    </div>
+                  </th>
+                )}
                 {visibleCols.impressions && (
-                  <th style={{ textAlign: "right" }}>Impressões</th>
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("impressions")}
+                  >
+                    <div className="th-content-right">
+                      <span>Impressões</span>
+                      {renderSortIndicator("impressions")}
+                    </div>
+                  </th>
                 )}
               </tr>
             </thead>
             <tbody>
-              {rows.map((e) => {
-                const ins = insightsMap.get(e.external_id) || {
-                  spend: 0,
-                  clicks: 0,
-                  impressions: 0,
-                };
-                const sls = salesMap.get(e.external_id) || {
-                  count: 0,
-                  revenue: 0,
-                };
-
-                const profit = sls.revenue - ins.spend;
-                const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
-                const cpa = sls.count > 0 ? ins.spend / sls.count : null;
-                const margin =
-                  sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;
-                const roi = ins.spend > 0 ? (profit / ins.spend) * 100 : null;
-                const cpc = ins.clicks > 0 ? ins.spend / ins.clicks : null;
-                const ctr =
-                  ins.impressions > 0
-                    ? (ins.clicks / ins.impressions) * 100
-                    : null;
-
+              {computedRows.map((row) => {
+                const e = row.entity;
                 const isActive = e.status === "ACTIVE";
 
                 return (
@@ -447,27 +835,27 @@ export function CampaignsView({
                     {visibleCols.sales && (
                       <td
                         style={{ textAlign: "right" }}
-                        className={sls.count > 0 ? "metric-val-highlight" : ""}
+                        className={row.salesCount > 0 ? "metric-val-highlight" : ""}
                       >
-                        {sls.count}
+                        {row.salesCount}
                       </td>
                     )}
 
                     {visibleCols.cpa && (
                       <td style={{ textAlign: "right" }}>
-                        {cpa !== null ? formatMoney(cpa) : "N/A"}
+                        {row.cpa !== null ? formatMoney(row.cpa) : "N/A"}
                       </td>
                     )}
 
                     {visibleCols.spend && (
                       <td style={{ textAlign: "right" }}>
-                        {formatMoney(ins.spend)}
+                        {formatMoney(row.spend)}
                       </td>
                     )}
 
                     {visibleCols.revenue && (
                       <td style={{ textAlign: "right" }}>
-                        {formatMoney(sls.revenue)}
+                        {formatMoney(row.revenue)}
                       </td>
                     )}
 
@@ -475,14 +863,14 @@ export function CampaignsView({
                       <td
                         style={{ textAlign: "right" }}
                         className={
-                          profit > 0
+                          row.profit > 0
                             ? "metric-val-positive"
-                            : profit < 0
+                            : row.profit < 0
                               ? "metric-val-negative"
-                              : "metric-val-neutral"
+                              : ""
                         }
                       >
-                        {formatMoney(profit)}
+                        {formatMoney(row.profit)}
                       </td>
                     )}
 
@@ -490,14 +878,14 @@ export function CampaignsView({
                       <td
                         style={{ textAlign: "right" }}
                         className={
-                          roas !== null && roas >= 1.5
+                          row.roas !== null && row.roas >= 1.5
                             ? "metric-val-positive"
-                            : roas !== null && roas < 1
+                            : row.roas !== null && row.roas < 1
                               ? "metric-val-negative"
                               : ""
                         }
                       >
-                        {roas !== null ? `${roas.toFixed(2)}x` : "0.00x"}
+                        {row.roas !== null ? `${row.roas.toFixed(2)}x` : "0.00x"}
                       </td>
                     )}
 
@@ -505,14 +893,14 @@ export function CampaignsView({
                       <td
                         style={{ textAlign: "right" }}
                         className={
-                          margin !== null && margin > 0
+                          row.margin !== null && row.margin > 0
                             ? "metric-val-positive"
-                            : margin !== null && margin < 0
+                            : row.margin !== null && row.margin < 0
                               ? "metric-val-negative"
                               : ""
                         }
                       >
-                        {margin !== null ? `${margin.toFixed(1)}%` : "N/A"}
+                        {row.margin !== null ? `${row.margin.toFixed(1)}%` : "N/A"}
                       </td>
                     )}
 
@@ -520,38 +908,44 @@ export function CampaignsView({
                       <td
                         style={{ textAlign: "right" }}
                         className={
-                          roi !== null && roi > 0
+                          row.roi !== null && row.roi > 0
                             ? "metric-val-positive"
-                            : roi !== null && roi < 0
+                            : row.roi !== null && row.roi < 0
                               ? "metric-val-negative"
                               : ""
                         }
                       >
-                        {roi !== null ? `${roi.toFixed(1)}%` : "N/A"}
+                        {row.roi !== null ? `${row.roi.toFixed(1)}%` : "N/A"}
                       </td>
                     )}
 
                     {visibleCols.cpc && (
                       <td style={{ textAlign: "right" }}>
-                        {cpc !== null ? formatMoney(cpc) : "N/A"}
+                        {row.cpc !== null ? formatMoney(row.cpc) : "N/A"}
                       </td>
                     )}
 
                     {visibleCols.ctr && (
                       <td style={{ textAlign: "right" }}>
-                        {ctr !== null ? `${ctr.toFixed(2)}%` : "0.00%"}
+                        {row.ctr !== null ? `${row.ctr.toFixed(2)}%` : "0.00%"}
+                      </td>
+                    )}
+
+                    {visibleCols.cpm && (
+                      <td style={{ textAlign: "right" }}>
+                        {row.cpm !== null ? formatMoney(row.cpm) : "N/A"}
                       </td>
                     )}
 
                     {visibleCols.clicks && (
                       <td style={{ textAlign: "right" }}>
-                        {new Intl.NumberFormat("pt-BR").format(ins.clicks)}
+                        {new Intl.NumberFormat("pt-BR").format(row.clicks)}
                       </td>
                     )}
 
                     {visibleCols.impressions && (
                       <td style={{ textAlign: "right" }}>
-                        {new Intl.NumberFormat("pt-BR").format(ins.impressions)}
+                        {new Intl.NumberFormat("pt-BR").format(row.impressions)}
                       </td>
                     )}
                   </tr>
@@ -559,7 +953,7 @@ export function CampaignsView({
               })}
             </tbody>
 
-            {/* Linha de Totalização Agregada */}
+            {/* Linha de Totalização Agregada Fixada/Flutuante */}
             <tfoot>
               <tr>
                 {visibleCols.status && (
@@ -567,7 +961,7 @@ export function CampaignsView({
                 )}
                 {visibleCols.name && (
                   <td className="col-sticky-name">
-                    <strong>TOTAL ({rows.length})</strong>
+                    <strong>TOTAL ({computedRows.length})</strong>
                   </td>
                 )}
                 {visibleCols.sales && (
@@ -657,6 +1051,11 @@ export function CampaignsView({
                 {visibleCols.ctr && (
                   <td style={{ textAlign: "right" }}>
                     {totalCtr !== null ? `${totalCtr.toFixed(2)}%` : "0.00%"}
+                  </td>
+                )}
+                {visibleCols.cpm && (
+                  <td style={{ textAlign: "right" }}>
+                    {totalCpm !== null ? formatMoney(totalCpm) : "N/A"}
                   </td>
                 )}
                 {visibleCols.clicks && (

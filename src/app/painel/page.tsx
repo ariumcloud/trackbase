@@ -85,6 +85,11 @@ export default async function Page({
     const yStr = yDate.toISOString().slice(0, 10);
     since = `${yStr}T00:00:00Z`;
     until = `${yStr}T23:59:59Z`;
+  } else if (periodParam.includes("_")) {
+    // Período personalizado: "YYYY-MM-DD_YYYY-MM-DD"
+    const [startDate, endDate] = periodParam.split("_");
+    since = `${startDate || today}T00:00:00Z`;
+    until = `${endDate || today}T23:59:59Z`;
   } else {
     const periodDays = Number(periodParam) || 7;
     const begin = new Date(`${today}T12:00:00Z`);
