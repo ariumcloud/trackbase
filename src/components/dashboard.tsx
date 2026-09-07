@@ -38,6 +38,8 @@ import {
   Download,
   Bot,
   Volume2,
+  Building2,
+  Landmark,
 } from "lucide-react";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import {
@@ -2598,8 +2600,20 @@ function IntegrationCard({
   request: (path: string, data: unknown) => Promise<unknown>;
   pending: boolean;
 }) {
-  const [accounts, setAccounts] = useState<Array<{ id: string; name: string; currency: string; timezone_name: string; origins: Array<{ type: "direct" | "business"; businessName?: string }> }>>([]);
+  type MetaAccount = {
+    id: string;
+    name: string;
+    currency: string;
+    timezone_name: string;
+    origins: Array<{
+      type: "direct" | "business";
+      businessId?: string;
+      businessName?: string;
+    }>;
+  };
+  const [accounts, setAccounts] = useState<MetaAccount[]>([]);
   const [businesses, setBusinesses] = useState<Array<{ id: string; name: string }>>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
   const statusText: Record<string, string> = {
     connected: "Conta conectada",
     select_account: "OAuth conectado · selecione uma conta de anúncios",
@@ -2638,44 +2652,94 @@ function IntegrationCard({
                     if (!r.ok) throw new Error(typeof data.error === "string" ? data.error : data.error?.message || "Não foi possível listar contas.");
                     setAccounts(data.accounts);
                     setBusinesses(data.businesses || []);
+                    setAccountsLoaded(true);
                   })
                 }
               >
-                Listar contas
+                <Landmark size={15} /> Carregar contas
               </button>
-              {accounts.map((a) => (
-                <button
-                  className="button"
-                  key={a.id}
-                  onClick={() =>
-                    run(() =>
-                      request("/api/meta/accounts", {
-                        workspace,
-                        integration: i.id,
-                        account: a.id,
-                      }),
-                    )
-                  }
-                >
-                  <span>{a.name} · {a.id} · {a.currency} · {a.timezone_name}</span>
-                  <small>{a.origins.map((origin) => origin.type === "direct" ? "Acesso direto" : `Business: ${origin.businessName || "sem nome"}`).join(" · ")}</small>
-                </button>
-              ))}
-              {businesses.length > 0 && <small>{businesses.length} Business Manager(s): {businesses.map((business) => business.name).join(", ")}</small>}
-              {accounts.length === 0 && <small>Nenhuma conta de anúncios foi encontrada para este token.</small>}
+              {accountsLoaded && businesses.length > 0 && (
+                <div className="meta-business-summary">
+                  <span><Building2 size={15} /> Business Managers com acesso</span>
+                  <div>
+                    {businesses.map((business) => (
+                      <span className="meta-business-chip" key={business.id}>
+                        {business.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {accounts.length > 0 && (
+                <div className="meta-account-picker" aria-label="Contas Meta disponíveis">
+                  <div className="meta-account-picker-heading">
+                    <div>
+                      <strong>Escolha a conta para sincronizar</strong>
+                      <small>{accounts.length} conta{accounts.length === 1 ? "" : "s"} encontrada{accounts.length === 1 ? "" : "s"}</small>
+                    </div>
+                  </div>
+                  <div className="meta-account-list">
+                    {accounts.map((a) => (
+                      <button
+                        className="meta-account-card"
+                        key={a.id}
+                        onClick={() =>
+                          run(() =>
+                            request("/api/meta/accounts", {
+                              workspace,
+                              integration: i.id,
+                              account: a.id,
+                            }),
+                          )
+                        }
+                      >
+                        <span className="meta-account-card-label">CONTA DE ANÚNCIOS</span>
+                        <strong>{a.name}</strong>
+                        <span className="meta-account-meta">
+                          <code>{a.id}</code>
+                          <span>{a.currency}</span>
+                          <span>{a.timezone_name}</span>
+                        </span>
+                        <span className="meta-account-sources">
+                          {a.origins.map((origin, index) => (
+                            <span key={`${origin.type}-${origin.businessId || index}`}>
+                              {origin.type === "direct"
+                                ? "Acesso direto"
+                                : origin.businessName || "Business Manager"}
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {accountsLoaded && accounts.length === 0 && (
+                <div className="meta-accounts-empty">
+                  <AlertTriangle size={16} />
+                  Nenhuma conta de anúncios foi encontrada para este token.
+                </div>
+              )}
             </>
           ) : (
-            <button
-              className="button"
-              disabled={pending || i.status === "syncing"}
-              onClick={() =>
-                run(() =>
-                  request("/api/meta/sync", { workspace, integration: i.id }),
-                )
-              }
-            >
-              <RefreshCw size={15} /> Sincronizar 30 dias
-            </button>
+            <>
+              <div className="meta-selected-account">
+                <span>CONTA SELECIONADA</span>
+                <strong>{i.name}</strong>
+                <small>{i.account_id} · {i.currency || "Moeda indisponível"}</small>
+              </div>
+              <button
+                className="button"
+                disabled={pending || i.status === "syncing"}
+                onClick={() =>
+                  run(() =>
+                    request("/api/meta/sync", { workspace, integration: i.id }),
+                  )
+                }
+              >
+                <RefreshCw size={15} /> {i.status === "syncing" ? "Sincronizando…" : "Sincronizar 30 dias"}
+              </button>
+            </>
           )}
         </div>
       ) : i.provider === "google" ? (

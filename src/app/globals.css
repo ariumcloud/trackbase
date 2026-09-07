@@ -1716,6 +1716,140 @@ tr:hover td {
   white-space: nowrap;
 }
 
+/* Seleção de contas Meta: informação escaneável em desktop e toque confortável no mobile. */
+.connection-actions { min-width: 0; }
+.meta-business-summary,
+.meta-account-picker,
+.meta-selected-account,
+.meta-accounts-empty {
+  width: 100%;
+  max-width: 100%;
+}
+.meta-business-summary { margin-top: 12px; }
+.meta-business-summary > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.meta-business-summary > div,
+.meta-account-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.meta-business-chip,
+.meta-account-sources > span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--ink-secondary);
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.meta-account-picker {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+.meta-account-picker-heading { margin-bottom: 12px; }
+.meta-account-picker-heading strong,
+.meta-account-picker-heading small { display: block; }
+.meta-account-picker-heading strong { color: var(--ink); font-size: 13px; }
+.meta-account-picker-heading small { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.meta-account-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+.meta-account-card {
+  min-width: 0;
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.meta-account-card:hover,
+.meta-account-card:focus-visible {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+  outline: none;
+}
+.meta-account-card:active { transform: translateY(1px); }
+.meta-account-card-label {
+  display: block;
+  color: var(--brand-text);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .85px;
+}
+.meta-account-card > strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta-account-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.meta-account-meta code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--ink-secondary);
+  font: inherit;
+}
+.meta-selected-account {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--green);
+  border-radius: 8px;
+  background: var(--green-soft);
+}
+.meta-selected-account > span,
+.meta-selected-account strong,
+.meta-selected-account small { display: block; }
+.meta-selected-account > span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .8px; }
+.meta-selected-account strong { margin-top: 3px; font-size: 13px; }
+.meta-selected-account small { margin-top: 2px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.meta-accounts-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--yellow-border);
+  border-radius: 9px;
+  color: var(--ink-secondary);
+  background: var(--yellow-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.meta-accounts-empty svg { flex: 0 0 auto; color: var(--yellow); }
+
 /* Lista de Ofertas e Links */
 .offers-grid {
   display: grid;
@@ -2369,6 +2503,20 @@ textarea {
   .metric-label { font-size: 11px; }
   .metric-card > strong { margin: 16px 0 8px; font-size: 22px; }
   .metric-card > small { font-size: 10px; }
+
+  .panel { padding: 16px; }
+  .connection-row { overflow: hidden; }
+  .connection-actions { width: 100%; }
+  .connection-actions > .button { width: 100%; min-height: 44px; justify-content: center; }
+  .meta-business-summary { margin-top: 14px; }
+  .meta-business-chip,
+  .meta-account-sources > span { max-width: 100%; overflow-wrap: anywhere; }
+  .meta-account-picker { margin: 14px -2px 0; padding: 12px; }
+  .meta-account-list { grid-template-columns: 1fr; }
+  .meta-account-card { min-height: 144px; padding: 15px; }
+  .meta-account-card > strong { white-space: normal; overflow: visible; text-overflow: clip; }
+  .meta-account-meta { display: grid; grid-template-columns: 1fr auto; gap: 5px 8px; }
+  .meta-account-meta code { grid-column: 1 / -1; }
 }
 
 @media (max-width: 390px) {

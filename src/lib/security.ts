@@ -56,8 +56,14 @@ export async function authorize(workspace: string, write = false) {
   return { client, user, role: data.role };
 }
 export function sameOrigin(request: Request) {
-  if (request.headers.get("origin") !== new URL(process.env.APP_URL!).origin)
-    throw new Error("Origem não autorizada.");
+  const origin = request.headers.get("origin");
+  if (!origin) throw new Error("Origem não autorizada.");
+
+  const allowedOrigins = new Set([new URL(request.url).origin]);
+  const configuredAppUrl = process.env.APP_URL?.trim();
+  if (configuredAppUrl) allowedOrigins.add(new URL(configuredAppUrl).origin);
+
+  if (!allowedOrigins.has(origin)) throw new Error("Origem não autorizada.");
 }
 export async function rateLimit(bucket: string, limit = 120) {
   const { data, error } = await admin().rpc("utm_rate_limit", {

@@ -4,6 +4,43 @@ import { z } from "zod";
 import { body, sameOrigin } from "@/lib/security";
 import { credentials, listMetaAccounts, normalizeAdAccountId, MetaError } from "@/lib/meta";
 import { admin } from "@/lib/supabase/server";
+
+function selectionFailure(error: unknown) {
+  if (error instanceof MetaError) {
+    return {
+      status: error.internalCode === "token_expired" ? 401 : 403,
+      error: error.message,
+      code: error.internalCode,
+      stage: error.stage,
+    };
+  }
+  if (error instanceof z.ZodError) {
+    return {
+      status: 422,
+      error: "Dados da conta inválidos.",
+      code: "invalid_request",
+      stage: "account_selection",
+    };
+  }
+  if (error instanceof Error) {
+    if (error.message === "Entre na sua conta.") {
+      return { status: 401, error: error.message, code: "unauthenticated", stage: "authorization" };
+    }
+    if (error.message === "Origem não autorizada." || error.message === "Workspace não autorizado.") {
+      return { status: 403, error: error.message, code: "forbidden", stage: "authorization" };
+    }
+  }
+  console.error("Meta account selection failed", {
+    kind: error instanceof Error ? error.name : "unknown",
+  });
+  return {
+    status: 500,
+    error: "Não foi possível salvar a conta agora. Tente novamente.",
+    code: "persistence_failed",
+    stage: "account_selection",
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const p = new URL(request.url).searchParams,
@@ -93,18 +130,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, reconnected: true });
     }
 
-    const { error } = await service
+    const { data: updated, error } = await service
       .from("utm_integrations")
       .update(integrationUpdate)
       .eq("id", v.integration)
       .eq("workspace_id", v.workspace)
-      .is("account_id", null);
+      .is("account_id", null)
+      .select("id")
+      .maybeSingle();
     if (error) throw error;
+    if (!updated) {
+      return NextResponse.json(
+        {
+          error: "Essa integração já possui uma conta selecionada. Atualize o painel antes de escolher outra.",
+          code: "account_already_selected",
+          stage: "account_selection",
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ ok: true, account: { id: selectedId, name: account.name, currency: account.currency, timezone: account.timezone_name } });
   } catch (e) {
+    const failure = selectionFailure(e);
     return NextResponse.json(
-      { error: e instanceof MetaError ? e.message : "Não foi possível selecionar a conta.", code: e instanceof MetaError ? e.internalCode : "api_unavailable", stage: e instanceof MetaError ? e.stage : "account_selection" },
-      { status: e instanceof MetaError && e.internalCode === "token_expired" ? 401 : 403 },
+      { error: failure.error, code: failure.code, stage: failure.stage },
+      { status: failure.status },
     );
   }
 }
