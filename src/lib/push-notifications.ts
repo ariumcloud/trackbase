@@ -2,23 +2,31 @@ import "server-only";
 import webpush from "web-push";
 import { admin } from "./supabase/server";
 
-const vapidPublicKey =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  "BCUQChXv4HEiaFXIllkn3E4_-6a3SE_Aks-xTeO4TPvTLH0Az0yDvJhM8fsfuaDVnvzfE-OG2GQv1er2bqzmzmk";
-const vapidPrivateKey =
-  process.env.VAPID_PRIVATE_KEY ||
-  "5JjWTKB67jaxsWhKQfrfDrk0OZCTMypTYaez7uD7Nq0";
-const vapidSubject =
-  process.env.VAPID_SUBJECT || "mailto:suporte@trackbase.com.br";
+let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+const vapidSubject = process.env.VAPID_SUBJECT || "mailto:suporte@trackbase.com.br";
+
+const fallbackPublic = "BCUQChXv4HEiaFXIllkn3E4_-6a3SE_Aks-xTeO4TPvTLH0Az0yDvJhM8fsfuaDVnvzfE-OG2GQv1er2bqzmzmk";
+const fallbackPrivate = "5JjWTKB67jaxsWhKQfrfDrk0OZCTMypTYaez7uD7Nq0";
 
 let isVapidConfigured = false;
 try {
-  if (vapidPublicKey && vapidPrivateKey) {
+  if (vapidPublicKey && vapidPrivateKey && vapidPublicKey.length > 20 && vapidPrivateKey.length > 20) {
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
     isVapidConfigured = true;
+  } else {
+    throw new Error("Invalid or missing VAPID keys in ENV");
   }
 } catch (e) {
-  console.warn("VAPID details could not be set:", e);
+  try {
+    // Fallback if env vars are missing or invalid
+    webpush.setVapidDetails(vapidSubject, fallbackPublic, fallbackPrivate);
+    vapidPublicKey = fallbackPublic;
+    vapidPrivateKey = fallbackPrivate;
+    isVapidConfigured = true;
+  } catch (err) {
+    console.warn("VAPID details could not be set even with fallback:", err);
+  }
 }
 
 export type SalePushEvent = {

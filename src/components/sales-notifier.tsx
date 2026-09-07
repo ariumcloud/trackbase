@@ -106,9 +106,8 @@ export function SalesNotifier({ workspaceId }: Props) {
           return;
         }
 
-        const publicKey =
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-          "BCUQChXv4HEiaFXIllkn3E4_-6a3SE_Aks-xTeO4TPvTLH0Az0yDvJhM8fsfuaDVnvzfE-OG2GQv1er2bqzmzmk";
+        const envKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        const publicKey = (envKey && envKey.length > 20) ? envKey : "BCUQChXv4HEiaFXIllkn3E4_-6a3SE_Aks-xTeO4TPvTLH0Az0yDvJhM8fsfuaDVnvzfE-OG2GQv1er2bqzmzmk";
 
         const convertedKey = urlBase64ToUint8Array(publicKey);
 
