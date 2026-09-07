@@ -39,7 +39,7 @@ const plans = [
     suffix: "/mês",
     description: "Para operar suas próprias campanhas com clareza, controle e escala.",
     cta: "Começar agora",
-    href: "/login",
+    href: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03",
     featured: true,
     items: [
       "Meta Ads e 7 plataformas de checkout",
@@ -57,8 +57,8 @@ const plans = [
     price: "R$ 197",
     suffix: "/mês",
     description: "Para operadores avançados, alta escala, agências e múltiplos produtos.",
-    cta: "Acessar Vorcaro",
-    href: "/login",
+    cta: "Assinar Premium",
+    href: "https://buy.stripe.com/4gMeVfeB86sRbV3cAP9IQ04",
     featured: false,
     items: [
       "Tudo do Plano Básico",
