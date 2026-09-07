@@ -1967,15 +1967,69 @@ textarea {
     flex-direction: column;
   }
   .demo-sidebar {
-    width: 100%;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+    display: none;
+  }
+  .demo-sidebar.open {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(300px, 86vw);
+    z-index: 100;
+    box-shadow: 16px 0 40px rgba(15, 23, 42, 0.25);
+    background: #FFFFFF;
+    overflow-y: auto;
+  }
+  .demo-top {
+    height: 60px;
+    padding: 0 16px;
+  }
+  .demo-label {
+    display: none;
   }
   .demo-content {
-    padding: 20px;
+    padding: 16px 14px 40px;
+  }
+  .demo-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 16px 0 20px;
+  }
+  .demo-heading h1 {
+    font-size: 28px;
+    letter-spacing: -1px;
+  }
+  .demo-heading .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .demo-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .demo-selects {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .demo-select {
+    flex: 1 1 120px;
+    justify-content: space-between;
+    height: 42px;
   }
   .demo-metrics {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .demo-metric {
+    padding: 14px;
+  }
+  .demo-metric strong {
+    font-size: 22px;
+    margin: 12px 0 4px;
   }
   .demo-lower {
     grid-template-columns: 1fr;
@@ -2067,15 +2121,14 @@ textarea {
 
 /* Mobile Bottom Navigation Bar */
 .mobile-bottom-bar { display: none !important; }
-.bottom-bar-scroller { display: flex; align-items: center; width: 100%; height: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.bottom-bar-scroller::-webkit-scrollbar { display: none; }
-.bottom-bar-item { flex: 0 0 70px; min-width: 68px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: transparent; border: 0; color: var(--muted); cursor: pointer; padding: 4px 2px; transition: color 0.15s ease; }
-.bottom-bar-item:active { transform: scale(0.96); }
+.bottom-bar-fixed-grid { display: flex; align-items: center; justify-content: space-around; width: 100%; height: 100%; }
+.bottom-bar-item { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: transparent; border: 0; color: var(--muted); cursor: pointer; padding: 6px 2px; transition: color 0.15s ease; touch-action: manipulation; }
+.bottom-bar-item:active { transform: scale(0.94); }
 .bottom-bar-item.active { color: var(--brand-accent); font-weight: 700; }
-.bottom-bar-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+.bottom-bar-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; }
 .bottom-bar-badge { position: absolute; top: -3px; right: -7px; background: var(--red); color: white; font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0 2px; }
-.bottom-bar-label { font-size: 10.5px; line-height: 1.1; white-space: nowrap; }
-.bottom-bar-menu-btn { border-left: 1px solid var(--line); flex: 0 0 64px; }
+.bottom-bar-label { font-size: 11px; line-height: 1.1; white-space: nowrap; }
+.bottom-bar-menu-trigger { border-left: 1px solid var(--line); }
 
 /* Responsive adjustments */
 @media (max-width: 960px) {
@@ -2185,19 +2238,20 @@ textarea {
     padding: 16px 14px 84px;
   }
 
-  /* Bottom bar sticky at viewport bottom */
+  /* Bottom bar elevated above iOS home indicator to prevent gesture conflicts */
   .mobile-bottom-bar {
     display: flex !important;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 58px;
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
     background: #FFFFFF;
     border-top: 1px solid var(--line, #E2E8F0);
     z-index: 90;
-    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.06);
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07);
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+    touch-action: manipulation;
   }
 }
 
