@@ -119,7 +119,7 @@ export default async function Page({
           )
           .eq("workspace_id", w.id)
           .order("occurred_at", { ascending: false })
-          .limit(200),
+          .limit(1000),
         client
           .from("utm_insights")
           .select(
@@ -127,7 +127,7 @@ export default async function Page({
           )
           .eq("workspace_id", w.id)
           .order("day", { ascending: false })
-          .limit(200),
+          .limit(1000),
         ["visao", "campanhas", "assistente"].includes(activeTab)
           ? client
               .from("utm_ad_entities")

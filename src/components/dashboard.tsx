@@ -26,7 +26,6 @@ import {
   RefreshCw,
   Globe,
   ShieldCheck,
-  Search,
   SlidersHorizontal,
   Bell,
   AlertTriangle,
@@ -77,6 +76,7 @@ import dynamic from "next/dynamic";
 const AssistenteTrackbase = dynamic(() => import("./assistente").then((m) => m.AssistenteTrackbase), { ssr: false });
 const ClonadorViewLazy = dynamic(() => import("./clonador").then((m) => m.ClonadorView), { ssr: false });
 const DiagnosticoViewLazy = dynamic(() => import("./diagnostico").then((m) => m.DiagnosticoView), { ssr: false });
+import { CampaignsView } from "./campaigns-view";
 import { BottomBar } from "./bottom-bar";
 import { SalesNotifier } from "./sales-notifier";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
@@ -2047,8 +2047,12 @@ export function Dashboard(p: Props) {
             </>
           )}
           {tab === "campanhas" && (
-            <Campaigns
+            <CampaignsView
               entities={p.entities}
+              insights={insights}
+              sales={sales}
+              integrations={p.integrations}
+              currency={currency}
               workspace={workspace}
               pending={pending}
               run={run}
@@ -2780,120 +2784,6 @@ function IntegrationCard({
     </section>
   );
 }
-function Campaigns({
-  entities,
-  workspace,
-  pending,
-  run,
-  request,
-  connect,
-}: {
-  entities: Entity[];
-  workspace: string;
-  pending: boolean;
-  run: (fn: () => Promise<unknown>) => void;
-  request: (path: string, data: unknown) => Promise<unknown>;
-  connect: () => void;
-}) {
-  const [kind, setKind] = useState("campaign"),
-    [search, setSearch] = useState("");
-  const rows = entities.filter(
-    (e) =>
-      e.kind === kind &&
-      e.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
-  );
-  return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div className="segmented">
-          {[
-            ["campaign", "Campanhas"],
-            ["adset", "Conjuntos"],
-            ["ad", "Anúncios"],
-          ].map(([k, n]) => (
-            <button
-              className={kind === k ? "selected" : ""}
-              key={k}
-              onClick={() => setKind(k)}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-        <label className="search-field">
-          <Search size={16} />
-          <input
-            aria-label="Buscar campanha"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar pelo nome"
-          />
-        </label>
-      </div>
-      {rows.length ? (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>ID Meta</th>
-                <th>Status</th>
-                <th>Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((e) => (
-                <tr key={e.external_id}>
-                  <td>
-                    <strong>{e.name}</strong>
-                  </td>
-                  <td>{e.external_id}</td>
-                  <td>
-                    <span className="chip">{e.status}</span>
-                  </td>
-                  <td>
-                    <button
-                      className="button small"
-                      disabled={pending}
-                      onClick={() =>
-                        run(() =>
-                          request("/api/meta/status", {
-                            workspace,
-                            integration: e.integration_id,
-                            id: e.external_id,
-                            status: e.status === "ACTIVE" ? "PAUSED" : "ACTIVE",
-                          }),
-                        )
-                      }
-                    >
-                      {e.status === "ACTIVE" ? "Pausar" : "Ativar"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <Empty
-          icon={MousePointer2}
-          title={
-            entities.length
-              ? "Nenhum resultado neste filtro"
-              : "Seus anúncios entram em cena aqui."
-          }
-          description="Conecte uma conta Meta e sincronize para ver campanhas, conjuntos e anúncios."
-          action={
-            <button className="button" onClick={connect}>
-              Ir para integrações <ArrowRight size={15} />
-            </button>
-          }
-        />
-      )}
-    </section>
-  );
-}
-
 function AccountPrivacyCard({
   pending,
   run,
