@@ -49,6 +49,7 @@ import {
   deletePixel,
   markAlertRead,
   savePushSettings,
+  sendTestPushAction,
 } from "@/app/actions";
 import { buildLink, metaDefaults } from "@/lib/utm";
 import { calculate, dayInZone } from "@/lib/metrics";
@@ -3080,20 +3081,38 @@ function PushSettingsCard({
 
         {/* Live Mobile Push Preview */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
             <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--muted, #64748B)" }}>
               Pré-visualização no celular:
             </span>
-            <button
-              type="button"
-              className="button small secondary"
-              onClick={playSound}
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem" }}
-              title="Testar som de caixa registradora"
-            >
-              <Volume2 size={13} />
-              Testar Som
-            </button>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              <button
+                type="button"
+                className="button small secondary"
+                onClick={playSound}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem" }}
+                title="Testar som no navegador"
+              >
+                <Volume2 size={13} />
+                Ouvir Som
+              </button>
+              <button
+                type="button"
+                className="button small"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    const res = await sendTestPushAction(workspace);
+                    if (res.error) throw new Error(res.error);
+                  })
+                }
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", background: "var(--brand-accent, #5B34EA)", color: "#FFF" }}
+                title="Enviar notificação push real para o aparelho agora"
+              >
+                <Bell size={13} />
+                Disparar no Aparelho
+              </button>
+            </div>
           </div>
 
           <div

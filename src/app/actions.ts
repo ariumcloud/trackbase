@@ -597,3 +597,21 @@ export async function savePushSettings(
   }
 }
 
+export async function sendTestPushAction(workspace: string): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    const { notifySalePush } = await import("@/lib/push-notifications");
+    await notifySalePush(workspace, {
+      amount: 197.0,
+      currency: "BRL",
+      buyerName: "Lucas Silva",
+      productName: "Oferta Escala Black",
+      provider: "HOTMART",
+    });
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível disparar o teste de notificação." };
+  }
+}
+
+
