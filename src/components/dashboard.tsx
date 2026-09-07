@@ -2068,7 +2068,7 @@ export function Dashboard(p: Props) {
               workspace={workspace}
               offers={p.offers}
               metrics={metrics}
-              hasCapi={p.pixels.length > 0}
+              hasCapi={p.pixels.some((pixel) => pixel.active)}
               diagnostics={p.diagnostics || []}
               currency={currency}
               selectTab={selectTab}

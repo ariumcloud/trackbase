@@ -98,8 +98,8 @@ export async function GET(request: Request) {
         process.env.APP_URL,
       ),
     );
-  } catch (err) {
-    console.error("Google OAuth error:", err);
+  } catch {
+    console.error("Google OAuth callback failed");
     return NextResponse.redirect(
       new URL("/painel?tab=integracoes&error=google", process.env.APP_URL),
     );

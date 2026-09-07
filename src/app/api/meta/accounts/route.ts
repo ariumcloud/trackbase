@@ -53,15 +53,63 @@ export async function POST(request: Request) {
       }),
       account = accounts.find((a) => a.id === v.account);
     if (!account) throw new Error();
-    const { error } = await admin()
-      .from("utm_integrations")
-      .update({
+    const service = admin();
+    const integrationUpdate = {
         account_id: account.id,
         name: account.name,
         currency: account.currency,
         account_timezone: account.timezone_name,
         status: "connected",
-      })
+      };
+    const { data: existing } = await service
+      .from("utm_integrations")
+      .select("id")
+      .eq("workspace_id", v.workspace)
+      .eq("provider", "meta")
+      .eq("account_id", account.id)
+      .maybeSingle();
+
+    if (existing && existing.id !== v.integration) {
+      const { data: sourceCredentials, error: sourceError } = await service
+        .from("utm_credentials")
+        .select("token_ciphertext,expires_at")
+        .eq("workspace_id", v.workspace)
+        .eq("integration_id", v.integration)
+        .single();
+      if (sourceError || !sourceCredentials) throw new Error();
+
+      const { error: credentialError } = await service
+        .from("utm_credentials")
+        .upsert({
+          workspace_id: v.workspace,
+          integration_id: existing.id,
+          ...sourceCredentials,
+        }, { onConflict: "integration_id" });
+      if (credentialError) throw credentialError;
+      const { error: updateError } = await service
+        .from("utm_integrations")
+        .update(integrationUpdate)
+        .eq("id", existing.id)
+        .eq("workspace_id", v.workspace);
+      if (updateError) throw updateError;
+      const { error: credentialDeleteError } = await service
+        .from("utm_credentials")
+        .delete()
+        .eq("integration_id", v.integration);
+      if (credentialDeleteError) throw credentialDeleteError;
+      const { error: temporaryDeleteError } = await service
+        .from("utm_integrations")
+        .delete()
+        .eq("id", v.integration)
+        .eq("workspace_id", v.workspace)
+        .is("account_id", null);
+      if (temporaryDeleteError) throw temporaryDeleteError;
+      return NextResponse.json({ ok: true, reconnected: true });
+    }
+
+    const { error } = await service
+      .from("utm_integrations")
+      .update(integrationUpdate)
       .eq("id", v.integration)
       .eq("workspace_id", v.workspace)
       .is("account_id", null);

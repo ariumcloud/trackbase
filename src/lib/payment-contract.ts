@@ -102,6 +102,23 @@ export function paymentIdentity(
     event.isTest,
   ]);
 }
+
+/**
+ * A plataforma pode reutilizar o mesmo identificador de entrega para mais de
+ * uma transição de uma transação. O tipo faz parte da identidade do evento,
+ * mas não da chave da venda, que continua sendo tratada pelo banco.
+ */
+export function webhookEventIdentity(
+  event: Pick<
+    NormalizedPaymentEvent,
+    "externalEventId" | "externalTransactionId" | "productType" | "type"
+  >,
+): string {
+  const deliveryId =
+    event.externalEventId ||
+    `tx_${event.externalTransactionId}_${event.productType}`;
+  return `${event.type}:${deliveryId}`;
+}
 export function redactPaymentPayload(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactPaymentPayload);
   if (value && typeof value === "object")

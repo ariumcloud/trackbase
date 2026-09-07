@@ -57,29 +57,48 @@ export async function GET(request: Request) {
       fb_exchange_token: short.access_token,
     });
     const ciphertext = encrypt(token.access_token);
-    const { data: i, error: ie } = await service
+    const { data: pending, error: pendingError } = await service
       .from("utm_integrations")
-      .insert({
-        workspace_id: s.workspace_id,
-        provider: "meta",
-        name: "Meta Ads",
-        status: "select_account",
-      })
       .select("id")
-      .single();
-    if (ie) throw ie;
-    const { error: ce } = await service.from("utm_credentials").insert({
+      .eq("workspace_id", s.workspace_id)
+      .eq("provider", "meta")
+      .is("account_id", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pendingError) throw pendingError;
+
+    let integrationId = pending?.id;
+    if (!integrationId) {
+      const { data: i, error: ie } = await service
+        .from("utm_integrations")
+        .insert({
+          workspace_id: s.workspace_id,
+          provider: "meta",
+          name: "Meta Ads",
+          status: "select_account",
+        })
+        .select("id")
+        .single();
+      if (ie) throw ie;
+      integrationId = i.id;
+    } else {
+      const { error: updateError } = await service
+        .from("utm_integrations")
+        .update({ status: "select_account" })
+        .eq("id", integrationId)
+        .eq("workspace_id", s.workspace_id);
+      if (updateError) throw updateError;
+    }
+    const { error: ce } = await service.from("utm_credentials").upsert({
       workspace_id: s.workspace_id,
-      integration_id: i.id,
+      integration_id: integrationId,
       token_ciphertext: ciphertext,
       expires_at: token.expires_in
         ? new Date(Date.now() + token.expires_in * 1000).toISOString()
         : null,
-    });
-    if (ce) {
-      await service.from("utm_integrations").delete().eq("id", i.id);
-      throw ce;
-    }
+    }, { onConflict: "integration_id" });
+    if (ce) throw ce;
     return NextResponse.redirect(
       new URL(
         `/painel?tab=integracoes&workspace=${s.workspace_id}`,

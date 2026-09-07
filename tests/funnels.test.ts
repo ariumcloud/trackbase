@@ -95,7 +95,7 @@ test("Parse de HTML gera blocos estruturados e gera HTML autônomo com tracker",
 });
 
 test("Diagnóstico de funil calcula scores e aponta gargalos conforme os dados", () => {
-  // Cenário 1: Perda de tráfego entre cliques e PageViews (página lenta)
+  // Cenário 1: volume suficiente e queda observada entre clique e pageview.
   const diag1 = runFunnelDiagnostic({
     metaClicks: 100,
     pageviews: 40, // 40% pv rate -> crítico
@@ -109,11 +109,11 @@ test("Diagnóstico de funil calcula scores e aponta gargalos conforme os dados",
 
   assert.equal(
     diag1.bottlenecks.some(
-      (b) => b.headline === "Há diferença entre os cliques da Meta e os pageviews registrados.",
+      (b) => b.headline === "Há diferença relevante entre os cliques e os pageviews registrados.",
     ),
     true,
   );
-  assert.equal(diag1.overallScore < 70, true);
+  assert.equal(diag1.sampleStatus, "sufficient");
 
   // Cenário 2: Muitos checkouts mas poucas compras (abandono de checkout)
   const diag2 = runFunnelDiagnostic({
@@ -129,12 +129,12 @@ test("Diagnóstico de funil calcula scores e aponta gargalos conforme os dados",
 
   assert.equal(
     diag2.bottlenecks.some(
-      (b) => b.headline === "O checkout recebe acessos, mas não gera compras.",
+      (b) => b.headline === "O checkout tem amostra suficiente e baixa conversão observada.",
     ),
     true,
   );
 
-  // Cenário 3: Operação saudável
+  // Cenário 3: sem limiar classificado, não implica recomendação de escala.
   const diag3 = runFunnelDiagnostic({
     metaClicks: 100,
     pageviews: 90,
@@ -151,8 +151,36 @@ test("Diagnóstico de funil calcula scores e aponta gargalos conforme os dados",
   assert.equal(diag3.overallGrade, "A");
   assert.equal(
     diag3.bottlenecks[0]?.headline,
-    "Seu funil apresenta conversão saudável entre as etapas.",
+    "A amostra atual não cruzou os limiares determinísticos de gargalo.",
   );
+});
+
+test("Diagnóstico não inventa CTR, ticket ou gargalo para dados zerados e baixo volume", () => {
+  const zero = runFunnelDiagnostic({
+    metaClicks: 0, pageviews: 0, ctas: 0, checkouts: 0, purchases: 0,
+    metaSpend: 0, grossRevenue: 0, refunds: 0,
+  });
+  assert.equal(zero.sampleStatus, "insufficient");
+  assert.equal(zero.metricsSnapshot.ctr, null);
+  assert.equal(zero.metricsSnapshot.cpa, null);
+  assert.equal(zero.bottlenecks[0]?.id, "insufficient_sample");
+  assert.equal(zero.bottlenecks[0]?.estimatedLoss, null);
+
+  const lowVolume = runFunnelDiagnostic({
+    metaClicks: 20, pageviews: 5, ctas: 0, checkouts: 0, purchases: 0,
+    metaSpend: 20, grossRevenue: 0, refunds: 0,
+  });
+  assert.equal(lowVolume.sampleStatus, "insufficient");
+  assert.equal(lowVolume.bottlenecks.some((b) => b.severity === "critical"), false);
+});
+
+test("Diagnóstico sinaliza ausência real de CAPI apenas com amostra de compras", () => {
+  const withoutCapi = runFunnelDiagnostic({
+    metaClicks: 250, pageviews: 220, ctas: 100, checkouts: 40, purchases: 12,
+    metaSpend: 500, grossRevenue: 2400, refunds: 0, detectedPixelsCount: 1, hasCapi: false,
+  });
+  assert.equal(withoutCapi.sampleStatus, "sufficient");
+  assert.equal(withoutCapi.bottlenecks.some((b) => b.id === "missing_capi"), true);
 });
 
 test("analyzeAndClonePage extrai estrutura com mock de resposta HTTP", async () => {

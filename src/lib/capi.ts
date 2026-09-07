@@ -67,7 +67,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     .eq("event_name", payload.eventName)
     .maybeSingle();
 
-  if (existing) {
+  if (existing?.status === "sent" || existing?.status === "skipped") {
     return { status: "duplicate" };
   }
 
@@ -133,8 +133,8 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
         break;
       } else {
         responseSummary = `Meta HTTP ${httpCode}; código ${Number(json?.error?.code) || 0}`;
-        if (httpCode < 500) {
-          // Erro 4xx do cliente (ex: token inválido) não deve sofrer retry
+        if (httpCode < 500 && httpCode !== 408 && httpCode !== 429) {
+          // Erros 4xx permanentes (ex.: token inválido) não devem sofrer retry.
           break;
         }
       }
@@ -157,7 +157,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     },
     {
       onConflict: "workspace_id,pixel_id,event_id,event_name",
-      ignoreDuplicates: true,
+      ignoreDuplicates: false,
     },
   );
 

@@ -232,3 +232,16 @@ test("Deduplicação e Idempotência: chave consistente para todas as plataforma
   const diffProv = { ...event1, provider: "wiapy" as const };
   assert.notEqual(paymentIdentity(event1), paymentIdentity(diffProv));
 });
+
+test("Status desconhecido não é contabilizado como compra aprovada", () => {
+  const [event] = paymentAdapters.wiapy.normalize(
+    {
+      event: "status_desconhecido",
+      transaction_id: "WPY-unknown",
+      amount: 247,
+      product: { id: "wpy_p1" },
+    },
+    { receivedAt },
+  );
+  assert.equal(event.type, "payment_pending");
+});

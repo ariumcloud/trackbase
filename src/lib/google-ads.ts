@@ -1,6 +1,7 @@
 import "server-only";
 import { admin } from "./supabase/server";
 import { decrypt, encrypt } from "./security";
+import { GOOGLE_ADS_SCOPE } from "./oauth-scopes";
 
 export class GoogleAdsError extends Error {
   constructor(message: string) {
@@ -9,12 +10,12 @@ export class GoogleAdsError extends Error {
   }
 }
 
-export function getGoogleOAuthUrl(workspaceId: string, state: string): string {
+export function getGoogleOAuthUrl(state: string): string {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) throw new Error("GOOGLE_CLIENT_ID não configurado.");
 
   const redirectUri = `${process.env.APP_URL}/api/google/callback`;
-  const scope = "https://www.googleapis.com/auth/adwords email profile";
+  const scope = GOOGLE_ADS_SCOPE;
 
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", clientId);
@@ -159,11 +160,10 @@ export async function listGoogleAccessibleCustomers(accessToken: string, develop
     },
   );
 
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
   if (!response.ok) {
-    // If developer token is in test mode or invalid, fallback gracefully
-    return [];
+    throw new GoogleAdsError("Não foi possível consultar as contas Google Ads.");
   }
 
-  return (data.resourceNames || []).map((name: string) => name.replace("customers/", ""));
+  return (data?.resourceNames || []).map((name: string) => name.replace("customers/", ""));
 }

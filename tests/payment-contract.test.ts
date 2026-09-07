@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   paymentIdentity,
+  webhookEventIdentity,
   redactPaymentPayload,
   paymentEventTypes,
   normalizedPaymentEventSchema,
@@ -32,6 +33,19 @@ test("identidade ignora IDs de entrega e separa provedor e teste", () => {
     paymentIdentity(base),
     paymentIdentity({ ...base, isTest: true }),
   );
+});
+test("identidade de entrega preserva transições distintas da mesma transação", () => {
+  const purchase = {
+    externalEventId: null,
+    externalTransactionId: "tx-1",
+    productType: "main" as const,
+    type: "purchase_approved" as const,
+  };
+  assert.notEqual(
+    webhookEventIdentity(purchase),
+    webhookEventIdentity({ ...purchase, type: "purchase_refunded" }),
+  );
+  assert.equal(webhookEventIdentity(purchase), webhookEventIdentity(purchase));
 });
 test("payload bruto é sanitizado recursivamente sem modificar a origem", () => {
   const original = {

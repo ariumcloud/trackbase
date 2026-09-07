@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { digest } from "@/lib/security";
 import { admin } from "@/lib/supabase/server";
 import { graphVersion } from "@/lib/meta";
+import { META_ADS_READ_SCOPE } from "@/lib/oauth-scopes";
 export async function GET(request: Request) {
   try {
     const workspace = new URL(request.url).searchParams.get("workspace") ?? "";
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
       client_id: process.env.META_APP_ID,
       redirect_uri: `${process.env.APP_URL}/api/meta/callback`,
       response_type: "code",
-      scope: "ads_read,ads_management",
+      scope: META_ADS_READ_SCOPE,
       state,
     }).toString();
     return NextResponse.redirect(url);

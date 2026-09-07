@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
 import { body, digest, matches, rateLimit } from "@/lib/security";
 import { sendCapiEvent } from "@/lib/capi";
-import { paymentProviders, type PaymentProvider } from "@/lib/payment-contract";
+import {
+  paymentProviders,
+  webhookEventIdentity,
+  type PaymentProvider,
+} from "@/lib/payment-contract";
 import { paymentAdapters } from "@/lib/payment-adapters";
 import { notifySalePush } from "@/lib/push-notifications";
 import { z } from "zod";
@@ -168,7 +172,7 @@ export async function POST(
           {
             workspace_id: i.workspace_id,
             integration_id: integration,
-            event_id: event.externalEventId || `prod_mismatch:${event.externalTransactionId}`,
+            event_id: `product_mismatch:${webhookEventIdentity(event)}`,
             status: "ignored",
             reason: "Produto/oferta não corresponde à integração.",
             is_test: event.isTest,
@@ -207,9 +211,7 @@ export async function POST(
               : "pending";
 
       const dbPayment = {
-        event_id:
-          event.externalEventId ||
-          `tx_${event.externalTransactionId}_${event.productType}`,
+        event_id: webhookEventIdentity(event),
         transaction_id: event.externalTransactionId,
         product_id: event.productId,
         external_offer_id: event.offerId || "",

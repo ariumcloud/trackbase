@@ -112,8 +112,8 @@ export function DiagnosticoView({
     }
   };
 
-  const formatMoney = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(v);
+  const formatRate = (value: number | null) => value === null ? "—" : `${value.toFixed(1)}%`;
+  const isBelow = (value: number | null, threshold: number) => value !== null && value < threshold;
 
   const scoreColor =
     currentResult.overallScore >= 80
@@ -130,8 +130,7 @@ export function DiagnosticoView({
           <div>
             <h2>Diagnóstico de Funil</h2>
             <p>
-              Auditoria em tempo real de gargalos de conversão, quedas entre etapas e impacto financeiro
-              estimado da sua operação.
+              Métricas observadas, hipóteses verificáveis e recomendações determinísticas do funil.
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -189,7 +188,9 @@ export function DiagnosticoView({
             padding: "2rem 1.5rem",
           }}
         >
-          <span className="tag" style={{ marginBottom: "0.5rem" }}>NOTA GERAL DO FUNIL</span>
+          <span className="tag" style={{ marginBottom: "0.5rem" }}>
+            {currentResult.sampleStatus === "sufficient" ? "NOTA DETERMINÍSTICA" : "NOTA PRELIMINAR"}
+          </span>
           <div
             style={{
               width: "110px",
@@ -225,6 +226,11 @@ export function DiagnosticoView({
                 ? "Atenção"
                 : "Crítico"}
           </span>
+          {currentResult.sampleNotice && (
+            <small style={{ marginTop: "0.65rem", color: "var(--muted, #64748B)" }}>
+              {currentResult.sampleNotice}
+            </small>
+          )}
         </section>
 
         {/* Frase de Gargalo Principal */}
@@ -254,20 +260,8 @@ export function DiagnosticoView({
             “{currentResult.primaryHeadline}”
           </h2>
           <p style={{ color: "var(--muted, #64748B)", maxWidth: "700px" }}>
-            {currentResult.bottlenecks[0]?.evidence ||
-              "As etapas do funil estão operando dentro das médias esperadas de conversão."}
+            <strong>Fato observado:</strong> {currentResult.bottlenecks[0]?.observed || "Sem dados suficientes."}
           </p>
-
-          {currentResult.bottlenecks[0]?.estimatedLoss > 0 && (
-            <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--muted, #64748B)" }}>
-                Prejuízo financeiro estimado pelo gargalo:
-              </span>
-              <strong style={{ color: "var(--red, #EF3340)", fontSize: "1.1rem" }}>
-                - {formatMoney(currentResult.bottlenecks[0].estimatedLoss)}
-              </strong>
-            </div>
-          )}
         </section>
       </div>
 
@@ -332,12 +326,12 @@ export function DiagnosticoView({
             <small
               style={{
                 display: "block",
-                color: currentResult.metricsSnapshot.pvRate < 70 ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.pvRate, 70) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
                 fontWeight: 600,
                 marginTop: "0.25rem",
               }}
             >
-              {currentResult.metricsSnapshot.pvRate.toFixed(1)}% do clique
+              {formatRate(currentResult.metricsSnapshot.pvRate)} do clique
             </small>
           </div>
 
@@ -350,12 +344,12 @@ export function DiagnosticoView({
             <small
               style={{
                 display: "block",
-                color: currentResult.metricsSnapshot.ctaRate < 10 ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.ctaRate, 10) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
                 fontWeight: 600,
                 marginTop: "0.25rem",
               }}
             >
-              {currentResult.metricsSnapshot.ctaRate.toFixed(1)}% da página
+              {formatRate(currentResult.metricsSnapshot.ctaRate)} da página
             </small>
           </div>
 
@@ -368,12 +362,12 @@ export function DiagnosticoView({
             <small
               style={{
                 display: "block",
-                color: currentResult.metricsSnapshot.checkoutRate < 25 ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.checkoutRate, 25) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
                 fontWeight: 600,
                 marginTop: "0.25rem",
               }}
             >
-              {currentResult.metricsSnapshot.checkoutRate.toFixed(1)}% dos CTAs
+              {formatRate(currentResult.metricsSnapshot.checkoutRate)} dos CTAs
             </small>
           </div>
 
@@ -388,12 +382,12 @@ export function DiagnosticoView({
             <small
               style={{
                 display: "block",
-                color: currentResult.metricsSnapshot.purchaseRate < 15 ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.purchaseRate, 15) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
                 fontWeight: 600,
                 marginTop: "0.25rem",
               }}
             >
-              {currentResult.metricsSnapshot.purchaseRate.toFixed(1)}% do checkout
+              {formatRate(currentResult.metricsSnapshot.purchaseRate)} do checkout
             </small>
           </div>
         </div>
@@ -451,21 +445,13 @@ export function DiagnosticoView({
                     </span>
                     <h3 style={{ marginTop: "0.4rem", fontSize: "1.15rem" }}>{b.headline}</h3>
                     <p style={{ fontSize: "0.9rem", color: "#475569", marginTop: "0.25rem" }}>
-                      <strong>Evidência:</strong> {b.evidence}
+                      <strong>Fato observado:</strong> {b.observed}
                     </p>
                     <p style={{ fontSize: "0.85rem", color: "#64748B", marginTop: "0.2rem" }}>
-                      <strong>Causa provável:</strong> {b.possibleCause}
+                      <strong>Hipótese:</strong> {b.hypothesis}
                     </p>
                   </div>
 
-                  {b.estimatedLoss > 0 && (
-                    <div style={{ textAlign: "right" }}>
-                      <small style={{ color: "var(--muted, #64748B)", display: "block" }}>Prejuízo estimado</small>
-                      <strong style={{ color: "var(--red, #EF3340)", fontSize: "1.1rem" }}>
-                        - {formatMoney(b.estimatedLoss)}
-                      </strong>
-                    </div>
-                  )}
                 </div>
 
                 <div

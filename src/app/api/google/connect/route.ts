@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       path: "/api/google",
     });
 
-    const url = getGoogleOAuthUrl(workspace, state);
+    const url = getGoogleOAuthUrl(state);
     return NextResponse.redirect(url);
   } catch {
     return NextResponse.json(

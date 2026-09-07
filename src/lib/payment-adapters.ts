@@ -78,7 +78,7 @@ export const hotmartAdapter: PaymentAdapter = {
     const isUpsell = str(purchase.type).toLowerCase() === "upsell";
     const isDownsell = str(purchase.type).toLowerCase() === "downsell";
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (["PURCHASE_APPROVED", "PURCHASE_COMPLETE"].includes(event)) {
       if (isOrderBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";
@@ -160,7 +160,7 @@ export const kiwifyAdapter: PaymentAdapter = {
     const isBump = Boolean(root.order_bump || order.order_bump);
     const isUpsell = Boolean(root.upsell || order.upsell);
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (status === "paid") {
       if (isBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";
@@ -237,7 +237,7 @@ export const caktoAdapter: PaymentAdapter = {
     const isUpsell = str(data.type).toLowerCase().includes("upsell");
     const isDownsell = str(data.type).toLowerCase().includes("downsell");
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (["purchase_approved", "purchase_complete", "paid"].includes(event)) {
       if (isBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";
@@ -317,7 +317,7 @@ export const kirvanoAdapter: PaymentAdapter = {
     const isUpsell = rawType.includes("UPSELL");
     const isDownsell = rawType.includes("DOWNSELL");
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (["SALE_APPROVED", "PURCHASE_APPROVED", "PAID"].includes(event)) {
       if (isBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";
@@ -393,7 +393,7 @@ export const eduzzAdapter: PaymentAdapter = {
     const status = Number(root.trans_status || root.status);
     const isBump = Boolean(root.trans_order_bump || root.order_bump);
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (status === 3) {
       type = isBump ? "order_bump_approved" : "purchase_approved";
     } else if (status === 7) {
@@ -463,7 +463,7 @@ export const monetizzeAdapter: PaymentAdapter = {
     const status = str(root.tipoPost || root.status || venda.status).toLowerCase();
     const isBump = str(root.tipo_venda || venda.tipo_venda).toLowerCase().includes("bump") || Boolean(root.order_bump);
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (status.includes("finalizada") || status === "2" || status === "aprovada") {
       type = isBump ? "order_bump_approved" : "purchase_approved";
     } else if (status.includes("devolvida") || status === "4" || status.includes("reembolsada")) {
@@ -534,7 +534,7 @@ export const wiapyAdapter: PaymentAdapter = {
     const isBump = Boolean(root.order_bump || str(root.type).toLowerCase().includes("bump"));
     const isUpsell = str(root.type).toLowerCase().includes("upsell");
 
-    let type: PaymentEventType = "purchase_approved";
+    let type: PaymentEventType = "payment_pending";
     if (["approved", "paid", "payment_approved", "success"].includes(status)) {
       if (isBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";

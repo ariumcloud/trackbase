@@ -21,6 +21,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260906130000_fase4_funnels_and_diagnostics.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260907170000_capi_outbox.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -190,6 +193,26 @@ async function main() {
     }),
   ]);
 
+  // Outbox CAPI é criado no mesmo fluxo do tracking e deduplica por event_id.
+  const capiTrackEvent = {
+    event_type: "pageview",
+    event_id: "evt-capi-pageview-1",
+    session_id: "sess-123",
+    url: "https://example.com/landing",
+    attribution: { fbp: "fb.1.test", fbc: "fb.1.test" },
+    capi_payload_ciphertext: "ciphertext-placeholder",
+  };
+  await db.query("select public.utm_track_event($1, $2)", [
+    offerRow.public_key,
+    JSON.stringify(capiTrackEvent),
+  ]);
+  await db.query("select public.utm_track_event($1, $2)", [
+    offerRow.public_key,
+    JSON.stringify(capiTrackEvent),
+  ]);
+  const capiOutboxRows = (await db.query("select event_id, event_name from public.utm_capi_outbox")).rows;
+  assert.equal(capiOutboxRows.length, 1, JSON.stringify(capiOutboxRows));
+
   // Rejeição com chave pública inexistente
   await assert.rejects(() =>
     db.query("select public.utm_track_event('chave_falsa', $1)", [
@@ -218,7 +241,7 @@ async function main() {
     [wa],
   );
   const summary = summaryRes.rows[0].summary;
-  assert.equal(summary.pageviews, 1);
+  assert.equal(summary.pageviews, 3);
   assert.equal(summary.checkouts, 1);
   assert.equal(summary.refunded_count, 1);
 
@@ -228,7 +251,7 @@ async function main() {
   await db.exec("set role authenticated");
   assert.equal(
     (await db.query("select * from public.utm_events")).rows.length,
-    2,
+    4,
   );
 
   await db.exec("reset role");

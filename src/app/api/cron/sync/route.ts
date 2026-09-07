@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
 import { credentials, pages, type RawInsight } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
+import { processCapiOutbox } from "@/lib/capi-outbox";
+import { rateLimit } from "@/lib/security";
 
 export const maxDuration = 300; // 5 minutos se hospedado no serverless
 
@@ -18,7 +20,18 @@ export async function GET(request: Request) {
       );
     }
 
+    if (!(await rateLimit("cron:sync", 4))) {
+      return NextResponse.json(
+        { error: "Rotina já está em execução. Tente novamente em breve." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+
     const service = admin();
+    const capi = await processCapiOutbox(5).catch(() => {
+      console.error("CAPI outbox processing failed");
+      return { claimed: 0, sent: 0, skipped: 0, retried: 0, failed: 0 };
+    });
     const { data: integrations, error } = await service
       .from("utm_integrations")
       .select("id,workspace_id,account_id,account_timezone,name")
@@ -30,6 +43,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         ok: true,
         synced: 0,
+        capi,
         message: "Nenhuma integração Meta pendente de sincronização.",
       });
     }
@@ -145,16 +159,31 @@ export async function GET(request: Request) {
           status: "success",
         });
       } catch (err) {
+        console.error("Meta cron sync failed", {
+          integrationId: integration.id,
+          error: err instanceof Error ? err.name : "UnknownError",
+        });
         results.push({
           id: integration.id,
           name: integration.name,
           status: "error",
-          error: err instanceof Error ? err.message : "Erro desconhecido",
+          error: "Falha temporária ao sincronizar esta integração.",
         });
       }
     }
 
-    return NextResponse.json({ ok: true, synced: results.length, results });
+    const synced = results.filter((result) => result.status === "success").length;
+    const skipped = results.filter((result) => result.status === "skipped").length;
+    const failed = results.filter((result) => result.status === "error").length;
+
+    return NextResponse.json({
+      ok: failed === 0,
+      synced,
+      skipped,
+      failed,
+      results,
+      capi,
+    });
   } catch {
     return NextResponse.json(
       { error: "Falha na rotina de cron." },

@@ -2,8 +2,7 @@ import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { body, sameOrigin, rateLimit } from "@/lib/security";
-import { getGoogleCredentials } from "@/lib/google-ads";
-import { admin } from "@/lib/supabase/server";
+import { getGoogleCredentials, listGoogleAccessibleCustomers } from "@/lib/google-ads";
 
 export async function POST(request: Request) {
   try {
@@ -22,26 +21,29 @@ export async function POST(request: Request) {
     }
 
     const creds = await getGoogleCredentials(v.workspace, v.integration);
-    if (!creds.accessToken) throw new Error("Token de acesso indisponível.");
+    if (!creds.accessToken || !creds.developerToken) {
+      throw new Error("Google Ads não está configurado para sincronização.");
+    }
 
-    const service = admin();
-
-    // Mark last_synced_at
-    await service
-      .from("utm_integrations")
-      .update({
-        last_synced_at: new Date().toISOString(),
-        status: "connected",
-      })
-      .eq("id", v.integration);
+    const customers = await listGoogleAccessibleCustomers(
+      creds.accessToken,
+      creds.developerToken,
+    );
 
     return NextResponse.json({
       ok: true,
-      message: "Conexão com Google Ads verificada com sucesso.",
+      status: "verified",
+      accessibleCustomers: customers.length,
+      message:
+        "Credenciais Google Ads verificadas. A importação de insights ainda não está configurada.",
     });
   } catch (err: unknown) {
-    console.error("Google sync error:", err);
-    const msg = err instanceof Error ? err.message : "Erro ao sincronizar.";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    console.error("Google sync verification failed", {
+      error: err instanceof Error ? err.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: "Não foi possível verificar a conexão Google Ads." },
+      { status: 503 },
+    );
   }
 }
