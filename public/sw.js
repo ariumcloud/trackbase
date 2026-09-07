@@ -12,7 +12,7 @@ self.addEventListener("push", (event) => {
 
   try {
     const payload = event.data.json();
-    const title = payload.title || "💰 Venda Realizada! - Trackbase";
+    const title = payload.title || "💰 Venda Realizada!";
     const options = {
       body: payload.body || "Nova compra aprovada na sua operação.",
       icon: "/logo.png",

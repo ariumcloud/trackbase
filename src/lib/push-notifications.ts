@@ -118,7 +118,7 @@ export async function notifySalePush(
       body,
       url: `/painel?workspace=${workspaceId}&tab=visao`,
       tag: `sale-${Date.now()}`,
-      sound: "/kaching.wav",
+      sound: "/cash-machine.mp3",
       timestamp: Date.now(),
     });
 
