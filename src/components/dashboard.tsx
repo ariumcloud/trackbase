@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { soundPlayer } from "@/lib/sound";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -2858,13 +2859,7 @@ function PushSettingsCard({
 
   // Play test notification sound
   const playSound = () => {
-    try {
-      const audio = new Audio("/cash-machine.mp3");
-      audio.volume = 0.85;
-      audio.play().catch((err) => console.log("Audio blocked:", err));
-    } catch (e) {
-      console.warn("Could not play audio:", e);
-    }
+    soundPlayer.play().catch((err) => console.log("Audio blocked:", err));
   };
 
   const previewTitle = title

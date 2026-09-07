@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Bell, Volume2, BellRing } from "lucide-react";
+import { soundPlayer } from "@/lib/sound";
 
 type Props = {
   workspaceId: string;
@@ -29,13 +30,7 @@ export function SalesNotifier({ workspaceId }: Props) {
 
   // Play sound function
   const playKaching = useCallback(() => {
-    try {
-      const audio = new Audio("/cash-machine.mp3");
-      audio.volume = 0.85;
-      audio.play().catch((e) => console.error("Audio play failed:", e));
-    } catch (e) {
-      console.error("Audio instantiation failed:", e);
-    }
+    soundPlayer.play().catch((e) => console.error("Audio play failed:", e));
   }, []);
 
   useEffect(() => {
