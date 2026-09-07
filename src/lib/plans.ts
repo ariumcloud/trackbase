@@ -16,7 +16,9 @@ export type PlanFeature = (typeof planFeatures)[number];
 export type PlanId = "devedor" | "liso" | "vorcaro";
 export const plans = {
   devedor: {
-    name: "Plano Devedor",
+    name: "Plano Free",
+    price: 0,
+    sales: 50,
     workspaces: 1,
     offers: 1,
     links: 10,
@@ -24,7 +26,9 @@ export const plans = {
     features: ["dashboard"] as readonly PlanFeature[],
   },
   liso: {
-    name: "Plano Liso",
+    name: "Plano Básico",
+    price: 79,
+    sales: 1000,
     workspaces: 1,
     offers: 10,
     links: 200,
@@ -38,7 +42,9 @@ export const plans = {
     ] as readonly PlanFeature[],
   },
   vorcaro: {
-    name: "Plano Vorcaro",
+    name: "Plano Premium",
+    price: 197,
+    sales: 5000,
     workspaces: 25,
     offers: 500,
     links: 10000,

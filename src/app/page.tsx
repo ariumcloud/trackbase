@@ -18,7 +18,7 @@ import { FaqAccordion } from "@/components/faq-accordion";
 
 const plans = [
   {
-    name: "Plano Devedor",
+    name: "Plano Free",
     price: "Grátis",
     suffix: "",
     description: "Para conhecer o fluxo e organizar sua primeira operação.",
@@ -28,13 +28,14 @@ const plans = [
     items: [
       "1 workspace",
       "1 oferta e até 10 links UTM",
+      "Até 50 vendas",
       "Dashboard básico em tempo real",
       "Demo pública com dados fictícios",
     ],
   },
   {
-    name: "Plano Liso",
-    price: "R$ 50",
+    name: "Plano Básico",
+    price: "R$ 79",
     suffix: "/mês",
     description: "Para operar suas próprias campanhas com clareza, controle e escala.",
     cta: "Começar agora",
@@ -42,6 +43,7 @@ const plans = [
     featured: true,
     items: [
       "Meta Ads e 7 plataformas de checkout",
+      "Até 1.000 vendas",
       "Pixel e CAPI server-side deduplicados",
       "Clonador de funil autônomo com editor de blocos",
       "Diagnóstico de gargalos com cálculo de perda financeira",
@@ -51,7 +53,7 @@ const plans = [
     ],
   },
   {
-    name: "Plano Vorcaro",
+    name: "Plano Premium",
     price: "R$ 197",
     suffix: "/mês",
     description: "Para operadores avançados, alta escala, agências e múltiplos produtos.",
@@ -59,7 +61,8 @@ const plans = [
     href: "/login",
     featured: false,
     items: [
-      "Tudo do Plano Liso",
+      "Tudo do Plano Básico",
+      "Até 5.000 vendas",
       "Até 25 workspaces e múltiplos acessos",
       "Clonagens ilimitadas e auditoria profunda",
       "Relatórios consolidados para múltiplos sócios",
@@ -231,7 +234,7 @@ export default function Home() {
             <em>sem pagar fortunas.</em>
           </h1>
           <p>
-            Trackbase une Meta Ads, CAPI server-side deduplicada, clonador de funis autônomo, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 50/mês</strong>.
+            Trackbase une Meta Ads, CAPI server-side deduplicada, clonador de funis autônomo, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 79/mês</strong>.
           </p>
           <div className="landing-actions">
             <Link href="/demo" className="button primary large">
@@ -437,7 +440,7 @@ export default function Home() {
             <tbody style={{ fontSize: "0.92rem" }}>
               <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
                 <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Mensalidade Acessível</td>
-                <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>R$ 50 / mês</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>R$ 79 / mês</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#EF3340" }}>R$ 197 a R$ 497 / mês</td>
               </tr>
               <tr style={{ borderBottom: "1px solid #E2E8F0" }}>

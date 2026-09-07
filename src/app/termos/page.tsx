@@ -119,7 +119,7 @@ export default function TermosPage() {
           </h2>
           <ul style={{ paddingLeft: "1.4rem", marginBottom: "1rem" }}>
             <li>
-              <strong>Assinatura SaaS (Plano Liso - R$ 50/mês):</strong> Cobrança recorrente mensal. O usuário pode cancelar a qualquer momento diretamente pelo painel, mantendo o acesso até o término do ciclo mensal vigente.
+              <strong>Assinatura SaaS (Plano Básico - R$ 79/mês):</strong> Cobrança recorrente mensal. O usuário pode cancelar a qualquer momento diretamente pelo painel, mantendo o acesso até o término do ciclo mensal vigente.
             </li>
             <li>
               <strong>Serviço de Implementação Técnica (Setup Completo - R$ 497):</strong> Serviço de consultoria e configuração técnica personalizada realizado sob demanda.
