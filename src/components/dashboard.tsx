@@ -2902,12 +2902,14 @@ function PushSettingsCard({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
           gap: "1.5rem",
           marginTop: "1rem",
+          width: "100%",
+          maxWidth: "100%",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: 0, width: "100%" }}>
           <div>
             <label
               style={{
@@ -3080,7 +3082,7 @@ function PushSettingsCard({
         </div>
 
         {/* Live Mobile Push Preview */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 0, width: "100%", maxWidth: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
             <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--muted, #64748B)" }}>
               Pré-visualização no celular:
