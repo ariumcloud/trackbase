@@ -33,6 +33,7 @@ export default async function Page({
   }>;
 }) {
   const p = await searchParams;
+  const activeTab = p.tab || "visao";
   if (!configured())
     return (
       <Dashboard
@@ -127,12 +128,14 @@ export default async function Page({
           .eq("workspace_id", w.id)
           .order("day", { ascending: false })
           .limit(200),
-        client
-          .from("utm_ad_entities")
-          .select("integration_id,external_id,kind,name,status")
-          .eq("workspace_id", w.id)
-          .order("name")
-          .limit(500),
+        ["visao", "campanhas", "assistente"].includes(activeTab)
+          ? client
+              .from("utm_ad_entities")
+              .select("integration_id,external_id,kind,name,status")
+              .eq("workspace_id", w.id)
+              .order("name")
+              .limit(500)
+          : empty,
         client
           .from("utm_webhook_logs")
           .select(
@@ -153,18 +156,24 @@ export default async function Page({
           p_currency: currency,
           p_offer_id: offerFilter,
         }),
-        evaluateAlerts(w.id).catch(() => [] as AlertItem[]),
-        client
-          .from("utm_funnels")
-          .select("*")
-          .eq("workspace_id", w.id)
-          .order("created_at", { ascending: false }),
-        client
-          .from("utm_funnel_diagnostics")
-          .select("*")
-          .eq("workspace_id", w.id)
-          .order("created_at", { ascending: false })
-          .limit(20),
+        p.tab === "alertas"
+          ? evaluateAlerts(w.id).catch(() => [] as AlertItem[])
+          : Promise.resolve([] as AlertItem[]),
+        ["clonador"].includes(activeTab)
+          ? client
+              .from("utm_funnels")
+              .select("id,workspace_id,offer_id,name,source_url,status,version,blocks,pixels,settings,created_at,updated_at")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+          : empty,
+        ["diagnostico", "assistente"].includes(activeTab)
+          ? client
+              .from("utm_funnel_diagnostics")
+              .select("id,workspace_id,offer_id,url,score,category_scores,bottlenecks,recommendations,metrics_snapshot,created_at")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+              .limit(20)
+          : empty,
       ])
     : [
         empty,

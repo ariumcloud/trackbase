@@ -69,11 +69,12 @@ import type {
   FunnelRow,
   DiagnosticRow,
 } from "@/lib/types";
-import { ClonadorView } from "./clonador";
-import { DiagnosticoView } from "./diagnostico";
 import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
-import { AssistenteTrackbase } from "./assistente";
+import dynamic from "next/dynamic";
+const AssistenteTrackbase = dynamic(() => import("./assistente").then((m) => m.AssistenteTrackbase), { ssr: false });
+const ClonadorViewLazy = dynamic(() => import("./clonador").then((m) => m.ClonadorView), { ssr: false });
+const DiagnosticoViewLazy = dynamic(() => import("./diagnostico").then((m) => m.DiagnosticoView), { ssr: false });
 import { BottomBar } from "./bottom-bar";
 import { SalesNotifier } from "./sales-notifier";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
@@ -2053,7 +2054,7 @@ export function Dashboard(p: Props) {
             />
           )}
           {tab === "clonador" && (
-            <ClonadorView
+            <ClonadorViewLazy
               workspace={workspace}
               funnels={p.funnels || []}
               offers={p.offers}
@@ -2063,7 +2064,7 @@ export function Dashboard(p: Props) {
             />
           )}
           {tab === "diagnostico" && (
-            <DiagnosticoView
+            <DiagnosticoViewLazy
               workspace={workspace}
               offers={p.offers}
               metrics={metrics}

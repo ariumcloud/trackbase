@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase/server";
+import { authCallbackPath } from "@/lib/auth-redirect";
+
 export async function GET(request: Request) {
-  const code = new URL(request.url).searchParams.get("code");
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
   if (code) {
     const { error } = await (await db()).auth.exchangeCodeForSession(code);
-    if (!error)
+    if (!error) {
       return NextResponse.redirect(
-        new URL(new URL(request.url).searchParams.get("next") || "/painel", process.env.APP_URL),
+        new URL(authCallbackPath(url.searchParams.get("next")), process.env.APP_URL),
       );
+    }
   }
   return NextResponse.redirect(
     new URL("/login?error=confirmation", process.env.APP_URL),
