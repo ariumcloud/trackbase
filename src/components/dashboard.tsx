@@ -71,6 +71,7 @@ import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
 import { AssistenteTrackbase } from "./assistente";
 import { BottomBar } from "./bottom-bar";
+import { SalesNotifier } from "./sales-notifier";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
 type Props = {
   setup?: boolean;
@@ -500,6 +501,7 @@ export function Dashboard(p: Props) {
             <strong>{tabs.find((t) => t.id === tab)?.name}</strong>
           </div>
           <div className="topbar-right">
+            <SalesNotifier workspaceId={workspace} />
             <span className="live-dot" />
             <span>
               {p.setup ? "Ambiente em configuração" : "Dados do seu workspace"}
@@ -1662,6 +1664,13 @@ export function Dashboard(p: Props) {
                     color: "blue",
                   },
                   {
+                    id: "google",
+                    name: "Google Ads",
+                    letter: "G",
+                    text: "Métricas de cliques, impressões e custo com sincronização segura.",
+                    color: "red",
+                  },
+                  {
                     id: "hotmart",
                     name: "Hotmart",
                     letter: "H",
@@ -1729,6 +1738,10 @@ export function Dashboard(p: Props) {
                         if (i.id === "meta") {
                           window.location.assign(
                             `/api/meta/connect?workspace=${workspace}`,
+                          );
+                        } else if (i.id === "google") {
+                          window.location.assign(
+                            `/api/google/connect?workspace=${workspace}`,
                           );
                         } else setModal(i.id);
                       }}
@@ -2606,6 +2619,20 @@ function IntegrationCard({
               <RefreshCw size={15} /> Sincronizar 30 dias
             </button>
           )}
+        </div>
+      ) : i.provider === "google" ? (
+        <div className="connection-actions">
+          <button
+            className="button"
+            disabled={pending}
+            onClick={() =>
+              run(() =>
+                request("/api/google/sync", { workspace, integration: i.id }),
+              )
+            }
+          >
+            <RefreshCw size={15} /> Sincronizar Google Ads
+          </button>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", width: "100%", maxWidth: "420px" }}>

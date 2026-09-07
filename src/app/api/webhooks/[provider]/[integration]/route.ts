@@ -4,6 +4,7 @@ import { body, digest, matches, rateLimit } from "@/lib/security";
 import { sendCapiEvent } from "@/lib/capi";
 import { paymentProviders, type PaymentProvider } from "@/lib/payment-contract";
 import { paymentAdapters } from "@/lib/payment-adapters";
+import { notifySalePush } from "@/lib/push-notifications";
 import { z } from "zod";
 
 function extractWebhookToken(
@@ -261,6 +262,16 @@ export async function POST(
               fbp: event.attribution?.fbp || null,
               fbc: event.attribution?.fbc || null,
             },
+          }).catch(() => {});
+        }
+
+        if (isApproved) {
+          notifySalePush(i.workspace_id, {
+            amount: event.grossAmount ?? 0,
+            currency: event.grossCurrency || i.currency || "BRL",
+            buyerName: event.buyer?.name || null,
+            productName: event.productType || null,
+            provider: provider,
           }).catch(() => {});
         }
       }

@@ -1,0 +1,29 @@
+{
+  "name": "Trackbase",
+  "short_name": "Trackbase",
+  "description": "Rastreamento profissional, CAPI server-side e notificações de venda em tempo real.",
+  "start_url": "/painel",
+  "display": "standalone",
+  "background_color": "#17152F",
+  "theme_color": "#5B34EA",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
