@@ -17,7 +17,7 @@ if (files.length === 0) {
 } else {
   const result = spawnSync(
     process.execPath,
-    ["--import", "tsx", "--test", ...files],
+    ["--conditions", "react-server", "--import", "tsx", "--test", ...files],
     { stdio: "inherit" },
   );
   process.exitCode = result.status ?? 1;

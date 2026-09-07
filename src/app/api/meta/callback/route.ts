@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { digest, encrypt } from "@/lib/security";
 import { admin, db } from "@/lib/supabase/server";
-import { graphVersion } from "@/lib/meta";
+import { graphVersion, MetaError, metaPermissions, metaRedirectUri } from "@/lib/meta";
+import { appUrl } from "@/lib/app-url";
 async function exchange(parameters: Record<string, string>) {
   const url = new URL(
     `https://graph.facebook.com/${graphVersion()}/oauth/access_token`,
@@ -49,13 +50,14 @@ export async function GET(request: Request) {
     const short = await exchange({
       ...base,
       code,
-      redirect_uri: `${process.env.APP_URL}/api/meta/callback`,
+      redirect_uri: metaRedirectUri(),
     });
     const token = await exchange({
       ...base,
       grant_type: "fb_exchange_token",
       fb_exchange_token: short.access_token,
     });
+    const permissions = await metaPermissions(token.access_token);
     const ciphertext = encrypt(token.access_token);
     const { data: pending, error: pendingError } = await service
       .from("utm_integrations")
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
           workspace_id: s.workspace_id,
           provider: "meta",
           name: "Meta Ads",
-          status: "select_account",
+          status: permissions.adsRead ? "select_account" : "permission_insufficient",
         })
         .select("id")
         .single();
@@ -85,7 +87,7 @@ export async function GET(request: Request) {
     } else {
       const { error: updateError } = await service
         .from("utm_integrations")
-        .update({ status: "select_account" })
+        .update({ status: permissions.adsRead ? "select_account" : "permission_insufficient" })
         .eq("id", integrationId)
         .eq("workspace_id", s.workspace_id);
       if (updateError) throw updateError;
@@ -102,12 +104,14 @@ export async function GET(request: Request) {
     return NextResponse.redirect(
       new URL(
         `/painel?tab=integracoes&workspace=${s.workspace_id}`,
-        process.env.APP_URL,
+        appUrl(),
       ),
     );
-  } catch {
+  } catch (error) {
+    const code = error instanceof MetaError ? error.internalCode : "meta";
+    console.error("Meta OAuth callback failed", { code });
     return NextResponse.redirect(
-      new URL("/painel?tab=integracoes&error=meta", process.env.APP_URL),
+      new URL(`/painel?tab=integracoes&error=${code}`, appUrl()),
     );
   }
 }

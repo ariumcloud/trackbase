@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { digest } from "@/lib/security";
 import { admin } from "@/lib/supabase/server";
-import { graphVersion } from "@/lib/meta";
+import { graphVersion, metaRedirectUri } from "@/lib/meta";
 import { META_ADS_READ_SCOPE } from "@/lib/oauth-scopes";
 export async function GET(request: Request) {
   try {
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     );
     url.search = new URLSearchParams({
       client_id: process.env.META_APP_ID,
-      redirect_uri: `${process.env.APP_URL}/api/meta/callback`,
+      redirect_uri: metaRedirectUri(),
       response_type: "code",
       scope: META_ADS_READ_SCOPE,
       state,

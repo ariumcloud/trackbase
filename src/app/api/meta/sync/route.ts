@@ -6,11 +6,13 @@ import { credentials, pages, type RawInsight, MetaError } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { admin } from "@/lib/supabase/server";
 export async function POST(request: Request) {
+  let synchronization: { workspace: string; integration: string } | null = null;
   try {
     sameOrigin(request);
     const v = z
       .object({ workspace: z.string().uuid(), integration: z.string().uuid() })
       .parse(await body(request));
+    synchronization = { workspace: v.workspace, integration: v.integration };
     await requireFeature(v.workspace, "integrations");
     if (!(await rateLimit(`sync:${v.integration}`, 2)))
       return NextResponse.json(
@@ -21,11 +23,20 @@ export async function POST(request: Request) {
       v.workspace,
       v.integration,
     );
-    if (!integration.account_id) throw new Error();
+    if (!integration.account_id)
+      return NextResponse.json({ error: "Conecte e selecione uma conta Meta antes de sincronizar.", code: "account_not_selected", stage: "account_selection" }, { status: 409 });
     const until = dayInZone(new Date(), integration.account_timezone || "UTC");
     const start = new Date(`${until}T12:00:00Z`);
     start.setUTCDate(start.getUTCDate() - 29);
     const since = start.toISOString().slice(0, 10);
+    const service = admin();
+    const { error: startingError } = await service
+      .from("utm_integrations")
+      .update({ status: "syncing" })
+      .eq("id", v.integration)
+      .eq("workspace_id", v.workspace)
+      .eq("account_id", integration.account_id);
+    if (startingError) throw startingError;
     const insights = await pages<RawInsight>(
       `${integration.account_id}/insights`,
       token,
@@ -35,14 +46,11 @@ export async function POST(request: Request) {
         level: "ad",
         time_increment: "1",
         time_range: JSON.stringify({ since, until }),
-      },
+      }, "insights",
     );
-    const entities = [];
-    for (const [edge, kind] of [
-      ["campaigns", "campaign"],
-      ["adsets", "adset"],
-      ["ads", "ad"],
-    ]) {
+    const entities: Array<{ workspace_id: string; integration_id: string; external_id: string; name: string; status: string; kind: "campaign" | "adset" | "ad"; parent_id: string | null }> = [];
+    const entityEdges: Array<[string, "campaign" | "adset" | "ad"]> = [["campaigns", "campaign"], ["adsets", "adset"], ["ads", "ad"]];
+    for (const [edge, kind] of entityEdges) {
       const rows = await pages<{
         id: string;
         name: string;
@@ -60,11 +68,10 @@ export async function POST(request: Request) {
           name: r.name,
           status: r.status,
           kind,
-          parent_id: r.adset_id ?? r.campaign_id ?? null,
+          parent_id: kind === "ad" ? r.adset_id ?? null : kind === "adset" ? r.campaign_id ?? null : null,
         })),
       );
     }
-    const service = admin();
     const rows = insights.map((r) => ({
       workspace_id: v.workspace,
       integration_id: v.integration,
@@ -98,12 +105,22 @@ export async function POST(request: Request) {
       days: rows.length,
     });
   } catch (e) {
+    if (synchronization) {
+      const status = e instanceof MetaError && e.internalCode === "token_expired"
+        ? "token_expired"
+        : e instanceof MetaError && e.internalCode === "permission_insufficient"
+          ? "permission_insufficient"
+          : "connected";
+      await admin().from("utm_integrations").update({ status }).eq("id", synchronization.integration).eq("workspace_id", synchronization.workspace);
+    }
+    if (e instanceof MetaError) {
+      console.error("Meta sync failed", { code: e.internalCode, stage: e.stage });
+    }
     return NextResponse.json(
       {
-        error:
-          e instanceof MetaError
-            ? e.message
-            : "Falha na sincronização. A última carga completa permanece disponível.",
+        error: e instanceof MetaError ? e.message : "Falha ao salvar a sincronização. A última carga completa permanece disponível.",
+        code: e instanceof MetaError ? e.internalCode : "persistence_failed",
+        stage: e instanceof MetaError ? e.stage : "persistence",
       },
       { status: 503 },
     );

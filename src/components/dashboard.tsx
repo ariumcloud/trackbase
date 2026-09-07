@@ -380,7 +380,7 @@ export function Dashboard(p: Props) {
       body: JSON.stringify(data),
     });
     const r = await response.json();
-    if (!response.ok) throw new Error(r.error || "Não foi possível concluir.");
+    if (!response.ok) throw new Error(typeof r.error === "string" ? r.error : r.error?.message || "Não foi possível concluir.");
     return r;
   };
   const run = (fn: () => Promise<unknown>) =>
@@ -2598,19 +2598,21 @@ function IntegrationCard({
   request: (path: string, data: unknown) => Promise<unknown>;
   pending: boolean;
 }) {
-  const [accounts, setAccounts] = useState<
-    { id: string; name: string; currency: string }[]
-  >([]);
+  const [accounts, setAccounts] = useState<Array<{ id: string; name: string; currency: string; timezone_name: string; origins: Array<{ type: "direct" | "business"; businessName?: string }> }>>([]);
+  const [businesses, setBusinesses] = useState<Array<{ id: string; name: string }>>([]);
+  const statusText: Record<string, string> = {
+    connected: "Conta conectada",
+    select_account: "OAuth conectado · selecione uma conta de anúncios",
+    syncing: "Sincronizando campanhas, conjuntos, anúncios e insights",
+    token_expired: "Token Meta expirado · conecte novamente",
+    permission_insufficient: "Permissão Meta insuficiente · conecte novamente",
+  };
   return (
     <section className="panel connection-row">
       <div>
         <h3>{i.name}</h3>
         <p>
-          {i.status === "connected"
-            ? "Conectada"
-            : i.status === "select_account"
-              ? "Selecione a conta de anúncios"
-              : "Aguardando primeiro evento"}{" "}
+          {statusText[i.status] || "Aguardando configuração"}{" "}
           · {i.currency || "Moeda pendente"}
         </p>
         {i.last_synced_at && (
@@ -2633,8 +2635,9 @@ function IntegrationCard({
                         `/api/meta/accounts?workspace=${workspace}&integration=${i.id}`,
                       ),
                       data = await r.json();
-                    if (!r.ok) throw new Error(data.error);
+                    if (!r.ok) throw new Error(typeof data.error === "string" ? data.error : data.error?.message || "Não foi possível listar contas.");
                     setAccounts(data.accounts);
+                    setBusinesses(data.businesses || []);
                   })
                 }
               >
@@ -2654,14 +2657,17 @@ function IntegrationCard({
                     )
                   }
                 >
-                  {a.name} · {a.currency}
+                  <span>{a.name} · {a.id} · {a.currency} · {a.timezone_name}</span>
+                  <small>{a.origins.map((origin) => origin.type === "direct" ? "Acesso direto" : `Business: ${origin.businessName || "sem nome"}`).join(" · ")}</small>
                 </button>
               ))}
+              {businesses.length > 0 && <small>{businesses.length} Business Manager(s): {businesses.map((business) => business.name).join(", ")}</small>}
+              {accounts.length === 0 && <small>Nenhuma conta de anúncios foi encontrada para este token.</small>}
             </>
           ) : (
             <button
               className="button"
-              disabled={pending}
+              disabled={pending || i.status === "syncing"}
               onClick={() =>
                 run(() =>
                   request("/api/meta/sync", { workspace, integration: i.id }),

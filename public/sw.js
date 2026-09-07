@@ -16,7 +16,7 @@ self.addEventListener("push", (event) => {
     const options = {
       body: payload.body || "Nova compra aprovada na sua operação.",
       icon: "/logo.png",
-      badge: "/favicon.png",
+      badge: "/Logo Roxa PNG - 42x42 favicon.png",
       vibrate: [200, 100, 200, 100, 400],
       tag: payload.tag || `sale-${Date.now()}`,
       data: {

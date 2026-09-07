@@ -2,7 +2,7 @@ import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { body, sameOrigin } from "@/lib/security";
-import { credentials, pages, type Account, MetaError } from "@/lib/meta";
+import { credentials, listMetaAccounts, normalizeAdAccountId, MetaError } from "@/lib/meta";
 import { admin } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   try {
@@ -11,20 +11,11 @@ export async function GET(request: Request) {
       id = p.get("integration") ?? "";
     await requireFeature(w, "integrations");
     const { token } = await credentials(w, id);
-    return NextResponse.json({
-      accounts: await pages<Account>("me/adaccounts", token, {
-        fields: "id,name,currency,timezone_name",
-      }),
-    });
+    return NextResponse.json(await listMetaAccounts(token));
   } catch (e) {
     return NextResponse.json(
-      {
-        error:
-          e instanceof MetaError
-            ? e.message
-            : "Não foi possível listar as contas.",
-      },
-      { status: 400 },
+      { error: e instanceof MetaError ? e.message : "Não foi possível listar as contas.", code: e instanceof MetaError ? e.internalCode : "api_unavailable", stage: e instanceof MetaError ? e.stage : "account_discovery" },
+      { status: e instanceof MetaError && e.internalCode === "token_expired" ? 401 : 400 },
     );
   }
 }
@@ -35,27 +26,22 @@ export async function POST(request: Request) {
       .object({
         workspace: z.string().uuid(),
         integration: z.string().uuid(),
-        account: z.string().regex(/^act_\d+$/),
+        account: z.string().min(1).max(40),
       })
       .parse(await body(request));
     await requireFeature(v.workspace, "integrations");
-    const { token, integration } = await credentials(
+    const { token } = await credentials(
       v.workspace,
       v.integration,
     );
-    if (integration.account_id)
-      return NextResponse.json(
-        { error: "Conta já vinculada. Crie outra conexão para outra conta." },
-        { status: 409 },
-      );
-    const accounts = await pages<Account>("me/adaccounts", token, {
-        fields: "id,name,currency,timezone_name",
-      }),
-      account = accounts.find((a) => a.id === v.account);
-    if (!account) throw new Error();
+    const selectedId = normalizeAdAccountId(v.account);
+    if (!selectedId) return NextResponse.json({ error: "ID de conta Meta inválido.", code: "invalid_account", stage: "account_selection" }, { status: 422 });
+    const discovery = await listMetaAccounts(token);
+    const account = discovery.accounts.find((candidate) => candidate.id === selectedId);
+    if (!account) return NextResponse.json({ error: "Essa conta não está acessível com o token conectado.", code: "account_not_found", stage: "account_selection" }, { status: 404 });
     const service = admin();
     const integrationUpdate = {
-        account_id: account.id,
+        account_id: selectedId,
         name: account.name,
         currency: account.currency,
         account_timezone: account.timezone_name,
@@ -66,7 +52,7 @@ export async function POST(request: Request) {
       .select("id")
       .eq("workspace_id", v.workspace)
       .eq("provider", "meta")
-      .eq("account_id", account.id)
+      .eq("account_id", selectedId)
       .maybeSingle();
 
     if (existing && existing.id !== v.integration) {
@@ -114,11 +100,11 @@ export async function POST(request: Request) {
       .eq("workspace_id", v.workspace)
       .is("account_id", null);
     if (error) throw error;
-    return NextResponse.json({ ok: true });
-  } catch {
+    return NextResponse.json({ ok: true, account: { id: selectedId, name: account.name, currency: account.currency, timezone: account.timezone_name } });
+  } catch (e) {
     return NextResponse.json(
-      { error: "Conta não autorizada." },
-      { status: 403 },
+      { error: e instanceof MetaError ? e.message : "Não foi possível selecionar a conta.", code: e instanceof MetaError ? e.internalCode : "api_unavailable", stage: e instanceof MetaError ? e.stage : "account_selection" },
+      { status: e instanceof MetaError && e.internalCode === "token_expired" ? 401 : 403 },
     );
   }
 }
