@@ -21,7 +21,7 @@ self.addEventListener("push", (event) => {
       tag: payload.tag || `sale-${Date.now()}`,
       data: {
         url: payload.url || "/painel",
-        sound: "/kaching.wav",
+        sound: "/cash-machine.mp3",
       },
       actions: [
         { action: "open", title: "Ver no Painel" },

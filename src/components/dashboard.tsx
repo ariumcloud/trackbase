@@ -2859,7 +2859,7 @@ function PushSettingsCard({
   // Play test notification sound
   const playSound = () => {
     try {
-      const audio = new Audio("/kaching.wav");
+      const audio = new Audio("/cash-machine.mp3");
       audio.volume = 0.85;
       audio.play().catch((err) => console.log("Audio blocked:", err));
     } catch (e) {

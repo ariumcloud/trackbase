@@ -29,12 +29,18 @@ export function ActionForm({
         start(async () => {
           try {
             const result = await action(data);
-            setMessage(result.error ?? "Salvo com sucesso.");
+            if (result.error) {
+              setMessage(result.error);
+            } else {
+              setMessage("Salvo com sucesso.");
+            }
             if (result.ok) {
               form.reset();
               onSuccess?.();
             }
-          } catch {
+          } catch (e) {
+            const err = e as Error & { digest?: string };
+            if (err?.message === "NEXT_REDIRECT" || (err?.digest && err.digest.startsWith("NEXT_REDIRECT"))) throw e;
             setMessage("Não foi possível concluir. Tente novamente.");
           }
         });

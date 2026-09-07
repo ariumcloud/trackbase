@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Bell, Volume2, BellRing } from "lucide-react";
 
 type Props = {
@@ -28,17 +28,15 @@ export function SalesNotifier({ workspaceId }: Props) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Play sound function
-  const playKaching = () => {
+  const playKaching = useCallback(() => {
     try {
-      const audio = new Audio("/kaching.wav");
+      const audio = new Audio("/cash-machine.mp3");
       audio.volume = 0.85;
-      audio.play().catch((err) => {
-        console.log("Audio play blocked until user interacts:", err);
-      });
+      audio.play().catch((e) => console.error("Audio play failed:", e));
     } catch (e) {
-      console.warn("Could not play kaching audio:", e);
+      console.error("Audio instantiation failed:", e);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
@@ -69,7 +67,7 @@ export function SalesNotifier({ workspaceId }: Props) {
         navigator.serviceWorker.removeEventListener("message", handleMessage);
       };
     }
-  }, []);
+  }, [playKaching]);
 
   const toggleSubscription = async () => {
     if (!workspaceId) return;

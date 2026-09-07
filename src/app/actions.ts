@@ -72,7 +72,8 @@ export async function createWorkspace(form: FormData): Promise<ActionResult> {
     revalidatePath("/painel");
     redirect(`/painel?workspace=${data}`);
   } catch (e) {
-    if (e instanceof Error && e.message === "NEXT_REDIRECT") throw e;
+    const err = e as Error & { digest?: string };
+    if (err?.message === "NEXT_REDIRECT" || (err?.digest && err.digest.startsWith("NEXT_REDIRECT"))) throw e;
     const msg = e instanceof Error ? e.message : "";
     if (msg.includes("Limite de workspaces")) {
       return { error: "Limite de workspaces atingido para o seu plano." };
