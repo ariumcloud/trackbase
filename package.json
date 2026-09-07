@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node scripts/run-tests.mjs",
     "test:db": "node --import tsx tests/database.ts"
   },
   "keywords": [],
@@ -46,6 +46,9 @@
     "typescript": "6.0.3"
   },
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "overrides": {
     "postcss": "^8.5.23"
   }

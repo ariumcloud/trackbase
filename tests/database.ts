@@ -22,7 +22,13 @@ async function main() {
     readFileSync("supabase/migrations/20260906130000_fase4_funnels_and_diagnostics.sql", "utf8"),
   );
   await db.exec(
+    readFileSync("supabase/migrations/20260906140000_push_and_google_ads.sql", "utf8"),
+  );
+  await db.exec(
     readFileSync("supabase/migrations/20260907170000_capi_outbox.sql", "utf8"),
+  );
+  await db.exec(
+    readFileSync("supabase/migrations/20260907190000_account_privacy.sql", "utf8"),
   );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
@@ -47,6 +53,7 @@ async function main() {
     (await db.query("select * from public.utm_workspaces")).rows.length,
     1,
   );
+
   const offer = (
     await db.query<{ id: string }>(
       "insert into public.utm_offers(workspace_id,name,landing_url,currency) values($1,'Oferta A','https://example.com','BRL') returning id",
@@ -478,6 +485,17 @@ async function main() {
     [wa],
   );
   assert.ok(diag.rows[0].id);
+
+  await db.exec("reset role; set role service_role");
+  await db.query("select public.utm_delete_account_data($1)", [a]);
+  assert.equal(
+    (await db.query("select * from public.utm_workspaces where owner_id=$1", [a])).rows.length,
+    0,
+  );
+  assert.equal(
+    (await db.query("select * from public.utm_members where user_id=$1", [a])).rows.length,
+    0,
+  );
 
   await db.exec("reset role");
   console.log(

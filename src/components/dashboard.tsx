@@ -2041,6 +2041,7 @@ export function Dashboard(p: Props) {
                 pending={pending}
                 run={run}
               />
+              <AccountPrivacyCard pending={pending} run={run} request={request} />
             </>
           )}
           {tab === "campanhas" && (
@@ -2819,6 +2820,68 @@ function Campaigns({
           }
         />
       )}
+    </section>
+  );
+}
+
+function AccountPrivacyCard({
+  pending,
+  run,
+  request,
+}: {
+  pending: boolean;
+  run: (fn: () => Promise<unknown>) => void;
+  request: (path: string, data: unknown) => Promise<unknown>;
+}) {
+  const [confirmation, setConfirmation] = useState("");
+  const canDelete = confirmation === "EXCLUIR MINHA CONTA";
+
+  return (
+    <section className="panel" style={{ marginTop: "1rem" }}>
+      <div className="panel-head">
+        <div>
+          <span className="eyebrow">PRIVACIDADE</span>
+          <h2>Seus dados e conta</h2>
+          <p>Baixe seus dados sem incluir tokens, segredos ou inscrições de push.</p>
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: "1rem" }}>
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => window.location.assign("/api/account/export")}
+        >
+          <Download size={16} /> Exportar meus dados
+        </button>
+        <div style={{ borderTop: "1px solid var(--line)", paddingTop: "1rem" }}>
+          <strong style={{ color: "var(--red, #DC2626)" }}>Excluir conta e dados</strong>
+          <p className="form-help">
+            Esta ação remove seus workspaces próprios e dados relacionados. Não pode ser desfeita.
+          </p>
+          <label>
+            Digite EXCLUIR MINHA CONTA para confirmar
+            <input
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              autoComplete="off"
+              aria-label="Confirmação de exclusão de conta"
+            />
+          </label>
+          <button
+            type="button"
+            className="button danger"
+            disabled={pending || !canDelete}
+            onClick={() =>
+              run(async () => {
+                await request("/api/account/delete", { confirmation });
+                window.location.assign("/login?account=deleted");
+              })
+            }
+          >
+            <Trash2 size={16} /> Excluir permanentemente
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
