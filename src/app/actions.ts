@@ -569,7 +569,7 @@ export async function savePushSettings(
   },
 ): Promise<ActionResult> {
   try {
-    const { client } = await authorize(workspace, true);
+    await authorize(workspace, true);
     const parsed = z
       .object({
         title_template: z.string().trim().min(2).max(150),
@@ -582,34 +582,56 @@ export async function savePushSettings(
       return { error: "Parâmetros de notificação inválidos." };
     }
 
-    const { error } = await client
+    const service = admin();
+    const { error } = await service
       .from("utm_workspaces")
       .update({
         push_settings: parsed.data,
       })
       .eq("id", workspace);
 
-    if (error) throw error;
+    if (error) {
+      console.error("savePushSettings DB error:", error);
+      return { error: "Erro ao gravar configurações no banco de dados." };
+    }
+
     revalidatePath("/painel");
     return { ok: true };
-  } catch {
+  } catch (err) {
+    console.error("savePushSettings catch error:", err);
     return { error: "Não foi possível salvar as configurações de notificação." };
   }
 }
 
-export async function sendTestPushAction(workspace: string): Promise<ActionResult> {
+export async function sendTestPushAction(
+  workspace: string,
+): Promise<ActionResult & { count?: number }> {
   try {
     await authorize(workspace, true);
     const { notifySalePush } = await import("@/lib/push-notifications");
-    await notifySalePush(workspace, {
+    const result = await notifySalePush(workspace, {
       amount: 197.0,
       currency: "BRL",
       buyerName: "Lucas Silva",
       productName: "Oferta Escala Black",
       provider: "HOTMART",
     });
-    return { ok: true };
-  } catch {
+
+    if (result && !result.ok) {
+      if (result.reason === "no_subscribers") {
+        return {
+          error:
+            "Nenhum celular conectado neste workspace! Abra o Trackbase no seu iPhone (adicionado à Tela de Início) e clique no botão 'Ativar Vendas' (sininho) no topo para cadastrar este aparelho.",
+        };
+      }
+      return {
+        error: `Falha ao disparar push: ${result.reason || "Erro interno"}`,
+      };
+    }
+
+    return { ok: true, count: result?.count ?? 1 };
+  } catch (err) {
+    console.error("sendTestPushAction error:", err);
     return { error: "Não foi possível disparar o teste de notificação." };
   }
 }

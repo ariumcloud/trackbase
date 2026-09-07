@@ -1,6 +1,6 @@
 "use client";
 import { plans, normalizePlan } from "@/lib/plans";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -2838,7 +2838,23 @@ function PushSettingsCard({
     pushSettings?.body_template || "Opa, caiu mais uma! {produto} via {provedor}.",
   );
   const [showBuyer, setShowBuyer] = useState(pushSettings?.show_buyer !== false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  // Sync state if pushSettings prop updates
+  useEffect(() => {
+    if (pushSettings?.title_template) {
+      setTitle(pushSettings.title_template);
+    }
+    if (pushSettings?.body_template) {
+      setBody(pushSettings.body_template);
+    }
+    if (pushSettings?.show_buyer !== undefined) {
+      setShowBuyer(pushSettings.show_buyer);
+    }
+  }, [pushSettings]);
 
   // Play test notification sound
   const playSound = () => {
@@ -2864,15 +2880,38 @@ function PushSettingsCard({
     .replace(/\{comprador\}/gi, showBuyer ? "Lucas Silva" : "");
 
   const handleSave = () => {
+    setStatusFeedback(null);
     run(async () => {
       const res = await savePushSettings(workspace, {
         title_template: title,
         body_template: body,
         show_buyer: showBuyer,
       });
-      if (res.error) throw new Error(res.error);
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
+      if (res.error) {
+        setStatusFeedback({ type: "error", message: res.error });
+        throw new Error(res.error);
+      }
+      setStatusFeedback({
+        type: "success",
+        message: "Configurações salvas com sucesso no banco!",
+      });
+      setTimeout(() => setStatusFeedback(null), 4000);
+    });
+  };
+
+  const handleTestPush = () => {
+    setStatusFeedback(null);
+    run(async () => {
+      const res = await sendTestPushAction(workspace);
+      if (res.error) {
+        setStatusFeedback({ type: "error", message: res.error });
+        throw new Error(res.error);
+      }
+      setStatusFeedback({
+        type: "success",
+        message: `Notificação enviada com sucesso para ${res.count ?? 1} aparelho(s)! Verifique sua tela.`,
+      });
+      setTimeout(() => setStatusFeedback(null), 5000);
     });
   };
 
@@ -3064,7 +3103,7 @@ function PushSettingsCard({
             </ul>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
             <button
               type="button"
               className="button primary"
@@ -3073,12 +3112,35 @@ function PushSettingsCard({
             >
               {pending ? "Salvando..." : "Salvar Notificações"}
             </button>
-            {savedSuccess && (
-              <span style={{ color: "var(--emerald, #10B981)", fontSize: "0.85rem", fontWeight: 600 }}>
-                ✓ Preferências salvas!
-              </span>
-            )}
           </div>
+
+          {statusFeedback && (
+            <div
+              style={{
+                padding: "0.75rem 1rem",
+                borderRadius: "8px",
+                fontSize: "0.85rem",
+                fontWeight: 500,
+                marginTop: "0.5rem",
+                background:
+                  statusFeedback.type === "success"
+                    ? "rgba(16, 185, 129, 0.1)"
+                    : "rgba(239, 68, 68, 0.1)",
+                color:
+                  statusFeedback.type === "success"
+                    ? "#065F46"
+                    : "#991B1B",
+                border: `1px solid ${
+                  statusFeedback.type === "success"
+                    ? "rgba(16, 185, 129, 0.3)"
+                    : "rgba(239, 68, 68, 0.3)"
+                }`,
+              }}
+            >
+              {statusFeedback.type === "success" ? "✓ " : "⚠️ "}
+              {statusFeedback.message}
+            </div>
+          )}
         </div>
 
         {/* Live Mobile Push Preview */}
@@ -3102,12 +3164,7 @@ function PushSettingsCard({
                 type="button"
                 className="button small"
                 disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    const res = await sendTestPushAction(workspace);
-                    if (res.error) throw new Error(res.error);
-                  })
-                }
+                onClick={handleTestPush}
                 style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", background: "var(--brand-accent, #5B34EA)", color: "#FFF" }}
                 title="Enviar notificação push real para o aparelho agora"
               >

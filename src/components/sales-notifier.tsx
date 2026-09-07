@@ -75,6 +75,13 @@ export function SalesNotifier({ workspaceId }: Props) {
     if (!workspaceId) return;
     setLoading(true);
 
+    if (!("Notification" in window) || !("PushManager" in window)) {
+      alert(
+        "No iPhone/iOS, as notificações push só funcionam se você adicionar o app à Tela de Início:\n\n1. Abra o Safari e toque no botão de Compartilhar (quadrado com seta para cima);\n2. Escolha 'Adicionar à Tela de Início';\n3. Abra o app pelo ícone criado na sua tela e ative as notificações aqui!",
+      );
+      return;
+    }
+
     try {
       const registration = await navigator.serviceWorker.ready;
 
@@ -94,7 +101,9 @@ export function SalesNotifier({ workspaceId }: Props) {
       } else {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
-          alert("Permissão de notificações não concedida no seu navegador.");
+          alert(
+            "Permissão de notificações não concedida.\nSe estiver no iPhone, vá em Ajustes > Safari (ou Trackbase) > Notificações e permita alertas.",
+          );
           setLoading(false);
           return;
         }

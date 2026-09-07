@@ -42,8 +42,18 @@ export async function notifySalePush(
       .select("id, endpoint, p256dh, auth")
       .eq("workspace_id", workspaceId);
 
-    if (error || !subs || subs.length === 0) {
-      return;
+    if (!isVapidConfigured) {
+      console.warn("VAPID is not configured.");
+      return { ok: false, count: 0, reason: "vapid_not_configured" };
+    }
+
+    if (error) {
+      console.error("Error querying subscriptions:", error);
+      return { ok: false, count: 0, reason: error.message };
+    }
+
+    if (!subs || subs.length === 0) {
+      return { ok: false, count: 0, reason: "no_subscribers" };
     }
 
     // Fetch workspace push settings (if customized)
@@ -100,12 +110,9 @@ export async function notifySalePush(
       timestamp: Date.now(),
     });
 
-    if (!isVapidConfigured) {
-      return;
-    }
-
     // Send push to each registered subscriber
     const deadSubIds: string[] = [];
+    let sentCount = 0;
 
     await Promise.all(
       subs.map(async (sub) => {
@@ -124,6 +131,7 @@ export async function notifySalePush(
               urgency: "high",
             },
           );
+          sentCount++;
         } catch (err: unknown) {
           const statusCode =
             typeof err === "object" && err !== null && "statusCode" in err
@@ -143,7 +151,10 @@ export async function notifySalePush(
         .delete()
         .in("id", deadSubIds);
     }
+
+    return { ok: true, count: sentCount, total: subs.length };
   } catch (err) {
     console.error("notifySalePush error:", err);
+    return { ok: false, count: 0, reason: String(err) };
   }
 }
