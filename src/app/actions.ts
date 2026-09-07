@@ -21,6 +21,26 @@ export async function login(form: FormData): Promise<ActionResult> {
     return { error: "Não foi possível entrar. Confira e-mail e senha." };
   redirect("/painel");
 }
+export async function requestPasswordReset(form: FormData): Promise<ActionResult> {
+  const email = z.string().email().safeParse(form.get("email"));
+  if (!email.success) return { error: "Informe um e-mail válido." };
+  const client = await db();
+  const { error } = await client.auth.resetPasswordForEmail(email.data, {
+    redirectTo: `${process.env.APP_URL}/auth/callback?next=/recuperar-senha/atualizar`,
+  });
+  return error
+    ? { error: "Não foi possível enviar o e-mail de recuperação." }
+    : { ok: true };
+}
+
+export async function updatePassword(form: FormData): Promise<ActionResult> {
+  const password = z.string().min(10).max(128).safeParse(form.get("password"));
+  if (!password.success) return { error: "A senha precisa ter pelo menos 10 caracteres." };
+  const client = await db();
+  const { error } = await client.auth.updateUser({ password: password.data });
+  if (error) return { error: "Não foi possível atualizar a senha." };
+  redirect("/login?password=updated");
+}
 export async function signup(form: FormData): Promise<ActionResult> {
   const email = z.string().email().safeParse(form.get("email")),
     password = z.string().min(10).max(128).safeParse(form.get("password"));

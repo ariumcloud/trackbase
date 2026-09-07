@@ -5,6 +5,7 @@ import {
   Activity,
   ArrowRight,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import type { Offer, DiagnosticRow } from "@/lib/types";
 import { runFunnelDiagnostic, type FunnelDiagnosticResult } from "@/lib/funnel-diagnostic";
@@ -14,6 +15,7 @@ export function DiagnosticoView({
   workspace,
   offers = [],
   metrics,
+  hasCapi = false,
   diagnostics = [],
   currency = "BRL",
   selectTab,
@@ -30,12 +32,15 @@ export function DiagnosticoView({
     checkouts: number;
     refundedCount: number;
   };
+  hasCapi?: boolean;
   diagnostics: DiagnosticRow[];
   currency: string;
   selectTab: (tab: string) => void;
 }) {
   const [selectedOffer, setSelectedOffer] = useState<string>("all");
   const [analyzing, setAnalyzing] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState("");
   const [isSaving, startSaving] = useTransition();
 
   // Executa diagnóstico com base nas métricas reais do workspace ou oferta
@@ -50,7 +55,7 @@ export function DiagnosticoView({
       grossRevenue: metrics.revenue,
       refunds: metrics.refundedCount,
       currency,
-      hasCapi: true,
+      hasCapi,
     }),
   );
 
@@ -67,7 +72,7 @@ export function DiagnosticoView({
         grossRevenue: metrics.revenue,
         refunds: metrics.refundedCount,
         currency,
-        hasCapi: true,
+        hasCapi,
       });
       setCurrentResult(res);
       setAnalyzing(false);
@@ -83,6 +88,28 @@ export function DiagnosticoView({
         });
       });
     }, 600);
+  };
+
+  const handleAiAnalysis = async () => {
+    if (aiAnalyzing) return;
+    setAiAnalyzing(true);
+    try {
+      const response = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace,
+          query: "Interprete este diagnóstico de funil como um estrategista de direct response. Entregue: (1) leitura executiva, (2) gargalo prioritário e por que, (3) ação nas próximas 24 horas, (4) teste recomendado para copy, criativo ou checkout, (5) o que ainda não dá para afirmar. Não invente dados e não recomende escalar sem volume suficiente.",
+          context: { metrics, currency, selectedOffer, diagnostic: currentResult, recentDiagnostics: diagnostics.slice(0, 5) },
+        }),
+      });
+      const data = await response.json();
+      setAiAnalysis(data.text || data.error || "Não foi possível interpretar o diagnóstico agora.");
+    } catch {
+      setAiAnalysis("Não foi possível consultar a IA agora. Tente novamente em instantes.");
+    } finally {
+      setAiAnalyzing(false);
+    }
   };
 
   const formatMoney = (v: number) =>
@@ -131,9 +158,22 @@ export function DiagnosticoView({
                 </>
               )}
             </button>
+            <button className="button ghost" disabled={aiAnalyzing} onClick={handleAiAnalysis}>
+              <Sparkles size={15} /> {aiAnalyzing ? "Interpretando..." : "Interpretar com IA"}
+            </button>
           </div>
         </div>
       </section>
+
+      {aiAnalysis && (
+        <section className="panel" style={{ borderLeft: "4px solid #5B34EA", background: "linear-gradient(135deg, #F5F3FF 0%, #FFFFFF 100%)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            <Sparkles size={18} color="#5B34EA" />
+            <h2 style={{ margin: 0 }}>Leitura estratégica da IA</h2>
+          </div>
+          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, color: "#334155" }}>{aiAnalysis}</div>
+        </section>
+      )}
 
       {/* 2. Placar Principal: Score Global + Frase de Impacto */}
       <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "1.5rem" }}>

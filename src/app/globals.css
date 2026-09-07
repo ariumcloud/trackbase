@@ -1678,6 +1678,36 @@ tr:hover td {
   background: var(--brand);
 }
 
+/* Dashboard spacing and integration cards */
+.section-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.integration-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.integration-card h2,
+.integration-card p {
+  margin: 0;
+}
+
+.integration-card p {
+  line-height: 1.45;
+}
+
+.integration-card .button {
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
 /* Lista de Ofertas e Links */
 .offers-grid {
   display: grid;

@@ -499,24 +499,27 @@ export function Dashboard(p: Props) {
               <small>Powered by Trackbase</small>
             </span>
             {!p.setup && (
-              <button
-                className="icon-button logout-btn"
-                aria-label="Sair da conta"
-                title="Deslogar da Trackbase"
-                onClick={() => logout()}
-              >
-                <LogOut size={17} />
-              </button>
+              <form action={logout}>
+                <button
+                  type="submit"
+                  className="icon-button logout-btn"
+                  aria-label="Sair da conta"
+                  title="Deslogar da Trackbase"
+                >
+                  <LogOut size={17} />
+                </button>
+              </form>
             )}
           </div>
           {!p.setup && (
-            <button
-              type="button"
-              className="button ghost small sidebar-logout-full"
-              onClick={() => logout()}
-            >
-              <LogOut size={15} /> Desconectar da conta
-            </button>
+            <form action={logout}>
+              <button
+                type="submit"
+                className="button ghost small sidebar-logout-full"
+              >
+                <LogOut size={15} /> Desconectar da conta
+              </button>
+            </form>
           )}
         </div>
       </aside>
@@ -2064,6 +2067,7 @@ export function Dashboard(p: Props) {
               workspace={workspace}
               offers={p.offers}
               metrics={metrics}
+              hasCapi={p.pixels.length > 0}
               diagnostics={p.diagnostics || []}
               currency={currency}
               selectTab={selectTab}
@@ -2071,6 +2075,7 @@ export function Dashboard(p: Props) {
           )}
           {tab === "assistente" && (
             <AssistenteTrackbase
+              workspace={workspace}
               metrics={metrics}
               currency={currency}
               offers={p.offers}

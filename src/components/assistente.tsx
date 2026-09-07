@@ -19,6 +19,7 @@ import type {
 } from "@/lib/types";
 
 interface AssistenteProps {
+  workspace: string;
   metrics: {
     grossRevenue: number;
     netRevenue: number;
@@ -57,6 +58,7 @@ interface Message {
 }
 
 export function AssistenteTrackbase({
+  workspace,
   metrics,
   currency,
   offers,
@@ -348,8 +350,13 @@ Quer que eu aprofunde algum ponto específico?`;
     if (!textToSend) setInput("");
     setLoading(true);
 
-    setTimeout(() => {
-      const responseText = answerQuery(q);
+    fetch("/api/assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspace, query: q, context: { metrics, currency, offers, links, insights, entities, diagnostics } }),
+    }).then(async (res) => {
+      const data = await res.json();
+      const responseText = data.text || data.error || "Não consegui responder agora.";
       const botMsg: Message = {
         id: `bot-${Date.now()}`,
         sender: "assistant",
@@ -358,7 +365,10 @@ Quer que eu aprofunde algum ponto específico?`;
       };
       setMessages((prev) => [...prev, botMsg]);
       setLoading(false);
-    }, 400);
+    }).catch(() => {
+      setMessages((prev) => [...prev, { id: `bot-${Date.now()}`, sender: "assistant", text: "Não consegui consultar a IA agora. Tente novamente em instantes.", timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }]);
+      setLoading(false);
+    });
   };
 
   return (

@@ -3,6 +3,8 @@ import { useState, useTransition } from "react";
 import {
   login,
   signup,
+  requestPasswordReset,
+  updatePassword,
   createWorkspace,
   saveOffer,
   type ActionResult,
@@ -118,6 +120,11 @@ export function AuthForm({ configured }: { configured: boolean }) {
               ? "Já tenho conta. Entrar"
               : "Ainda não tem conta? Comece aqui"}
           </button>
+          {!register && (
+            <a className="text-button" href="/recuperar-senha">
+              Esqueci minha senha
+            </a>
+          )}
         </>
       ) : (
         <div className="notice">
@@ -127,6 +134,27 @@ export function AuthForm({ configured }: { configured: boolean }) {
       )}
       <small>Seus dados pertencem ao seu workspace.</small>
     </div>
+  );
+}
+export function PasswordResetForm() {
+  return (
+    <ActionForm action={requestPasswordReset} label="Enviar link">
+      <label>
+        E-mail
+        <input name="email" type="email" autoComplete="email" required />
+      </label>
+    </ActionForm>
+  );
+}
+
+export function NewPasswordForm() {
+  return (
+    <ActionForm action={updatePassword} label="Salvar nova senha" onSuccess={() => {}}>
+      <label>
+        Nova senha
+        <input name="password" type="password" minLength={10} autoComplete="new-password" required />
+      </label>
+    </ActionForm>
   );
 }
 export function WorkspaceForm() {

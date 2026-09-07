@@ -154,7 +154,7 @@ export function GraficoDiario({
             height={chartHeight}
             style={{ overflow: "visible" }}
             viewBox={`0 0 ${daysData.length * 50} ${chartHeight}`}
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
           >
             {/* Horizontal Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {

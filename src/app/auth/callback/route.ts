@@ -5,7 +5,9 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await (await db()).auth.exchangeCodeForSession(code);
     if (!error)
-      return NextResponse.redirect(new URL("/painel", process.env.APP_URL));
+      return NextResponse.redirect(
+        new URL(new URL(request.url).searchParams.get("next") || "/painel", process.env.APP_URL),
+      );
   }
   return NextResponse.redirect(
     new URL("/login?error=confirmation", process.env.APP_URL),
