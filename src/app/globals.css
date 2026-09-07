@@ -1980,7 +1980,31 @@ textarea {
   .demo-lower {
     grid-template-columns: 1fr;
   }
+
+  .landing-nav {
+    height: 64px;
+    padding: 0 16px;
+  }
+  .landing-nav-links {
+    display: none;
+  }
+  .landing-nav-mobile-action {
+    display: inline-flex !important;
+  }
 }
+
+@media (max-width: 640px) {
+  .landing-nav .brand .brand-title-text {
+    display: none !important;
+  }
+  .landing-nav .brand .brand-dot {
+    display: none !important;
+  }
+  .landing-nav .brand {
+    gap: 0;
+  }
+}
+
 
 
 /* Trackbase app shell: isolated from demo styles. */

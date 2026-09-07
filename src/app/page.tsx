@@ -194,7 +194,7 @@ export default function Home() {
             height={34}
             className="brand-logo-img"
           />
-          Trackbase
+          <span className="brand-title-text">Trackbase</span>
           <span className="brand-dot" />
         </Link>
         <div className="landing-nav-links">
@@ -210,6 +210,11 @@ export default function Home() {
           </Link>
           <Link href="/login" className="button small primary">
             Entrar
+          </Link>
+        </div>
+        <div className="landing-nav-mobile-action" style={{ display: "none" }}>
+          <Link href="/login" className="button small primary">
+            Entrar no Painel
           </Link>
         </div>
       </nav>
