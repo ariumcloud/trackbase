@@ -122,11 +122,11 @@ export function GatewayConnectForm({
         </label>
       )}
       <label>
-        {provider === "hotmart" ? "Hottok do webhook" : provider === "kiwify" ? "Token do webhook" : "Secret do webhook"}
-        <input name="webhook_secret" type="password" autoComplete="new-password" required disabled={loading} />
+        {provider === "hotmart" ? "Hottok do webhook" : provider === "kiwify" ? "Token do webhook" : "Secret do webhook (depois da importação)"}
+        <input name="webhook_secret" type="password" autoComplete="new-password" required={provider !== "cakto"} disabled={loading} />
       </label>
       <p className="form-help" style={{ marginTop: "-0.35rem" }}>
-        Esse segredo é criado/configurado no webhook do gateway. Use o mesmo valor aqui e no painel dele.
+        {provider === "cakto" ? "Na Cakto, deixe vazio agora. Depois de importar o produto, crie o webhook, copie o secret gerado e salve-o na integração." : "Use o mesmo valor configurado no webhook do gateway."}
       </p>
       {products.length > 0 && (
         <label>

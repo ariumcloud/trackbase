@@ -230,6 +230,9 @@ export const caktoAdapter: PaymentAdapter = {
     const root = record(payload);
     const data = record(root.data);
     const customer = record(data.customer);
+    const address = record(data.address);
+    const product = record(data.product);
+    const offer = record(data.offer);
     const tracking = record(data.tracking);
 
     const event = str(root.event).toLowerCase();
@@ -263,7 +266,7 @@ export const caktoAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(data.product_id || root.product_id) || "prod";
+    const productId = str(product.id || data.product_id || root.product_id) || "prod";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -272,7 +275,7 @@ export const caktoAdapter: PaymentAdapter = {
         externalEventId: str(root.id) || null,
         type,
         productId,
-        offerId: str(data.offer_id) || null,
+        offerId: str(offer.id || data.offer_id) || null,
         productType,
         parentProductId: null,
         parentTransactionId: str(data.parent_id || data.parent_transaction_id) || null,
@@ -281,7 +284,7 @@ export const caktoAdapter: PaymentAdapter = {
         fees: fee,
         grossCurrency: cleanCurrency(data.currency, context.fallbackCurrency),
         netCurrency: cleanCurrency(data.currency, context.fallbackCurrency),
-        country: cleanCountry(customer.country),
+        country: cleanCountry(address.country || customer.country),
         buyer: {
           name: str(customer.name) || null,
           email: str(customer.email) || null,

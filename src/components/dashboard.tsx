@@ -46,6 +46,7 @@ import {
   saveLink,
   toggleLink,
   savePaymentIntegration,
+  saveGatewayWebhookSecret,
   cleanupTests,
   logout,
   savePixel,
@@ -2818,6 +2819,23 @@ function IntegrationCard({
             {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
             {i.provider === "wiapy" && "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
           </small>
+          {i.provider === "cakto" && (
+            <form
+              style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const secret = new FormData(event.currentTarget).get("secret");
+                run(async () => {
+                  const result = await saveGatewayWebhookSecret(workspace, i.id, String(secret || ""));
+                  if (result.error) throw new Error(result.error);
+                });
+                event.currentTarget.reset();
+              }}
+            >
+              <input name="secret" type="password" minLength={4} required placeholder="Secret gerado pela Cakto" />
+              <button className="button secondary" disabled={pending}>Salvar secret</button>
+            </form>
+          )}
         </div>
       )}
     </section>

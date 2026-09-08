@@ -328,9 +328,12 @@ export async function connectImportedGateway(
       client_secret: z.string().trim().min(4).max(1000),
       account_id: z.string().trim().max(300).optional(),
       basic_token: z.string().trim().max(1000).optional(),
-      webhook_secret: z.string().trim().min(4).max(500),
+      webhook_secret: z.string().trim().max(500).optional(),
       external_product_id: z.string().trim().min(1).max(300),
     }).parse(Object.fromEntries(form));
+    if (value.provider !== "cakto" && (!value.webhook_secret || value.webhook_secret.length < 4)) {
+      return { error: "Informe o segredo do webhook antes de conectar este gateway." };
+    }
 
     const credentials = {
       clientId: value.client_id,
@@ -385,7 +388,7 @@ export async function connectImportedGateway(
     const { error: credentialError } = await service.from("utm_credentials").insert({
       workspace_id: workspace,
       integration_id: integration.id,
-      webhook_hash: digest(value.webhook_secret),
+      webhook_hash: value.webhook_secret ? digest(value.webhook_secret) : null,
       api_credentials_ciphertext: encrypt(JSON.stringify(credentials)),
     });
     if (credentialError) {
@@ -399,6 +402,30 @@ export async function connectImportedGateway(
     const message = error instanceof Error ? error.message : "";
     if (message.includes("Limite")) return { error: message };
     return { error: "Não foi possível importar o produto. Confira as chaves, o produto e as permissões da API." };
+  }
+}
+
+export async function saveGatewayWebhookSecret(
+  workspace: string,
+  integration: string,
+  secret: string,
+): Promise<ActionResult> {
+  try {
+    await requireFeature(workspace, "integrations");
+    const value = z.object({
+      integration: z.string().uuid(),
+      secret: z.string().trim().min(4).max(500),
+    }).parse({ integration, secret });
+    const { error } = await admin()
+      .from("utm_credentials")
+      .update({ webhook_hash: digest(value.secret) })
+      .eq("workspace_id", workspace)
+      .eq("integration_id", value.integration);
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível salvar o secret do webhook." };
   }
 }
 export async function cleanupTests(workspace: string): Promise<ActionResult> {
