@@ -23,6 +23,15 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function hasSameApplicationServerKey(
+  currentKey: ArrayBuffer | null,
+  expectedKey: Uint8Array,
+) {
+  if (!currentKey) return false;
+  const current = new Uint8Array(currentKey);
+  return current.length === expectedKey.length && current.every((value, index) => value === expectedKey[index]);
+}
+
 export function SalesNotifier({ workspaceId }: Props) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,11 +46,32 @@ export function SalesNotifier({ workspaceId }: Props) {
     if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((registration) => {
-          return registration.pushManager.getSubscription();
-        })
-        .then((subscription) => {
-          setIsSubscribed(Boolean(subscription));
+        .then(async (registration) => {
+          const subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            setIsSubscribed(false);
+            return;
+          }
+
+          const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          const expectedKey = publicKey ? urlBase64ToUint8Array(publicKey) : null;
+
+          // Uma inscrição criada com uma chave VAPID antiga parece ativa no
+          // navegador, mas o servidor não consegue mais entregar o push.
+          if (!expectedKey || !hasSameApplicationServerKey(subscription.options.applicationServerKey, expectedKey)) {
+            await subscription.unsubscribe();
+            await fetch("/api/push/subscribe", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ endpoint: subscription.endpoint }),
+            });
+            setIsSubscribed(false);
+            setToastMessage("As notificações precisam ser ativadas novamente neste aparelho.");
+            setTimeout(() => setToastMessage(null), 7000);
+            return;
+          }
+
+          setIsSubscribed(true);
         })
         .catch((err) => {
           console.warn("SW register error:", err);
