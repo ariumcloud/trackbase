@@ -71,6 +71,29 @@ export function SalesNotifier({ workspaceId }: Props) {
             return;
           }
 
+          const subJson = subscription.toJSON();
+          const res = await fetch("/api/push/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspace_id: workspaceId,
+              subscription: {
+                endpoint: subJson.endpoint,
+                keys: {
+                  p256dh: subJson.keys?.p256dh,
+                  auth: subJson.keys?.auth,
+                },
+              },
+            }),
+          });
+
+          if (!res.ok) {
+            const response = await res.json().catch(() => null);
+            throw new Error(
+              response?.error || "Não foi possível sincronizar as notificações deste aparelho.",
+            );
+          }
+
           setIsSubscribed(true);
         })
         .catch((err) => {
@@ -92,7 +115,7 @@ export function SalesNotifier({ workspaceId }: Props) {
         navigator.serviceWorker.removeEventListener("message", handleMessage);
       };
     }
-  }, [playKaching]);
+  }, [playKaching, workspaceId]);
 
   const toggleSubscription = async () => {
     if (!workspaceId) return;
