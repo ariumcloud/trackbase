@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Junte anúncios da Meta Ads, páginas, checkouts e vendas em uma operação clara, rápida e lucrativa com a Trackbase.",
   icons: {
     icon: [
-      { url: "/Logo Roxa PNG - 42x42 favicon.png", sizes: "42x42", type: "image/png" },
+      { url: "/Logo Preta 42x42 PNG favicon.png", sizes: "42x42", type: "image/png" },
       { url: "/logo.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [{ url: "/logo.png", sizes: "180x180", type: "image/png" }],
@@ -26,7 +26,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
-        <link rel="icon" href="/Logo Roxa PNG - 42x42 favicon.png" type="image/png" />
+        <link rel="icon" href="/Logo Preta 42x42 PNG favicon.png" type="image/png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

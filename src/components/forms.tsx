@@ -229,7 +229,7 @@ export function OfferForm({
           required
         />
       </label>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+      <div className="form-grid form-grid-2">
         <label>
           Tipo de produto
           <select
@@ -271,7 +271,7 @@ export function OfferForm({
           </select>
         </label>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+      <div className="form-grid form-grid-2">
         <label>
           Plataforma de checkout
           <select name="platform">
@@ -294,7 +294,7 @@ export function OfferForm({
           />
         </label>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}>
+      <div className="form-grid form-grid-3">
         <label>
           Taxa % plataforma
           <input
