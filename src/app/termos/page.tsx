@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Termos de Serviço · Trackbase",
   description:
-    "Termos e condições de uso da plataforma Trackbase de rastreamento, clonador de funis e atribuição de tráfego direto.",
+    "Termos e condições de uso da plataforma Trackbase de rastreamento e atribuição de tráfego direto.",
 };
 
 export default function TermosPage() {

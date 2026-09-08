@@ -59,9 +59,13 @@ export function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) throw new Error("Origem não autorizada.");
 
-  const allowedOrigins = new Set([new URL(request.url).origin]);
   const configuredAppUrl = process.env.APP_URL?.trim();
+  const allowedOrigins = new Set<string>();
   if (configuredAppUrl) allowedOrigins.add(new URL(configuredAppUrl).origin);
+  // Em produção a origem precisa ser fixa; o Host do request não é confiável.
+  if (process.env.NODE_ENV !== "production") {
+    allowedOrigins.add(new URL(request.url).origin);
+  }
 
   if (!allowedOrigins.has(origin)) throw new Error("Origem não autorizada.");
 }
@@ -73,7 +77,7 @@ export async function rateLimit(bucket: string, limit = 120) {
   if (error) throw new Error("Controle de tráfego indisponível.");
   return data === true;
 }
-export async function body(request: Request, max = 65536): Promise<unknown> {
+export async function rawBody(request: Request, max = 65536): Promise<string> {
   const reader = request.body?.getReader();
   if (!reader) throw new Error("Corpo vazio.");
   let size = 0;
@@ -88,5 +92,8 @@ export async function body(request: Request, max = 65536): Promise<unknown> {
     }
     chunks.push(value);
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  return Buffer.concat(chunks).toString("utf8");
+}
+export async function body(request: Request, max = 65536): Promise<unknown> {
+  return JSON.parse(await rawBody(request, max));
 }

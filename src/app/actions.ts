@@ -13,6 +13,8 @@ export async function login(form: FormData): Promise<ActionResult> {
     password = z.string().min(8).max(128).safeParse(form.get("password"));
   if (!email.success || !password.success)
     return { error: "Informe um e-mail e senha com pelo menos 8 caracteres." };
+  if (!(await rateLimit(`login:${email.data.toLowerCase()}`, 5)))
+    return { error: "Muitas tentativas. Aguarde um minuto para tentar novamente." };
   const client = await db();
   const { error } = await client.auth.signInWithPassword({
     email: email.data,
@@ -25,6 +27,8 @@ export async function login(form: FormData): Promise<ActionResult> {
 export async function requestPasswordReset(form: FormData): Promise<ActionResult> {
   const email = z.string().email().safeParse(form.get("email"));
   if (!email.success) return { error: "Informe um e-mail válido." };
+  if (!(await rateLimit(`password-reset:${email.data.toLowerCase()}`, 3)))
+    return { ok: true };
   const client = await db();
   const { error } = await client.auth.resetPasswordForEmail(email.data, {
     redirectTo: `${process.env.APP_URL}/auth/callback?next=/recuperar-senha/atualizar`,
@@ -54,6 +58,8 @@ export async function signup(form: FormData): Promise<ActionResult> {
     return {
       error: "Use um e-mail válido, celular válido e senha com pelo menos 10 caracteres.",
     };
+  if (!(await rateLimit(`signup:${email.data.toLowerCase()}`, 3)))
+    return { error: "Muitas tentativas. Aguarde um minuto para tentar novamente." };
   const client = await db();
   const { error } = await client.auth.signUp({
     email: email.data,
@@ -297,6 +303,7 @@ export async function savePaymentIntegration(
         workspace_id: workspace,
         integration_id: data.id,
         webhook_hash: digest(value.secret),
+        webhook_secret_ciphertext: encrypt(value.secret),
       });
     if (secretError) {
       await service.from("utm_integrations").delete().eq("id", data.id);
@@ -389,6 +396,9 @@ export async function connectImportedGateway(
       workspace_id: workspace,
       integration_id: integration.id,
       webhook_hash: value.webhook_secret ? digest(value.webhook_secret) : null,
+      webhook_secret_ciphertext: value.webhook_secret
+        ? encrypt(value.webhook_secret)
+        : null,
       api_credentials_ciphertext: encrypt(JSON.stringify(credentials)),
     });
     if (credentialError) {
@@ -418,7 +428,10 @@ export async function saveGatewayWebhookSecret(
     }).parse({ integration, secret });
     const { error } = await admin()
       .from("utm_credentials")
-      .update({ webhook_hash: digest(value.secret) })
+      .update({
+        webhook_hash: digest(value.secret),
+        webhook_secret_ciphertext: encrypt(value.secret),
+      })
       .eq("workspace_id", workspace)
       .eq("integration_id", value.integration);
     if (error) throw error;
@@ -536,137 +549,6 @@ export async function markAlertRead(
     return { ok: true };
   } catch {
     return { error: "Não foi possível atualizar o alerta." };
-  }
-}
-
-export async function cloneFunnelAction(
-  workspace: string,
-  url: string,
-): Promise<{ ok?: boolean; error?: string; structure?: unknown }> {
-  try {
-    await authorize(workspace, true);
-    const { analyzeAndClonePage } = await import("@/lib/funnel-cloner");
-    return await analyzeAndClonePage(url);
-  } catch (err: unknown) {
-    return { error: err instanceof Error ? err.message : "Falha ao analisar a URL." };
-  }
-}
-
-export async function saveFunnelAction(
-  workspace: string,
-  data: {
-    id?: string;
-    offer_id?: string | null;
-    name: string;
-    source_url?: string;
-    blocks: unknown[];
-    pixels?: unknown[];
-    settings?: Record<string, unknown>;
-    status?: "draft" | "published" | "archived";
-  },
-): Promise<{ ok?: boolean; error?: string; id?: string }> {
-  try {
-    const { client } = await authorize(workspace, true);
-    if (!data.name || data.name.trim().length < 2) {
-      return { error: "Nome do funil deve ter pelo menos 2 caracteres." };
-    }
-
-    if (data.id) {
-      const { data: updated, error } = await client
-        .from("utm_funnels")
-        .update({
-          name: data.name.trim(),
-          offer_id: data.offer_id || null,
-          blocks: data.blocks || [],
-          pixels: data.pixels || [],
-          settings: data.settings || {},
-          status: data.status || "draft",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("workspace_id", workspace)
-        .eq("id", data.id)
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      revalidatePath("/painel");
-      return { ok: true, id: updated.id };
-    }
-
-    const { data: created, error } = await client
-      .from("utm_funnels")
-      .insert({
-        workspace_id: workspace,
-        offer_id: data.offer_id || null,
-        name: data.name.trim(),
-        source_url: data.source_url || null,
-        blocks: data.blocks || [],
-        pixels: data.pixels || [],
-        settings: data.settings || {},
-        status: data.status || "draft",
-      })
-      .select("id")
-      .single();
-
-    if (error) throw error;
-    revalidatePath("/painel");
-    return { ok: true, id: created.id };
-  } catch {
-    return { error: "Não foi possível salvar o funil no workspace." };
-  }
-}
-
-export async function duplicateFunnelAction(
-  workspace: string,
-  funnelId: string,
-): Promise<ActionResult> {
-  try {
-    const { client } = await authorize(workspace, true);
-    const { data: orig, error: findError } = await client
-      .from("utm_funnels")
-      .select("*")
-      .eq("workspace_id", workspace)
-      .eq("id", funnelId)
-      .single();
-
-    if (findError || !orig) throw new Error("Funil não encontrado.");
-
-    const { error: insError } = await client.from("utm_funnels").insert({
-      workspace_id: workspace,
-      offer_id: orig.offer_id,
-      name: `${orig.name} (Cópia)`,
-      source_url: orig.source_url,
-      blocks: orig.blocks,
-      pixels: orig.pixels,
-      settings: orig.settings,
-      status: "draft",
-    });
-
-    if (insError) throw insError;
-    revalidatePath("/painel");
-    return { ok: true };
-  } catch {
-    return { error: "Não foi possível duplicar o funil." };
-  }
-}
-
-export async function deleteFunnelAction(
-  workspace: string,
-  funnelId: string,
-): Promise<ActionResult> {
-  try {
-    const { client } = await authorize(workspace, true);
-    const { error } = await client
-      .from("utm_funnels")
-      .delete()
-      .eq("workspace_id", workspace)
-      .eq("id", funnelId);
-
-    if (error) throw error;
-    revalidatePath("/painel");
-    return { ok: true };
-  } catch {
-    return { error: "Não foi possível excluir o funil." };
   }
 }
 

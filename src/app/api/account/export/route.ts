@@ -45,10 +45,18 @@ export async function GET() {
 
     const { data: memberships, error } = await client
       .from("utm_members")
-      .select("workspace_id")
+      .select("workspace_id,role")
       .eq("user_id", user.id);
     if (error) throw error;
-    const workspaceIds = (memberships ?? []).map((membership) => membership.workspace_id);
+    const workspaceIds = (memberships ?? [])
+      .filter((membership) => ["owner", "admin"].includes(membership.role))
+      .map((membership) => membership.workspace_id);
+    if ((memberships ?? []).length > 0 && workspaceIds.length === 0) {
+      return NextResponse.json(
+        { error: "Apenas proprietários e administradores podem exportar dados." },
+        { status: 403 },
+      );
+    }
     const service = admin();
     const { data: workspaces, error: workspacesError } = workspaceIds.length
       ? await service.from("utm_workspaces").select("*").in("id", workspaceIds)

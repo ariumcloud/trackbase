@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { admin, db } from "@/lib/supabase/server";
+import { body, rateLimit, sameOrigin } from "@/lib/security";
 
 const subscribeSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -13,8 +14,13 @@ const subscribeSchema = z.object({
   }),
 });
 
+const unsubscribeSchema = z.object({
+  endpoint: z.string().url().max(4096),
+});
+
 export async function POST(request: Request) {
   try {
+    sameOrigin(request);
     const {
       data: { user },
     } = await (await db()).auth.getUser();
@@ -22,7 +28,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
-    const json = await request.json();
+    if (!(await rateLimit(`push:${user.id}`, 10))) {
+      return NextResponse.json({ error: "Muitas tentativas." }, { status: 429 });
+    }
+    const json = await body(request, 8192);
     const parsed = subscribeSchema.safeParse(json);
 
     if (!parsed.success) {
@@ -82,6 +91,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    sameOrigin(request);
     const {
       data: { user },
     } = await (await db()).auth.getUser();
@@ -89,15 +99,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
-    const json = await request.json();
-    const endpoint = json?.endpoint;
-
-    if (!endpoint || typeof endpoint !== "string") {
+    if (!(await rateLimit(`push:${user.id}`, 10))) {
+      return NextResponse.json({ error: "Muitas tentativas." }, { status: 429 });
+    }
+    const parsed = unsubscribeSchema.safeParse(await body(request, 4096));
+    if (!parsed.success) {
       return NextResponse.json(
         { error: "Endpoint não informado." },
         { status: 400 },
       );
     }
+    const { endpoint } = parsed.data;
 
     const service = admin();
     await service

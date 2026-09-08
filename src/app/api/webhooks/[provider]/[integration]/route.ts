@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
-import { body, digest, matches, rateLimit } from "@/lib/security";
+import { body, decrypt, digest, matches, rateLimit, rawBody } from "@/lib/security";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { sendCapiEvent } from "@/lib/capi";
 import {
   paymentProviders,
@@ -68,6 +69,26 @@ function extractWebhookToken(
   return "";
 }
 
+function validCaktoSignature(request: Request, raw: string, secret: string) {
+  const timestamp = request.headers.get("x-cakto-timestamp");
+  const signature = request.headers.get("x-cakto-signature")?.trim();
+  if (!timestamp || !signature || !/^\d{10,13}$/.test(timestamp)) return false;
+
+  const timestampMs = Number(timestamp.length === 10 ? `${timestamp}000` : timestamp);
+  if (!Number.isSafeInteger(timestampMs) || Math.abs(Date.now() - timestampMs) > 300_000) {
+    return false;
+  }
+
+  const received = signature.replace(/^v1=/i, "");
+  if (!/^[a-f0-9]{64}$/i.test(received)) return false;
+  const expected = createHmac("sha256", secret)
+    .update(`${timestamp}.${raw}`)
+    .digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(received, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ provider: string; integration: string }> },
@@ -82,13 +103,6 @@ export async function POST(
   }
 
   try {
-    if (!(await rateLimit(`webhook:${integration}`, 300))) {
-      return NextResponse.json(
-        { error: "Limite de requisições." },
-        { status: 429, headers: { "Retry-After": "60" } },
-      );
-    }
-
     const service = admin();
     const { data: i } = await service
       .from("utm_integrations")
@@ -108,13 +122,19 @@ export async function POST(
 
     const { data: credentials } = await service
       .from("utm_credentials")
-      .select("webhook_hash")
+      .select("webhook_hash,webhook_secret_ciphertext")
       .eq("integration_id", integration)
       .single();
 
     let payload: unknown;
+    let raw: string | undefined;
     try {
-      payload = await body(request);
+      if (provider === "cakto") {
+        raw = await rawBody(request);
+        payload = JSON.parse(raw);
+      } else {
+        payload = await body(request);
+      }
     } catch {
       return NextResponse.json(
         { error: "JSON inválido ou muito grande." },
@@ -122,9 +142,31 @@ export async function POST(
       );
     }
 
+    const signedCaktoRequest =
+      provider === "cakto" &&
+      raw !== undefined &&
+      credentials?.webhook_secret_ciphertext &&
+      validCaktoSignature(
+        request,
+        raw,
+        decrypt(credentials.webhook_secret_ciphertext),
+      );
     const token = extractWebhookToken(provider, request, payload);
-    if (!credentials?.webhook_hash || !matches(token, credentials.webhook_hash)) {
+    const legacyTokenMatches =
+      !!credentials?.webhook_hash && matches(token, credentials.webhook_hash);
+    const authenticated =
+      provider === "cakto" && credentials?.webhook_secret_ciphertext
+        ? signedCaktoRequest
+        : legacyTokenMatches;
+    if (!authenticated) {
       return NextResponse.json({ error: "Token inválido." }, { status: 401 });
+    }
+
+    if (!(await rateLimit(`webhook:${integration}`, 300))) {
+      return NextResponse.json(
+        { error: "Limite de requisições." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
     }
 
     const adapter = paymentAdapters[provider as PaymentProvider];

@@ -15,10 +15,8 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
+    const ip = request.headers.get("x-vercel-forwarded-for") ||
+      request.headers.get("x-real-ip") || "unknown";
 
     if (!(await rateLimit(`track:${ip}`, 300))) {
       return NextResponse.json(
@@ -40,12 +38,18 @@ export async function POST(request: Request) {
     const parsed = trackPayloadSchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados do evento inválidos.", details: parsed.error.issues },
+        { error: "Dados do evento inválidos." },
         { status: 400, headers: corsHeaders },
       );
     }
 
     const { key, ...eventData } = parsed.data;
+    if (!(await rateLimit(`track-key:${key}`, 600))) {
+      return NextResponse.json(
+        { error: "Limite de requisições excedido." },
+        { status: 429, headers: { ...corsHeaders, "Retry-After": "60" } },
+      );
+    }
     let capiPayloadCiphertext: string | undefined;
     if (
       (eventData.event_type === "pageview" || eventData.event_type === "checkout") &&
