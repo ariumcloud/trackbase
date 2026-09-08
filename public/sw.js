@@ -15,7 +15,7 @@ self.addEventListener("push", (event) => {
     const title = payload.title || "💰 Venda Realizada!";
     const options = {
       body: payload.body || "Nova compra aprovada na sua operação.",
-      icon: "/icon-192.png",
+      icon: "/trackbase-icon-192-v2.png",
       badge: "/Logo Roxa 42x42 PNG favicon.png",
       vibrate: [200, 100, 200, 100, 400],
       tag: payload.tag || `sale-${Date.now()}`,
