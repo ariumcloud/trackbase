@@ -1534,6 +1534,17 @@ export function Dashboard(p: Props) {
                           </code>
                         </div>
                       )}
+                      {p.integrations.some((integration) => integration.offer_id === o.id && integration.provider === "cakto") && (
+                        <div className="offer-activation">
+                          <div>
+                            <strong>Falta ativar as vendas</strong>
+                            <span>Configure o webhook da Cakto para receber compras, reembolsos e chargebacks.</span>
+                          </div>
+                          <button className="button secondary" type="button" onClick={() => selectTab("integracoes")}>
+                            Configurar webhook
+                          </button>
+                        </div>
+                      )}
                       <div className="offer-footer">
                         <span>
                           {p.links.filter((l) => l.offer_id === o.id).length}{" "}
@@ -2781,7 +2792,15 @@ function IntegrationCard({
           </button>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", width: "100%", maxWidth: "420px" }}>
+        <div className={`gateway-connection-details ${i.provider === "cakto" ? "is-cakto" : ""}`}>
+          {i.provider === "cakto" && (
+            <div className="gateway-connection-guide">
+              <span className="gateway-next-step-kicker">ÚLTIMO PASSO</span>
+              <strong>Ative o recebimento das vendas</strong>
+              <span>Na Cakto, crie um webhook para esta URL, selecione o produto e marque Compra aprovada, Reembolso e Chargeback.</span>
+              <a href="https://app.cakto.com.br/dashboard/webhooks" target="_blank" rel="noreferrer">Abrir Webhooks na Cakto ↗</a>
+            </div>
+          )}
           <div className="webhook-url">
             <input
               aria-label="Endpoint do webhook"
@@ -2793,7 +2812,7 @@ function IntegrationCard({
           <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>
             {i.provider === "hotmart" && "Configure em Ferramentas > Webhook na Hotmart com seu Hottok."}
             {i.provider === "kiwify" && "Configure em Configurações > Webhooks na Kiwify com o token salvo."}
-            {i.provider === "cakto" && "Configure em Webhooks na Cakto com o secret configurado."}
+            {i.provider === "cakto" && "Depois de salvar o webhook na Cakto, cole aqui o secret gerado."}
             {i.provider === "kirvano" && "Configure em Configurações > Webhooks na Kirvano com seu token."}
             {i.provider === "eduzz" && "Configure em Ferramentas > Webhooks na Eduzz / Órbita."}
             {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
@@ -2801,7 +2820,7 @@ function IntegrationCard({
           </small>
           {i.provider === "cakto" && (
             <form
-              style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}
+              className="gateway-secret-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 const secret = new FormData(event.currentTarget).get("secret");

@@ -64,6 +64,7 @@ export type Integration = {
   name: string;
   provider: string;
   status: string;
+  offer_id: string | null;
   account_id: string | null;
   currency: string | null;
   last_synced_at: string | null;

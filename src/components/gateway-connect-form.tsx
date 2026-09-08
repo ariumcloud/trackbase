@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { connectImportedGateway } from "@/app/actions";
+import { connectImportedGateway, saveGatewayWebhookSecret } from "@/app/actions";
 
 type Provider = "hotmart" | "kiwify" | "cakto";
 type Product = {
@@ -35,7 +35,72 @@ export function GatewayConnectForm({
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [message, setMessage] = useState("");
+  const [imported, setImported] = useState<{ integrationId: string; productName: string } | null>(null);
   const [loading, start] = useTransition();
+
+  if (imported && provider === "cakto") {
+    const webhookUrl = `https://www.trackbase.com.br/api/webhooks/cakto/${imported.integrationId}`;
+    return (
+      <div className="gateway-next-step">
+        <span className="gateway-next-step-kicker">PRODUTO IMPORTADO</span>
+        <h3>Falta só conectar as vendas.</h3>
+        <p>
+          A Cakto precisa avisar a Trackbase cada vez que uma venda, reembolso ou chargeback acontecer.
+        </p>
+
+        <ol className="gateway-webhook-steps">
+          <li>
+            <strong>Abra os Webhooks da Cakto.</strong>
+            <span>Crie um webhook com o nome “Trackbase · {imported.productName}”.</span>
+            <a href="https://app.cakto.com.br/dashboard/webhooks" target="_blank" rel="noreferrer">
+              Abrir Webhooks na Cakto <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+          <li>
+            <strong>Cole esta URL e selecione o produto.</strong>
+            <span>Escolha “{imported.productName}” no campo Produtos.</span>
+            <div className="gateway-webhook-url">
+              <code>{webhookUrl}</code>
+              <button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)}>Copiar URL</button>
+            </div>
+          </li>
+          <li>
+            <strong>Marque os eventos.</strong>
+            <span>Selecione: <b>Compra aprovada</b>, <b>Reembolso</b> e <b>Chargeback</b>. Depois salve como ativo.</span>
+          </li>
+          <li>
+            <strong>Cole o secret gerado pela Cakto.</strong>
+            <span>Ele confirma que as vendas recebidas são realmente da sua conta.</span>
+          </li>
+        </ol>
+
+        <form
+          className="gateway-secret-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const secret = String(new FormData(event.currentTarget).get("secret") || "");
+            start(async () => {
+              const result = await saveGatewayWebhookSecret(workspace, imported.integrationId, secret);
+              if (result.error) {
+                setMessage(result.error);
+                return;
+              }
+              onSuccess();
+            });
+          }}
+        >
+          <label>
+            Secret do webhook Cakto
+            <input name="secret" type="password" minLength={4} required autoComplete="new-password" disabled={loading} placeholder="Cole o secret gerado pela Cakto" />
+          </label>
+          <button className="button primary" disabled={loading}>
+            {loading ? "Salvando…" : "Concluir conexão"}
+          </button>
+        </form>
+        {message && <p className="form-message" role="status">{message}</p>}
+      </div>
+    );
+  }
 
   const fetchProducts = (form: HTMLFormElement) => {
     const data = new FormData(form);
@@ -73,8 +138,17 @@ export function GatewayConnectForm({
         setMessage("");
         start(async () => {
           const result = await connectImportedGateway(workspace, new FormData(form));
-          if (result.error) setMessage(result.error);
-          else onSuccess();
+          if (result.error) {
+            setMessage(result.error);
+            return;
+          }
+          if (provider === "cakto" && result.integrationId) {
+            const selectedProductId = String(new FormData(form).get("external_product_id") || "");
+            const product = products.find((item) => item.externalProductId === selectedProductId);
+            setImported({ integrationId: result.integrationId, productName: product?.name || "seu produto" });
+            return;
+          }
+          onSuccess();
         });
       }}
     >

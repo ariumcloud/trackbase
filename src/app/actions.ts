@@ -7,7 +7,12 @@ import { linkSchema, webUrl } from "@/lib/utm";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-export type ActionResult = { ok?: boolean; error?: string };
+export type ActionResult = {
+  ok?: boolean;
+  error?: string;
+  integrationId?: string;
+  offerId?: string;
+};
 export async function login(form: FormData): Promise<ActionResult> {
   const email = z.string().email().safeParse(form.get("email")),
     password = z.string().min(8).max(128).safeParse(form.get("password"));
@@ -414,7 +419,7 @@ export async function connectImportedGateway(
       throw credentialError;
     }
     revalidatePath("/painel");
-    return { ok: true };
+    return { ok: true, integrationId: integration.id, offerId: offer.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     console.error("Falha ao importar produto do gateway", {
