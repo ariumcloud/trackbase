@@ -367,6 +367,9 @@ export function CampaignsView({
     adset: entities.filter((e) => e.kind === "adset").length,
     ad: entities.filter((e) => e.kind === "ad").length,
   };
+  const hasMetaConnected = integrations.some(
+    (integration) => integration.provider === "meta" && integration.status === "connected",
+  );
 
   const getDateLabel = () => {
     if (period === "1") return "Hoje";
@@ -401,6 +404,23 @@ export function CampaignsView({
 
   return (
     <section className="campaigns-container">
+      <div className="campaigns-overview">
+        <div>
+          <span className="campaigns-kicker">DESEMPENHO META ADS</span>
+          <strong>{getDateLabel()}</strong>
+          <small>
+            {hasMetaConnected
+              ? "Dados sincronizados da sua conta Meta."
+              : "Conecte sua conta Meta para sincronizar os anúncios."}
+          </small>
+        </div>
+        <div className="campaigns-overview-metrics">
+          <div><span>Investimento</span><strong>{formatMoney(totalSpend)}</strong></div>
+          <div><span>Faturamento</span><strong>{formatMoney(totalRevenue)}</strong></div>
+          <div className={totalProfit < 0 ? "is-negative" : totalProfit > 0 ? "is-positive" : ""}><span>Lucro</span><strong>{formatMoney(totalProfit)}</strong></div>
+          <div><span>ROAS</span><strong>{totalRoas !== null ? `${totalRoas.toFixed(2)}x` : "—"}</strong></div>
+        </div>
+      </div>
       {/* Abas Superiores Meta */}
       <div className="campaign-tabs-header">
         {[

@@ -710,14 +710,12 @@ export function Dashboard(p: Props) {
           {tab === "visao" && (
             <>
               <OnboardingChecklist
-                offersCount={p.offers.length}
                 hasPaymentGateway={hasPayments}
                 hasTrackerActivity={metrics.pageviews > 0}
                 linksCount={p.links.length}
                 hasMetaConnected={p.integrations.some((i) => i.provider === "meta" && i.status === "connected")}
                 salesCount={p.sales.length}
                 onNavigateTab={selectTab}
-                onOpenCreateOffer={() => create("offer")}
               />
               <div className="filterbar">
                 <div className="filter-group">

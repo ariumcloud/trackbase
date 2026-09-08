@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   CheckCircle2,
   Circle,
-  Layers,
   Plug,
   Code2,
   Link2,
@@ -16,25 +15,21 @@ import {
 } from "lucide-react";
 
 interface OnboardingProps {
-  offersCount: number;
   hasPaymentGateway: boolean;
   hasTrackerActivity: boolean;
   linksCount: number;
   hasMetaConnected: boolean;
   salesCount: number;
   onNavigateTab: (tabId: string) => void;
-  onOpenCreateOffer?: () => void;
 }
 
 export function OnboardingChecklist({
-  offersCount,
   hasPaymentGateway,
   hasTrackerActivity,
   linksCount,
   hasMetaConnected,
   salesCount,
   onNavigateTab,
-  onOpenCreateOffer,
 }: OnboardingProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -61,26 +56,17 @@ export function OnboardingChecklist({
 
   const steps = [
     {
-      id: "step-offer",
-      title: "1. Cadastrar sua primeira Oferta",
-      description: "Crie a oferta principal com o nome e preço do seu produto.",
-      done: offersCount > 0,
-      icon: Layers,
-      actionLabel: "Cadastrar oferta",
-      action: () => (onOpenCreateOffer ? onOpenCreateOffer() : onNavigateTab("ofertas")),
-    },
-    {
       id: "step-gateway",
-      title: "2. Conectar Gateway de Pagamento",
-      description: "Conecte Hotmart, Kiwify, Cakto, Eduzz ou Kirvano via webhook seguro.",
+      title: "1. Conectar gateway e importar produtos",
+      description: "Conecte Hotmart, Kiwify ou Cakto. Seus produtos entram automaticamente.",
       done: hasPaymentGateway,
       icon: Plug,
-      actionLabel: "Ver integrações",
+      actionLabel: "Conectar gateway",
       action: () => onNavigateTab("integracoes"),
     },
     {
       id: "step-tracker",
-      title: "3. Instalar o Tracker na Landing Page",
+      title: "2. Instalar o tracker na landing page",
       description: "Adicione o script da Trackbase para rastrear visitas, cliques e checkouts em tempo real.",
       done: hasTrackerActivity,
       icon: Code2,
@@ -89,7 +75,7 @@ export function OnboardingChecklist({
     },
     {
       id: "step-links",
-      title: "4. Criar Link UTM ou Conectar Meta Ads",
+      title: "3. Conectar Meta Ads ou criar link UTM",
       description: "Gere links com parâmetros dinâmicos ou sincronize seus anúncios da Meta.",
       done: linksCount > 0 || hasMetaConnected,
       icon: Link2,
@@ -98,7 +84,7 @@ export function OnboardingChecklist({
     },
     {
       id: "step-sales",
-      title: "5. Realizar ou Testar a Primeira Venda",
+      title: "4. Validar sua primeira venda",
       description: "Faça uma venda de teste ou envie uma transação para validar o fluxo ponta a ponta.",
       done: salesCount > 0,
       icon: ShoppingBag,
@@ -147,15 +133,15 @@ export function OnboardingChecklist({
             {isAllComplete ? <CheckCircle2 size={20} /> : <Sparkles size={20} />}
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 600 }}>
+              <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
               {isAllComplete
                 ? "🎉 Parabéns! Sua operação está 100% pronta para escalar."
-                : "Checklist de Ativação Trackbase"}
+                : "Deixe seu rastreamento pronto"}
             </h3>
             <p style={{ margin: "0.15rem 0 0", color: "var(--muted, #64748B)", fontSize: "0.85rem" }}>
               {isAllComplete
-                ? "Todos os pilares de tracking, pagamentos e atribuição estão funcionando perfeitamente."
-                : `${completedCount} de ${steps.length} etapas concluídas (${progressPercent}%)`}
+                ? "Gateway, tracker, atribuição e vendas estão recebendo dados."
+                : `${completedCount} de ${steps.length} etapas concluídas · ${progressPercent}% pronto`}
             </p>
           </div>
         </div>
