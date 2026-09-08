@@ -1686,6 +1686,56 @@ tr:hover td {
   background: var(--brand);
 }
 
+.daily-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+  align-items: end;
+  gap: 8px;
+  min-height: 220px;
+  padding: 20px 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.daily-chart .day-bar {
+  min-width: 0;
+  min-height: 190px;
+}
+
+.daily-chart .bars {
+  min-height: 180px;
+}
+
+.start-panel > .onboarding-step {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.start-panel > .onboarding-step > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  color: var(--brand-text);
+  font-size: 12px;
+}
+
+.start-panel > .onboarding-step strong,
+.start-panel > .onboarding-step small { display: block; min-width: 0; overflow-wrap: anywhere; }
+.start-panel > .onboarding-step small { margin-top: 3px; color: var(--muted); }
+.start-panel > .onboarding-step:hover { background: var(--surface-subtle); }
+
 /* Dashboard spacing and integration cards */
 .section-summary {
   display: flex;
@@ -1984,9 +2034,9 @@ tr:hover td {
 }
 
 .onboarding-step-title,
-.onboarding-step-description { min-width: 0; overflow-wrap: anywhere; }
+.onboarding-step-description { display: block; min-width: 0; overflow-wrap: anywhere; }
 .onboarding-step-title { line-height: 1.25; }
-.onboarding-step-description { max-width: 100%; }
+.onboarding-step-description { max-width: 100%; white-space: normal; }
 
 .footer-note {
   display: flex;
