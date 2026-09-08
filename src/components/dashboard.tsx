@@ -69,14 +69,14 @@ import type {
   ShieldRow,
   ShieldLogRow,
 } from "@/lib/types";
-import { ShieldView } from "./shield-view";
+import dynamic from "next/dynamic";
 import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
-import dynamic from "next/dynamic";
 const AssistenteTrackbase = dynamic(() => import("./assistente").then((m) => m.AssistenteTrackbase), { ssr: false });
 const DiagnosticoViewLazy = dynamic(() => import("./diagnostico").then((m) => m.DiagnosticoView), { ssr: false });
-import { CampaignsView } from "./campaigns-view";
-import { LeadScrollVisualizer } from "./lead-scroll-visualizer";
+const ShieldView = dynamic(() => import("./shield-view").then((m) => m.ShieldView), { ssr: false });
+const CampaignsView = dynamic(() => import("./campaigns-view").then((m) => m.CampaignsView), { ssr: false });
+const LeadScrollVisualizer = dynamic(() => import("./lead-scroll-visualizer").then((m) => m.LeadScrollVisualizer), { ssr: false });
 import { BottomBar } from "./bottom-bar";
 import { SalesNotifier } from "./sales-notifier";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";

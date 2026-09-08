@@ -93,89 +93,139 @@ export async function getAdminData(
   search: string,
   page: number,
   ticketStatus = "active",
+  tab = "overview",
 ): Promise<AdminData> {
   const { client } = await requirePlatformAdmin();
-  let ticketQuery = client
-    .from("utm_admin_tickets")
-    .select("id,user_id,subject,notes,status,priority,created_at,updated_at");
-  if (["open", "waiting", "resolved"].includes(ticketStatus))
-    ticketQuery = ticketQuery.eq("status", ticketStatus);
-  else if (ticketStatus !== "all")
-    ticketQuery = ticketQuery.neq("status", "resolved");
+  const emptyList = Promise.resolve({ data: [], error: null });
+
+  // Overview RPC provides platform metrics and badge counts across tabs
+  const overviewPromise = client.rpc("utm_admin_overview");
+
+  // Directory is only needed on customers tab or overview preview (page 1)
+  const directoryPromise =
+    tab === "customers"
+      ? client.rpc("utm_admin_directory", { p_search: search, p_page: page })
+      : tab === "overview"
+        ? client.rpc("utm_admin_directory", { p_search: "", p_page: 1 })
+        : Promise.resolve({ data: { total: 0, users: [] }, error: null });
+
+  // Tickets only on support tab
+  let ticketPromise: PromiseLike<{ data: AdminTicket[] | null; error: unknown }> = emptyList;
+  if (tab === "support") {
+    let ticketQuery = client
+      .from("utm_admin_tickets")
+      .select("id,user_id,subject,notes,status,priority,created_at,updated_at");
+    if (["open", "waiting", "resolved"].includes(ticketStatus))
+      ticketQuery = ticketQuery.eq("status", ticketStatus);
+    else if (ticketStatus !== "all")
+      ticketQuery = ticketQuery.neq("status", "resolved");
+    ticketPromise = ticketQuery.order("updated_at", { ascending: false }).limit(100);
+  }
+
+  // Audit only on audit tab
+  const auditPromise =
+    tab === "audit"
+      ? client
+          .from("utm_admin_audit")
+          .select(
+            "id,actor_id,action,target_id,reason,before_value,after_value,created_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(100)
+      : emptyList;
+
+  // Health tab queries: integrations, webhooks, capi
+  const integrationsPromise =
+    tab === "health"
+      ? client
+          .from("utm_integrations")
+          .select("id,workspace_id,name,provider,status,last_synced_at")
+          .neq("status", "connected")
+          .order("created_at", { ascending: false })
+          .limit(100)
+      : emptyList;
+
+  const webhooksPromise =
+    tab === "health"
+      ? client
+          .from("utm_webhook_logs")
+          .select(
+            "id,workspace_id,integration_id,event_id,status,reason,received_at",
+          )
+          .eq("status", "invalid")
+          .eq("is_test", false)
+          .gte("received_at", new Date(Date.now() - 7 * 86400000).toISOString())
+          .order("received_at", { ascending: false })
+          .limit(100)
+      : emptyList;
+
+  const capiPromise =
+    tab === "health"
+      ? client
+          .from("utm_capi_outbox")
+          .select(
+            "id,workspace_id,event_name,status,attempt_count,last_error,updated_at",
+          )
+          .eq("status", "failed")
+          .order("updated_at", { ascending: false })
+          .limit(100)
+      : emptyList;
+
   const results = await Promise.all([
-    client.rpc("utm_admin_overview"),
-    client.rpc("utm_admin_directory", { p_search: search, p_page: page }),
-    ticketQuery.order("updated_at", { ascending: false }).limit(100),
-    client
-      .from("utm_admin_audit")
-      .select(
-        "id,actor_id,action,target_id,reason,before_value,after_value,created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(100),
-    client
-      .from("utm_integrations")
-      .select("id,workspace_id,name,provider,status,last_synced_at")
-      .neq("status", "connected")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    client
-      .from("utm_webhook_logs")
-      .select(
-        "id,workspace_id,integration_id,event_id,status,reason,received_at",
-      )
-      .eq("status", "invalid")
-      .eq("is_test", false)
-      .gte("received_at", new Date(Date.now() - 7 * 86400000).toISOString())
-      .order("received_at", { ascending: false })
-      .limit(100),
-    client
-      .from("utm_capi_outbox")
-      .select(
-        "id,workspace_id,event_name,status,attempt_count,last_error,updated_at",
-      )
-      .eq("status", "failed")
-      .order("updated_at", { ascending: false })
-      .limit(100),
+    overviewPromise,
+    directoryPromise,
+    ticketPromise,
+    auditPromise,
+    integrationsPromise,
+    webhooksPromise,
+    capiPromise,
   ]);
+
   if (
     results.some(
       (r, index) =>
         r.error &&
-        !(index === 6 && ["42P01", "PGRST205"].includes(r.error.code)),
+        !(index === 6 && ["42P01", "PGRST205"].includes((r.error as { code?: string })?.code || "")),
     )
   )
     throw new Error(
       "Não foi possível carregar a administração. Tente atualizar a página.",
     );
+
   const [overview, directory, tickets, audit, integrations, webhooks, capi] =
     results;
-  const workspaceIds = [
-    ...new Set(
-      [
-        ...(integrations.data ?? []),
-        ...(webhooks.data ?? []),
-        ...(capi.data ?? []),
-      ].map((r) => r.workspace_id),
-    ),
-  ];
-  const workspaceResult = workspaceIds.length
-    ? await client
+
+  let workspacesData: AdminWorkspace[] = [];
+  if (tab === "health") {
+    const workspaceIds = [
+      ...new Set(
+        [
+          ...(integrations.data ?? []),
+          ...(webhooks.data ?? []),
+          ...(capi.data ?? []),
+        ].map((r: { workspace_id: string }) => r.workspace_id),
+      ),
+    ];
+    if (workspaceIds.length) {
+      const workspaceResult = await client
         .from("utm_workspaces")
         .select("id,name,plan,owner_id,created_at,timezone")
-        .in("id", workspaceIds)
-    : { data: [], error: null };
-  if (workspaceResult.error)
-    throw new Error("Não foi possível identificar as operações.");
+        .in("id", workspaceIds);
+      if (workspaceResult.error)
+        throw new Error("Não foi possível identificar as operações.");
+      workspacesData = workspaceResult.data ?? [];
+    }
+  }
+
   return {
     overview: overview.data,
-    directory: directory.data,
+    directory: directory.data ?? { total: 0, users: [] },
     tickets: tickets.data ?? [],
     audit: audit.data ?? [],
     integrations: integrations.data ?? [],
     webhooks: webhooks.data ?? [],
     capi: capi.data ?? [],
-    workspaces: workspaceResult.data ?? [],
+    workspaces: workspacesData,
   } as AdminData;
 }
 

@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ShieldCheck, ArrowLeft } from "lucide-react";
 import { redirect, notFound } from "next/navigation";
-import { configured, db } from "@/lib/supabase/server";
-import { isPlatformAdmin } from "@/lib/platform-admin";
+import { configured } from "@/lib/supabase/server";
+import { getAuthUser, checkPlatformAdmin } from "@/lib/platform-admin";
 import "./admin.css";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +18,9 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   if (!configured()) redirect("/login");
-  const client = await db();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
-  if (!(await isPlatformAdmin(client, user.id))) notFound();
+  if (!(await checkPlatformAdmin(user.id))) notFound();
   return (
     <div className="admin-shell">
       <header className="admin-topbar">

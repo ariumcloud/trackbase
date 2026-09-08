@@ -1,5 +1,5 @@
 import { db, configured } from "@/lib/supabase/server";
-import { isPlatformAdmin } from "@/lib/platform-admin";
+import { getAuthUser, checkPlatformAdmin } from "@/lib/platform-admin";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/components/dashboard";
 import { dayInZone } from "@/lib/metrics";
@@ -59,13 +59,11 @@ export default async function Page({
       />
     );
 
-  const client = await db();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
-  const platformAdmin = await isPlatformAdmin(client, user.id);
+  const platformAdmin = await checkPlatformAdmin(user.id);
 
+  const client = await db();
   const { data: workspaces, error: we } = await client
     .from("utm_workspaces")
     .select("id,name,timezone,plan,push_settings")
@@ -73,7 +71,7 @@ export default async function Page({
   const w: Workspace | null =
     workspaces?.find((w) => w.id === p.workspace) ?? workspaces?.[0] ?? null;
 
-  const empty = { data: [], error: null };
+  const empty = Promise.resolve({ data: [], error: null });
 
   const periodParam = p.period || "7";
   const currency = p.currency || "BRL";
@@ -101,6 +99,20 @@ export default async function Page({
     since = `${begin.toISOString().slice(0, 10)}T00:00:00Z`;
     until = `${today}T23:59:59Z`;
   }
+
+  // 24h buffer on both ends prevents any timezone boundary cutoff while avoiding unbounded queries
+  const querySince = new Date(new Date(since).getTime() - 24 * 3600 * 1000).toISOString();
+  const queryUntil = new Date(new Date(until).getTime() + 24 * 3600 * 1000).toISOString();
+
+  const needsSales = ["visao", "campanhas", "assistente", "radar", "simulador"].includes(activeTab);
+  const needsInsights = ["visao", "campanhas", "assistente"].includes(activeTab);
+  const needsEntities = ["visao", "campanhas", "assistente"].includes(activeTab);
+  const needsLogs = activeTab === "integracoes";
+  const needsPixels = ["integracoes", "campanhas"].includes(activeTab);
+  const needsSummary = ["visao", "campanhas"].includes(activeTab);
+  const needsAlerts = activeTab === "alertas";
+  const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
+  const needsShield = activeTab === "shield";
 
   const [
     offers,
@@ -135,23 +147,31 @@ export default async function Page({
           .select("id,name,provider,status,offer_id,account_id,currency,last_synced_at")
           .eq("workspace_id", w.id)
           .order("created_at"),
-        client
-          .from("utm_sales")
-          .select(
-            "id,offer_id,provider,status,amount,gross_amount,fee_amount,net_amount,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
-          )
-          .eq("workspace_id", w.id)
-          .order("occurred_at", { ascending: false })
-          .limit(1000),
-        client
-          .from("utm_insights")
-          .select(
-            "ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
-          )
-          .eq("workspace_id", w.id)
-          .order("day", { ascending: false })
-          .limit(1000),
-        ["visao", "campanhas", "assistente"].includes(activeTab)
+        needsSales
+          ? client
+              .from("utm_sales")
+              .select(
+                "id,offer_id,provider,status,amount,gross_amount,fee_amount,net_amount,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
+              )
+              .eq("workspace_id", w.id)
+              .gte("occurred_at", querySince)
+              .lte("occurred_at", queryUntil)
+              .order("occurred_at", { ascending: false })
+              .limit(1000)
+          : empty,
+        needsInsights
+          ? client
+              .from("utm_insights")
+              .select(
+                "ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
+              )
+              .eq("workspace_id", w.id)
+              .gte("day", since.slice(0, 10))
+              .lte("day", until.slice(0, 10))
+              .order("day", { ascending: false })
+              .limit(1000)
+          : empty,
+        needsEntities
           ? client
               .from("utm_ad_entities")
               .select("integration_id,external_id,kind,name,status")
@@ -159,30 +179,36 @@ export default async function Page({
               .order("name")
               .limit(500)
           : empty,
-        client
-          .from("utm_webhook_logs")
-          .select(
-            "id,integration_id,event_id,status,reason,received_at,is_test",
-          )
-          .eq("workspace_id", w.id)
-          .order("received_at", { ascending: false })
-          .limit(50),
-        client
-          .from("utm_pixels")
-          .select("id,pixel_id,offer_id,test_event_code,active,created_at")
-          .eq("workspace_id", w.id)
-          .order("created_at", { ascending: false }),
-        client.rpc("utm_dashboard_summary", {
-          p_workspace: w.id,
-          p_since: since,
-          p_until: until,
-          p_currency: currency,
-          p_offer_id: offerFilter,
-        }),
-        p.tab === "alertas"
+        needsLogs
+          ? client
+              .from("utm_webhook_logs")
+              .select(
+                "id,integration_id,event_id,status,reason,received_at,is_test",
+              )
+              .eq("workspace_id", w.id)
+              .order("received_at", { ascending: false })
+              .limit(50)
+          : empty,
+        needsPixels
+          ? client
+              .from("utm_pixels")
+              .select("id,pixel_id,offer_id,test_event_code,active,created_at")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+          : empty,
+        needsSummary
+          ? client.rpc("utm_dashboard_summary", {
+              p_workspace: w.id,
+              p_since: since,
+              p_until: until,
+              p_currency: currency,
+              p_offer_id: offerFilter,
+            })
+          : Promise.resolve({ data: null, error: null }),
+        needsAlerts
           ? evaluateAlerts(w.id).catch(() => [] as AlertItem[])
           : Promise.resolve([] as AlertItem[]),
-        ["diagnostico", "assistente"].includes(activeTab)
+        needsDiagnostics
           ? client
               .from("utm_funnel_diagnostics")
               .select("id,workspace_id,offer_id,url,score,category_scores,bottlenecks,recommendations,metrics_snapshot,created_at")
@@ -190,32 +216,36 @@ export default async function Page({
               .order("created_at", { ascending: false })
               .limit(20)
           : empty,
-        client
-          .from("utm_shields")
-          .select("*")
-          .eq("workspace_id", w.id)
-          .order("created_at", { ascending: false }),
-        client
-          .from("utm_shield_logs")
-          .select("*")
-          .eq("workspace_id", w.id)
-          .order("created_at", { ascending: false })
-          .limit(100),
+        needsShield
+          ? client
+              .from("utm_shields")
+              .select("*")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+          : empty,
+        needsShield
+          ? client
+              .from("utm_shield_logs")
+              .select("*")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+              .limit(100)
+          : empty,
       ])
     : [
-        empty,
-        empty,
-        empty,
-        empty,
-        empty,
-        empty,
-        empty,
-        empty,
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
         { data: null, error: null },
         [] as AlertItem[],
-        empty,
-        empty,
-        empty,
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
       ];
 
   const queries = [
