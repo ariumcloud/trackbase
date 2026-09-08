@@ -53,7 +53,6 @@ export function UtmifySummary({
   changeOffer,
   selectedProvider,
   changeProvider,
-  changeCurrency: _changeCurrency,
   metrics,
   onRefresh,
   pending,
@@ -137,8 +136,8 @@ export function UtmifySummary({
     totalPaymentSales > 0 ? Math.max(0, 100 - (pixPct + cardPct + boletoPct)) : 0;
 
   // Donut SVG Slices
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius; // ~251.327
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius; // ~238.76
 
   const pPix = totalPaymentSales > 0 ? pixCount / totalPaymentSales : 0;
   const pCard = totalPaymentSales > 0 ? cardCount / totalPaymentSales : 0;
@@ -158,7 +157,7 @@ export function UtmifySummary({
     if (period === "30") return "Últimos 30 dias";
     if (period?.includes("_")) {
       const [s, e] = period.split("_");
-      return `${s} até ${e}`;
+      return `${s.slice(5)} até ${e.slice(5)}`;
     }
     return `Período (${period})`;
   };
@@ -174,20 +173,20 @@ export function UtmifySummary({
     {
       title: "Faturamento Líquido",
       value: formatMoney(metrics.netRevenue),
-      tooltip: "Valor líquido faturado após desconto das taxas das plataformas.",
+      tooltip: "Valor líquido faturado após dedução de taxas das plataformas.",
       tone: "neutral",
     },
     {
       title: "Gastos com anúncios",
       value: formatMoney(metrics.spend || 0),
-      tooltip: "Total investido em anúncios nas contas sincronizadas.",
+      tooltip: "Total investido em tráfego pago nas contas sincronizadas.",
       tone: "neutral",
     },
     {
       title: "ROAS",
-      value: metrics.roas !== null ? `${metrics.roas.toFixed(2)}` : "—",
+      value: metrics.roas !== null ? `${metrics.roas.toFixed(2)}x` : "—",
       tooltip: "Retorno sobre investimento em anúncios (Faturamento Líquido / Gastos).",
-      tone: metrics.roas !== null && metrics.roas >= 1.0 ? "positive" : "neutral",
+      tone: metrics.roas !== null && metrics.roas >= 1.0 ? "positive" : metrics.roas !== null && metrics.roas < 1.0 ? "negative" : "neutral",
     },
     {
       title: "Lucro",
@@ -266,9 +265,11 @@ export function UtmifySummary({
 
   return (
     <div className="utmify-card">
-      {/* Header Resumo */}
+      {/* 1. Header do Resumo */}
       <div className="utmify-summary-header">
-        <h2>Resumo</h2>
+        <div>
+          <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>Resumo</h2>
+        </div>
         <div className="utmify-header-right">
           <span className="utmify-updated-text">Atualizado há 1 minuto</span>
           <button
@@ -276,14 +277,15 @@ export function UtmifySummary({
             className="utmify-btn-primary"
             onClick={onRefresh}
             disabled={pending}
+            title="Atualizar dados em tempo real"
           >
             <RefreshCw size={14} className={pending ? "animate-spin" : ""} />
-            Atualizar
+            <span>Atualizar</span>
           </button>
         </div>
       </div>
 
-      {/* Barra de 4 Filtros */}
+      {/* 2. Barra de 4 Filtros Alinhados */}
       <div className="utmify-filters-bar">
         {/* 1. Data de cadastro */}
         <div className="utmify-filter-field" style={{ position: "relative" }}>
@@ -297,13 +299,15 @@ export function UtmifySummary({
               alignItems: "center",
               justifyContent: "space-between",
               textAlign: "left",
+              cursor: "pointer",
+              width: "100%",
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Calendar size={13} style={{ color: "#3B82F6" }} />
+            <span style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <Calendar size={13} style={{ color: "#3B82F6", flexShrink: 0 }} />
               {getDateLabel()}
             </span>
-            <ChevronDown size={13} style={{ opacity: 0.7 }} />
+            <ChevronDown size={13} style={{ opacity: 0.6, flexShrink: 0 }} />
           </button>
 
           {showDatePicker && (
@@ -372,6 +376,7 @@ export function UtmifySummary({
             className="utmify-select-styled"
             value={selectedAccount}
             onChange={(e) => setSelectedAccount(e.target.value)}
+            aria-label="Conta de Anúncio"
           >
             <option value="all">Todas as contas de anúncio</option>
             {integrations
@@ -391,9 +396,11 @@ export function UtmifySummary({
             className="utmify-select-styled"
             value={selectedProvider}
             onChange={(e) => changeProvider(e.target.value)}
+            aria-label="Plataforma"
           >
             <option value="all">Todas as plataformas</option>
             <option value="hotmart">Hotmart</option>
+            <option value="kiwify">Kiwify</option>
             <option value="cakto">Cakto</option>
             <option value="lowfy">Lowfy</option>
           </select>
@@ -406,6 +413,7 @@ export function UtmifySummary({
             className="utmify-select-styled"
             value={selectedOffer}
             onChange={(e) => changeOffer(e.target.value)}
+            aria-label="Produto"
           >
             <option value="all">Todos os produtos</option>
             {offers.map((o) => (
@@ -417,7 +425,7 @@ export function UtmifySummary({
         </div>
       </div>
 
-      {/* Grid: Donut à Esquerda + 12 KPIs à Direita */}
+      {/* 3. Layout: Donut à Esquerda + 12 KPIs à Direita */}
       <div className="utmify-metrics-layout">
         {/* Coluna Esquerda: Donut Vendas por Pagamento */}
         <div className="utmify-donut-card">
@@ -427,22 +435,22 @@ export function UtmifySummary({
               className="utmify-info-icon"
               title="Distribuição de vendas aprovadas por método de pagamento."
             >
-              <Info size={14} />
+              <Info size={13} />
             </span>
           </div>
 
-          <div className="utmify-donut-chart-container">
+          <div className="utmify-donut-wrapper">
             <svg viewBox="0 0 100 100" className="utmify-donut-svg">
-              {totalPaymentSales === 0 ? (
-                <circle
-                  cx="50"
-                  cy="50"
-                  r={radius}
-                  fill="transparent"
-                  stroke="var(--line, #E2E8F0)"
-                  strokeWidth="12"
-                />
-              ) : (
+              {/* Background ring */}
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="transparent"
+                stroke="var(--line, #E2E8F0)"
+                strokeWidth="11"
+              />
+              {totalPaymentSales > 0 && (
                 <>
                   {/* Pix - Verde #10B981 */}
                   {pixCount > 0 && (
@@ -452,7 +460,7 @@ export function UtmifySummary({
                       r={radius}
                       fill="transparent"
                       stroke="#10B981"
-                      strokeWidth="12"
+                      strokeWidth="11"
                       strokeDasharray={`${pPix * circumference} ${circumference}`}
                       strokeDashoffset={-pixOffset}
                       strokeLinecap="round"
@@ -466,7 +474,7 @@ export function UtmifySummary({
                       r={radius}
                       fill="transparent"
                       stroke="#3B82F6"
-                      strokeWidth="12"
+                      strokeWidth="11"
                       strokeDasharray={`${pCard * circumference} ${circumference}`}
                       strokeDashoffset={-cardOffset}
                       strokeLinecap="round"
@@ -480,7 +488,7 @@ export function UtmifySummary({
                       r={radius}
                       fill="transparent"
                       stroke="#F59E0B"
-                      strokeWidth="12"
+                      strokeWidth="11"
                       strokeDasharray={`${pBoleto * circumference} ${circumference}`}
                       strokeDashoffset={-boletoOffset}
                       strokeLinecap="round"
@@ -494,7 +502,7 @@ export function UtmifySummary({
                       r={radius}
                       fill="transparent"
                       stroke="#8B5CF6"
-                      strokeWidth="12"
+                      strokeWidth="11"
                       strokeDasharray={`${pOther * circumference} ${circumference}`}
                       strokeDashoffset={-otherOffset}
                       strokeLinecap="round"
@@ -544,14 +552,14 @@ export function UtmifySummary({
           </div>
         </div>
 
-        {/* Coluna Direita: 12 UTMify KPI Cards (4x3) */}
+        {/* Coluna Direita: Grade com 12 UTMify KPI Cards */}
         <div className="utmify-kpi-grid">
           {kpis.map((kpi, idx) => (
             <div key={idx} className="utmify-kpi-card">
               <div className="utmify-kpi-header">
                 <span>{kpi.title}</span>
                 <span className="utmify-info-icon" title={kpi.tooltip}>
-                  <Info size={13} />
+                  <Info size={12} />
                 </span>
               </div>
               <strong

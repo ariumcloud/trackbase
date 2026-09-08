@@ -104,8 +104,8 @@ export function OnboardingChecklist({
       className="panel"
       style={{
         marginBottom: "1.25rem",
-        border: isAllComplete ? "1px solid #10B981" : "1px solid #C7D2FE",
-        background: isAllComplete ? "rgba(16, 185, 129, 0.03)" : "rgba(91, 52, 234, 0.02)",
+        border: isAllComplete ? "1px solid #10B981" : "1px solid var(--line)",
+        background: isAllComplete ? "rgba(16, 185, 129, 0.04)" : "var(--surface)",
       }}
     >
       <div
@@ -133,12 +133,12 @@ export function OnboardingChecklist({
             {isAllComplete ? <CheckCircle2 size={20} /> : <Sparkles size={20} />}
           </div>
           <div>
-              <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
+            <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>
               {isAllComplete
                 ? "🎉 Parabéns! Sua operação está 100% pronta para escalar."
                 : "Deixe seu rastreamento pronto"}
             </h3>
-            <p style={{ margin: "0.15rem 0 0", color: "var(--muted, #64748B)", fontSize: "0.85rem" }}>
+            <p style={{ margin: "0.15rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
               {isAllComplete
                 ? "Gateway, tracker, atribuição e vendas estão recebendo dados."
                 : `${completedCount} de ${steps.length} etapas concluídas · ${progressPercent}% pronto`}
@@ -168,7 +168,7 @@ export function OnboardingChecklist({
             className="button small ghost"
             onClick={handleDismiss}
             title="Fechar checklist"
-            style={{ padding: "0.3rem 0.5rem", color: "var(--muted, #94A3B8)" }}
+            style={{ padding: "0.3rem 0.5rem", color: "var(--muted)" }}
           >
             <X size={15} />
           </button>
@@ -180,7 +180,7 @@ export function OnboardingChecklist({
         style={{
           width: "100%",
           height: 6,
-          background: "var(--line, #E2E8F0)",
+          background: "var(--line)",
           borderRadius: 3,
           margin: "0.85rem 0",
           overflow: "hidden",
@@ -201,7 +201,7 @@ export function OnboardingChecklist({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
             gap: "0.75rem",
             marginTop: "0.75rem",
           }}
@@ -213,10 +213,14 @@ export function OnboardingChecklist({
                 key={step.id}
                 className="onboarding-step"
                 style={{
-                  padding: "0.75rem",
+                  padding: "0.85rem",
                   borderRadius: "8px",
-                  border: step.done ? "1px solid #D1FAE5" : "1px solid var(--line, #E2E8F0)",
-                  background: step.done ? "#F0FDF4" : "#FFFFFF",
+                  border: step.done
+                    ? "1px solid rgba(16, 185, 129, 0.4)"
+                    : "1px solid var(--line)",
+                  background: step.done
+                    ? "rgba(16, 185, 129, 0.05)"
+                    : "var(--surface-subtle)",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
@@ -227,13 +231,13 @@ export function OnboardingChecklist({
                     {step.done ? (
                       <CheckCircle2 size={16} color="#10B981" />
                     ) : (
-                      <Circle size={16} color="#94A3B8" />
+                      <Circle size={16} color="var(--muted)" />
                     )}
                     <strong
                       className="onboarding-step-title"
                       style={{
-                        fontSize: "0.9rem",
-                        color: step.done ? "#065F46" : "var(--ink, #0F172A)",
+                        fontSize: "0.88rem",
+                        color: step.done ? "#10B981" : "var(--ink)",
                       }}
                     >
                       {step.title}
@@ -243,9 +247,9 @@ export function OnboardingChecklist({
                     className="onboarding-step-description"
                     style={{
                       margin: "0 0 0.5rem 1.4rem",
-                      fontSize: "0.8rem",
-                      color: "var(--muted, #64748B)",
-                      lineHeight: "1.3",
+                      fontSize: "0.78rem",
+                      color: "var(--muted)",
+                      lineHeight: "1.35",
                     }}
                   >
                     {step.description}

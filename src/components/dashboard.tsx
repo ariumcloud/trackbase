@@ -209,7 +209,7 @@ export function Dashboard(p: Props) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("trackbase_theme") as "light" | "dark" | null;
-      const initial = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const initial = saved === "dark" ? "dark" : "light";
       setTheme(initial);
       document.documentElement.setAttribute("data-theme", initial);
     } catch {}
@@ -593,11 +593,10 @@ export function Dashboard(p: Props) {
               type="button"
               className="theme-toggle-btn"
               onClick={toggleTheme}
-              title={theme === "dark" ? "Mudar para modo claro" : "Mudar para modo escuro"}
-              aria-label="Alternar tema escuro/claro"
+              title={theme === "dark" ? "Alternar para modo claro" : "Alternar para modo escuro"}
+              aria-label="Alternar tema claro/escuro"
             >
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-              <span>{theme === "dark" ? "Claro" : "Escuro"}</span>
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <SalesNotifier workspaceId={workspace} />
             <span className="live-dot" />

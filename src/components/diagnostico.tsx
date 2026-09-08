@@ -119,25 +119,26 @@ export function DiagnosticoView({
     currentResult.overallScore >= 80
       ? "var(--positive, #10B981)"
       : currentResult.overallScore >= 60
-        ? "var(--yellow, #F59E0B)"
-        : "var(--red, #EF3340)";
+        ? "#F59E0B"
+        : "#EF4444";
 
   return (
-    <div style={{ display: "grid", gap: "1.5rem" }}>
+    <div style={{ display: "grid", gap: "1.25rem" }}>
       {/* 1. Cabeçalho e Seletor */}
       <section className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <h2>Diagnóstico de Funil</h2>
-            <p>
+            <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--ink)" }}>Diagnóstico de Funil</h2>
+            <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
               Métricas observadas, hipóteses verificáveis e recomendações determinísticas do funil.
             </p>
           </div>
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
             <select
               value={selectedOffer}
               onChange={(e) => setSelectedOffer(e.target.value)}
               style={{ minWidth: "180px" }}
+              aria-label="Selecionar oferta"
             >
               <option value="all">Todas as ofertas (Workspace)</option>
               {offers.map((o) => (
@@ -165,17 +166,23 @@ export function DiagnosticoView({
       </section>
 
       {aiAnalysis && (
-        <section className="panel" style={{ borderLeft: "4px solid #5B34EA", background: "linear-gradient(135deg, #F5F3FF 0%, #FFFFFF 100%)" }}>
+        <section
+          className="panel"
+          style={{
+            borderLeft: "4px solid #5B34EA",
+            background: "var(--surface-subtle)",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
             <Sparkles size={18} color="#5B34EA" />
-            <h2 style={{ margin: 0 }}>Leitura estratégica da IA</h2>
+            <h2 style={{ margin: 0, fontSize: "1.1rem", color: "var(--ink)" }}>Leitura estratégica da IA</h2>
           </div>
-          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, color: "#334155" }}>{aiAnalysis}</div>
+          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, color: "var(--ink)", fontSize: "0.9rem" }}>{aiAnalysis}</div>
         </section>
       )}
 
-      {/* 2. Placar Principal: Score Global + Frase de Impacto */}
-      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "1.5rem" }}>
+      {/* 2. Placar Principal: Score Global + Frase de Impacto (Responsivo) */}
+      <div className="diagnostico-hero-grid">
         {/* Score Gauge Card */}
         <section
           className="panel"
@@ -185,7 +192,7 @@ export function DiagnosticoView({
             alignItems: "center",
             justifyContent: "center",
             textAlign: "center",
-            padding: "2rem 1.5rem",
+            padding: "1.75rem 1.25rem",
           }}
         >
           <span className="tag" style={{ marginBottom: "0.5rem" }}>
@@ -193,10 +200,10 @@ export function DiagnosticoView({
           </span>
           <div
             style={{
-              width: "110px",
-              height: "110px",
+              width: "105px",
+              height: "105px",
               borderRadius: "50%",
-              border: `7px solid ${scoreColor}`,
+              border: `6px solid ${scoreColor}`,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -205,18 +212,18 @@ export function DiagnosticoView({
               boxShadow: "0 4px 14px rgba(0,0,0,0.05)",
             }}
           >
-            <strong style={{ fontSize: "2.5rem", lineHeight: 1, color: scoreColor }}>
+            <strong style={{ fontSize: "2.3rem", lineHeight: 1, color: scoreColor }}>
               {currentResult.overallScore}
             </strong>
-            <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>de 100</small>
+            <small style={{ fontSize: "0.75rem", color: "var(--muted)" }}>de 100</small>
           </div>
           <span
             className="chip"
             style={{
-              fontSize: "0.85rem",
+              fontSize: "0.82rem",
               fontWeight: 700,
-              background: currentResult.overallScore >= 80 ? "#ECFDF5" : "#FEF2F2",
-              color: currentResult.overallScore >= 80 ? "#065F46" : "#991B1B",
+              background: currentResult.overallScore >= 80 ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+              color: currentResult.overallScore >= 80 ? "#10B981" : "#EF4444",
             }}
           >
             Grau {currentResult.overallGrade} ·{" "}
@@ -227,7 +234,7 @@ export function DiagnosticoView({
                 : "Crítico"}
           </span>
           {currentResult.sampleNotice && (
-            <small style={{ marginTop: "0.65rem", color: "var(--muted, #64748B)" }}>
+            <small style={{ marginTop: "0.65rem", color: "var(--muted)", fontSize: "0.75rem" }}>
               {currentResult.sampleNotice}
             </small>
           )}
@@ -242,46 +249,48 @@ export function DiagnosticoView({
             justifyContent: "center",
             background:
               currentResult.overallScore >= 80
-                ? "linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)"
-                : "linear-gradient(135deg, #FFF1F2 0%, #FFFFFF 100%)",
+                ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, var(--surface) 100%)"
+                : "linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, var(--surface) 100%)",
             borderLeft: `5px solid ${scoreColor}`,
+            padding: "1.75rem 1.5rem",
           }}
         >
           <span
             className="tag"
             style={{
-              color: currentResult.overallScore >= 80 ? "#059669" : "#DC2626",
+              color: currentResult.overallScore >= 80 ? "#10B981" : "#EF4444",
               fontWeight: 700,
+              width: "fit-content",
             }}
           >
             PRINCIPAL ACHADO DO DIAGNÓSTICO
           </span>
-          <h2 style={{ fontSize: "1.45rem", marginTop: "0.4rem", marginBottom: "0.5rem" }}>
+          <h2 style={{ fontSize: "1.35rem", marginTop: "0.5rem", marginBottom: "0.5rem", color: "var(--ink)", lineHeight: 1.3 }}>
             “{currentResult.primaryHeadline}”
           </h2>
-          <p style={{ color: "var(--muted, #64748B)", maxWidth: "700px" }}>
-            <strong>Fato observado:</strong> {currentResult.bottlenecks[0]?.observed || "Sem dados suficientes."}
+          <p style={{ color: "var(--muted)", maxWidth: "700px", fontSize: "0.9rem", margin: "0.25rem 0 0" }}>
+            <strong style={{ color: "var(--ink)" }}>Fato observado:</strong> {currentResult.bottlenecks[0]?.observed || "Sem dados suficientes para apontar anomalia estatística."}
           </p>
         </section>
       </div>
 
       {/* 3. Notas por Categoria */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem" }}>
         {currentResult.categoryScores.map((cat) => (
-          <section key={cat.category} className="panel" style={{ padding: "1.25rem" }}>
+          <section key={cat.category} className="panel" style={{ padding: "1.1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <strong style={{ fontSize: "0.9rem" }}>{cat.name}</strong>
+              <strong style={{ fontSize: "0.88rem", color: "var(--ink)" }}>{cat.name}</strong>
               <span
                 className="chip"
                 style={{
                   fontWeight: 700,
-                  color: cat.score >= 80 ? "#10B981" : cat.score >= 60 ? "#F59E0B" : "#EF3340",
+                  color: cat.score >= 80 ? "#10B981" : cat.score >= 60 ? "#F59E0B" : "#EF4444",
                 }}
               >
                 {cat.score}/100
               </span>
             </div>
-            <p style={{ fontSize: "0.8rem", color: "var(--muted, #64748B)", marginTop: "0.5rem" }}>
+            <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.4rem", lineHeight: "1.35" }}>
               {cat.details}
             </p>
           </section>
@@ -292,43 +301,49 @@ export function DiagnosticoView({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Queda por Etapa do Funil</h2>
-            <p>Acompanhe o volume absoluto e a taxa de retenção entre cada momento do comprador</p>
+            <h2 style={{ margin: 0, fontSize: "1.15rem", color: "var(--ink)" }}>Queda por Etapa do Funil</h2>
+            <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+              Acompanhe o volume absoluto e a taxa de retenção entre cada momento do comprador
+            </p>
           </div>
         </div>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
             gap: "0.75rem",
             marginTop: "1rem",
             textAlign: "center",
           }}
         >
           {/* Etapa 1: Cliques Meta */}
-          <div style={{ padding: "1rem", background: "var(--surface-subtle, #F8FAFC)", borderRadius: "8px" }}>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", display: "block" }}>
+          <div style={{ padding: "1rem 0.75rem", background: "var(--surface-subtle)", border: "1px solid var(--line)", borderRadius: "8px" }}>
+            <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>
               1. Cliques Anúncio
             </span>
-            <strong style={{ fontSize: "1.4rem" }}>{currentResult.metricsSnapshot.metaClicks}</strong>
-            <small style={{ display: "block", color: "var(--muted, #64748B)", marginTop: "0.25rem" }}>
+            <strong style={{ fontSize: "1.35rem", color: "var(--ink)", display: "block", margin: "0.2rem 0" }}>
+              {currentResult.metricsSnapshot.metaClicks}
+            </strong>
+            <small style={{ display: "block", color: "var(--muted)", fontSize: "0.72rem" }}>
               Base de tráfego
             </small>
           </div>
 
           {/* Etapa 2: PageViews */}
-          <div style={{ padding: "1rem", background: "var(--surface-subtle, #F8FAFC)", borderRadius: "8px" }}>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", display: "block" }}>
+          <div style={{ padding: "1rem 0.75rem", background: "var(--surface-subtle)", border: "1px solid var(--line)", borderRadius: "8px" }}>
+            <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>
               2. PageViews
             </span>
-            <strong style={{ fontSize: "1.4rem" }}>{currentResult.metricsSnapshot.pageviews}</strong>
+            <strong style={{ fontSize: "1.35rem", color: "var(--ink)", display: "block", margin: "0.2rem 0" }}>
+              {currentResult.metricsSnapshot.pageviews}
+            </strong>
             <small
               style={{
                 display: "block",
-                color: isBelow(currentResult.metricsSnapshot.pvRate, 70) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.pvRate, 70) ? "#EF4444" : "#10B981",
                 fontWeight: 600,
-                marginTop: "0.25rem",
+                fontSize: "0.72rem",
               }}
             >
               {formatRate(currentResult.metricsSnapshot.pvRate)} do clique
@@ -336,17 +351,19 @@ export function DiagnosticoView({
           </div>
 
           {/* Etapa 3: Cliques no CTA */}
-          <div style={{ padding: "1rem", background: "var(--surface-subtle, #F8FAFC)", borderRadius: "8px" }}>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", display: "block" }}>
+          <div style={{ padding: "1rem 0.75rem", background: "var(--surface-subtle)", border: "1px solid var(--line)", borderRadius: "8px" }}>
+            <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>
               3. Cliques no Botão
             </span>
-            <strong style={{ fontSize: "1.4rem" }}>{currentResult.metricsSnapshot.ctas}</strong>
+            <strong style={{ fontSize: "1.35rem", color: "var(--ink)", display: "block", margin: "0.2rem 0" }}>
+              {currentResult.metricsSnapshot.ctas}
+            </strong>
             <small
               style={{
                 display: "block",
-                color: isBelow(currentResult.metricsSnapshot.ctaRate, 10) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.ctaRate, 10) ? "#EF4444" : "#10B981",
                 fontWeight: 600,
-                marginTop: "0.25rem",
+                fontSize: "0.72rem",
               }}
             >
               {formatRate(currentResult.metricsSnapshot.ctaRate)} da página
@@ -354,17 +371,19 @@ export function DiagnosticoView({
           </div>
 
           {/* Etapa 4: Checkouts Iniciados */}
-          <div style={{ padding: "1rem", background: "var(--surface-subtle, #F8FAFC)", borderRadius: "8px" }}>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", display: "block" }}>
+          <div style={{ padding: "1rem 0.75rem", background: "var(--surface-subtle)", border: "1px solid var(--line)", borderRadius: "8px" }}>
+            <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>
               4. Checkouts
             </span>
-            <strong style={{ fontSize: "1.4rem" }}>{currentResult.metricsSnapshot.checkouts}</strong>
+            <strong style={{ fontSize: "1.35rem", color: "var(--ink)", display: "block", margin: "0.2rem 0" }}>
+              {currentResult.metricsSnapshot.checkouts}
+            </strong>
             <small
               style={{
                 display: "block",
-                color: isBelow(currentResult.metricsSnapshot.checkoutRate, 25) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.checkoutRate, 25) ? "#EF4444" : "#10B981",
                 fontWeight: 600,
-                marginTop: "0.25rem",
+                fontSize: "0.72rem",
               }}
             >
               {formatRate(currentResult.metricsSnapshot.checkoutRate)} dos CTAs
@@ -372,19 +391,19 @@ export function DiagnosticoView({
           </div>
 
           {/* Etapa 5: Vendas Aprovadas */}
-          <div style={{ padding: "1rem", background: "var(--surface-subtle, #F8FAFC)", borderRadius: "8px" }}>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", display: "block" }}>
+          <div style={{ padding: "1rem 0.75rem", background: "var(--surface-subtle)", border: "1px solid var(--line)", borderRadius: "8px" }}>
+            <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block" }}>
               5. Compras Aprovadas
             </span>
-            <strong style={{ fontSize: "1.4rem", color: "var(--positive, #10B981)" }}>
+            <strong style={{ fontSize: "1.35rem", color: "#10B981", display: "block", margin: "0.2rem 0" }}>
               {currentResult.metricsSnapshot.purchases}
             </strong>
             <small
               style={{
                 display: "block",
-                color: isBelow(currentResult.metricsSnapshot.purchaseRate, 15) ? "var(--red, #EF3340)" : "var(--positive, #10B981)",
+                color: isBelow(currentResult.metricsSnapshot.purchaseRate, 15) ? "#EF4444" : "#10B981",
                 fontWeight: 600,
-                marginTop: "0.25rem",
+                fontSize: "0.72rem",
               }}
             >
               {formatRate(currentResult.metricsSnapshot.purchaseRate)} do checkout
@@ -397,12 +416,14 @@ export function DiagnosticoView({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Gargalos Identificados e Recomendações</h2>
-            <p>Ações prioritárias para estancar perdas e destravar o ROAS da oferta</p>
+            <h2 style={{ margin: 0, fontSize: "1.15rem", color: "var(--ink)" }}>Gargalos Identificados e Recomendações</h2>
+            <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+              Ações prioritárias para estancar perdas e destravar o ROAS da oferta
+            </p>
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
+        <div style={{ display: "grid", gap: "0.85rem", marginTop: "1rem" }}>
           {currentResult.bottlenecks.map((b) => {
             const isCrit = b.severity === "critical";
             const isHigh = b.severity === "high";
@@ -412,22 +433,22 @@ export function DiagnosticoView({
               <div
                 key={b.id}
                 style={{
-                  padding: "1.25rem",
+                  padding: "1.15rem",
                   borderRadius: "10px",
                   border: isCrit
-                    ? "1px solid #FECACA"
+                    ? "1px solid rgba(239, 68, 68, 0.35)"
                     : isHigh
-                      ? "1px solid #FED7AA"
+                      ? "1px solid rgba(245, 158, 11, 0.35)"
                       : isGood
-                        ? "1px solid #BBF7D0"
-                        : "1px solid #E2E8F0",
+                        ? "1px solid rgba(16, 185, 129, 0.35)"
+                        : "1px solid var(--line)",
                   background: isCrit
-                    ? "#FEF2F2"
+                    ? "rgba(239, 68, 68, 0.05)"
                     : isHigh
-                      ? "#FFF7ED"
+                      ? "rgba(245, 158, 11, 0.05)"
                       : isGood
-                        ? "#F0FDF4"
-                        : "#FFFFFF",
+                        ? "rgba(16, 185, 129, 0.05)"
+                        : "var(--surface-subtle)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -435,30 +456,31 @@ export function DiagnosticoView({
                     <span
                       className="chip"
                       style={{
-                        fontSize: "0.75rem",
+                        fontSize: "0.72rem",
                         fontWeight: 700,
-                        background: isCrit ? "#FEE2E2" : isHigh ? "#FFEDD5" : "#DCFCE7",
-                        color: isCrit ? "#B91C1C" : isHigh ? "#C2410C" : "#15803D",
+                        background: isCrit ? "rgba(239, 68, 68, 0.12)" : isHigh ? "rgba(245, 158, 11, 0.12)" : "rgba(16, 185, 129, 0.12)",
+                        color: isCrit ? "#EF4444" : isHigh ? "#F59E0B" : "#10B981",
                       }}
                     >
                       {isCrit ? "CRÍTICO" : isHigh ? "ALTA PRIORIDADE" : isGood ? "POSITIVO" : "OPORTUNIDADE"}
                     </span>
-                    <h3 style={{ marginTop: "0.4rem", fontSize: "1.15rem" }}>{b.headline}</h3>
-                    <p style={{ fontSize: "0.9rem", color: "#475569", marginTop: "0.25rem" }}>
-                      <strong>Fato observado:</strong> {b.observed}
+                    <h3 style={{ marginTop: "0.4rem", fontSize: "1.08rem", color: "var(--ink)", fontWeight: 700 }}>
+                      {b.headline}
+                    </h3>
+                    <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.25rem" }}>
+                      <strong style={{ color: "var(--ink)" }}>Fato observado:</strong> {b.observed}
                     </p>
-                    <p style={{ fontSize: "0.85rem", color: "#64748B", marginTop: "0.2rem" }}>
-                      <strong>Hipótese:</strong> {b.hypothesis}
+                    <p style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "0.2rem" }}>
+                      <strong style={{ color: "var(--ink)" }}>Hipótese do gargalo:</strong> {b.hypothesis}
                     </p>
                   </div>
-
                 </div>
 
                 <div
                   style={{
                     marginTop: "0.75rem",
                     paddingTop: "0.75rem",
-                    borderTop: "1px dashed rgba(0,0,0,0.1)",
+                    borderTop: "1px solid var(--line)",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -466,11 +488,12 @@ export function DiagnosticoView({
                     gap: "0.5rem",
                   }}
                 >
-                  <p style={{ fontSize: "0.85rem", color: "#1E293B" }}>
+                  <p style={{ fontSize: "0.85rem", color: "var(--ink)", margin: 0 }}>
                     💡 <strong>Recomendação:</strong> {b.recommendation}
                   </p>
                   {b.actionTab && (
                     <button
+                      type="button"
                       className="button small primary"
                       onClick={() => selectTab(b.actionTab || "ofertas")}
                     >
@@ -489,8 +512,10 @@ export function DiagnosticoView({
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <h2>Histórico de Diagnósticos</h2>
-              <p>Auditorias anteriores registradas no workspace</p>
+              <h2 style={{ margin: 0, fontSize: "1.15rem", color: "var(--ink)" }}>Histórico de Diagnósticos</h2>
+              <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                Auditorias anteriores registradas no workspace
+              </p>
             </div>
             {isSaving && (
               <span className="chip" style={{ color: "var(--brand-accent, #5B34EA)" }}>
@@ -498,27 +523,27 @@ export function DiagnosticoView({
               </span>
             )}
           </div>
-          <div style={{ display: "grid", gap: "0.75rem", marginTop: "1rem" }}>
+          <div style={{ display: "grid", gap: "0.6rem", marginTop: "1rem" }}>
             {diagnostics.slice(0, 5).map((d) => (
               <div
                 key={d.id}
                 style={{
-                  padding: "0.85rem 1rem",
-                  border: "1px solid var(--line, #E2E8F0)",
+                  padding: "0.75rem 1rem",
+                  border: "1px solid var(--line)",
                   borderRadius: "8px",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  background: "#FFFFFF",
+                  background: "var(--surface-subtle)",
                 }}
               >
                 <div>
-                  <strong>Score {d.score}/100</strong> ·{" "}
-                  <small style={{ color: "var(--muted, #64748B)" }}>
+                  <strong style={{ color: "var(--ink)", fontSize: "0.88rem" }}>Score {d.score}/100</strong> ·{" "}
+                  <small style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
                     {new Date(d.created_at).toLocaleString("pt-BR")}
                   </small>
                 </div>
-                <span className="chip" style={{ fontSize: "0.75rem" }}>
+                <span className="chip" style={{ fontSize: "0.72rem" }}>
                   {Array.isArray(d.bottlenecks) ? `${d.bottlenecks.length} apontamentos` : "Auditoria concluída"}
                 </span>
               </div>
