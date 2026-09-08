@@ -308,7 +308,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
 
               <div
                 style={{
-                  background: isBot ? "#FFFFFF" : "#5B34EA",
+                  background: isBot ? "var(--surface, #FFFFFF)" : "#5B34EA",
                   color: isBot ? "var(--ink, #0F172A)" : "#FFFFFF",
                   padding: "0.85rem 1.15rem",
                   borderRadius: isBot ? "4px 16px 16px 16px" : "16px 4px 16px 16px",
@@ -330,9 +330,9 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
                     alignItems: "center",
                     marginTop: "0.5rem",
                     paddingTop: "0.35rem",
-                    borderTop: isBot ? "1px solid #F1F5F9" : "1px solid rgba(255,255,255,0.2)",
+                    borderTop: isBot ? "1px solid var(--line, #F1F5F9)" : "1px solid rgba(255,255,255,0.2)",
                     fontSize: "0.72rem",
-                    color: isBot ? "#94A3B8" : "rgba(255,255,255,0.75)",
+                    color: isBot ? "var(--muted, #94A3B8)" : "rgba(255,255,255,0.75)",
                   }}
                 >
                   <span>{m.timestamp}</span>
@@ -409,7 +409,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
       <div
         style={{
           padding: "0.6rem 1.25rem",
-          background: "#FFFFFF",
+          background: "var(--surface, #FFFFFF)",
           borderTop: "1px solid var(--line, #E2E8F0)",
           display: "flex",
           gap: "0.5rem",
@@ -428,7 +428,8 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
               padding: "0.3rem 0.7rem",
               borderRadius: "20px",
               borderColor: "var(--line, #E2E8F0)",
-              background: "#F8FAFC",
+              background: "var(--surface-muted, #F8FAFC)",
+              color: "var(--ink)",
             }}
           >
             {p.label}
@@ -440,7 +441,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
       <div
         style={{
           padding: "0.85rem 1.25rem",
-          background: "#FFFFFF",
+          background: "var(--surface, #FFFFFF)",
           borderTop: "1px solid var(--line, #E2E8F0)",
           display: "flex",
           gap: "0.6rem",
@@ -460,6 +461,8 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
             padding: "0.65rem 1rem",
             borderRadius: "8px",
             border: "1px solid var(--line, #CBD5E1)",
+            background: "var(--surface-subtle, #FFFFFF)",
+            color: "var(--ink, #0F172A)",
             fontSize: "0.9rem",
             outline: "none",
           }}

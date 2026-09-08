@@ -724,13 +724,71 @@ export function Dashboard(p: Props) {
                   </div>
                 )}
               </div>
-              <button
-                className="button primary"
-                onClick={() => create(tab === "ofertas" ? "offer" : "link")}
-              >
-                <Plus size={17} />
-                {tab === "ofertas" ? "Nova oferta" : "Criar link UTM"}
-              </button>
+              {tab === "ofertas" && (
+                <button
+                  className="button primary"
+                  onClick={() => create("offer")}
+                >
+                  <Plus size={17} />
+                  Nova oferta
+                </button>
+              )}
+              {tab === "links" && (
+                <button
+                  className="button primary"
+                  onClick={() => create("link")}
+                >
+                  <Plus size={17} />
+                  Criar link UTM
+                </button>
+              )}
+              {tab === "shield" && (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    const addBtn = document.querySelector('[data-shield-add]') as HTMLButtonElement | null;
+                    if (addBtn) addBtn.click();
+                    else setNotice("Clique em 'Configurar Novo Domínio' na seção do Shield.");
+                  }}
+                >
+                  <Plus size={17} />
+                  Novo Domínio Shield
+                </button>
+              )}
+              {tab === "integracoes" && (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    const gatewaySection = document.getElementById("gateway-select-section");
+                    if (gatewaySection) gatewaySection.scrollIntoView({ behavior: "smooth" });
+                    else setModal("hotmart");
+                  }}
+                >
+                  <Plus size={17} />
+                  Conectar Gateway
+                </button>
+              )}
+              {tab === "alertas" && (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    soundPlayer.play().catch(() => {});
+                    setNotice("Som de alerta/notificação reproduzido!");
+                  }}
+                >
+                  <Volume2 size={17} />
+                  Testar Alerta Sonoro
+                </button>
+              )}
+              {["visao", "campanhas"].includes(tab) && (
+                <button
+                  className="button primary"
+                  onClick={() => create("link")}
+                >
+                  <Plus size={17} />
+                  Criar link UTM
+                </button>
+              )}
             </div>
           </div>
           {(notice || p.error) && (
@@ -1994,6 +2052,7 @@ export function Dashboard(p: Props) {
             />
           )}
           {tab === "alertas" && (
+            <>
             <section className="panel">
               <div className="panel-heading">
                 <div>
@@ -2196,6 +2255,13 @@ export function Dashboard(p: Props) {
                 />
               )}
             </section>
+            <PushSettingsCard
+              workspace={workspace}
+              pushSettings={p.workspace?.push_settings}
+              pending={pending}
+              run={run}
+            />
+          </>
           )}
           {tab === "shield" && (
             <ShieldView
@@ -2399,6 +2465,72 @@ export function Dashboard(p: Props) {
     </div>
   );
 }
+const UTM_CHANNEL_PRESETS: {
+  id: string;
+  name: string;
+  badge: string;
+  params: Record<string, string>;
+}[] = [
+  {
+    id: "meta",
+    name: "Meta Ads",
+    badge: "Facebook & Instagram",
+    params: {
+      utm_source: "meta",
+      utm_medium: "paid_social",
+      utm_campaign: "{{campaign.id}}",
+      utm_term: "{{adset.id}}",
+      utm_content: "{{ad.id}}",
+    },
+  },
+  {
+    id: "google",
+    name: "Google Ads",
+    badge: "Pesquisa & Display",
+    params: {
+      utm_source: "google",
+      utm_medium: "cpc",
+      utm_campaign: "{campaignid}",
+      utm_term: "{keyword}",
+      utm_content: "{creative}",
+    },
+  },
+  {
+    id: "tiktok",
+    name: "TikTok Ads",
+    badge: "TikTok",
+    params: {
+      utm_source: "tiktok",
+      utm_medium: "paid_social",
+      utm_campaign: "__CAMPAIGN_ID__",
+      utm_term: "__AID__",
+      utm_content: "__CID__",
+    },
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    badge: "Mensagens & Chat",
+    params: {
+      utm_source: "whatsapp",
+      utm_medium: "social",
+      utm_campaign: "direto",
+      utm_content: "chat",
+    },
+  },
+  {
+    id: "bio",
+    name: "Bio & Redes",
+    badge: "Orgânico / Perfil",
+    params: {
+      utm_source: "instagram",
+      utm_medium: "social_bio",
+      utm_campaign: "bio",
+      utm_content: "perfil",
+    },
+  },
+];
+
 function LinkForm({
   offers,
   workspace,
@@ -2408,122 +2540,216 @@ function LinkForm({
   workspace: string;
   done: () => void;
 }) {
-  const [offer, setOffer] = useState(offers[0].id),
-    [url, setUrl] = useState(offers[0].landing_url),
-    [params, setParams] = useState<Record<string, string>>({ ...metaDefaults }),
-    [custom, setCustom] = useState("");
+  const [selectedChannel, setSelectedChannel] = useState("meta");
+  const [offer, setOffer] = useState(offers[0]?.id || "");
+  const selectedOffer = offers.find((o) => o.id === offer) || offers[0];
+  const [url, setUrl] = useState(selectedOffer?.landing_url || "");
+  const [name, setName] = useState(
+    selectedOffer ? `Meta Ads - ${selectedOffer.name}` : "Meta Ads",
+  );
+  const [params, setParams] = useState<Record<string, string>>({
+    ...metaDefaults,
+  });
+  const [custom, setCustom] = useState("");
+
+  function handleSelectChannel(preset: (typeof UTM_CHANNEL_PRESETS)[0]) {
+    setSelectedChannel(preset.id);
+    setParams({ ...preset.params });
+    if (selectedOffer) {
+      setName(`${preset.name} - ${selectedOffer.name}`);
+    }
+  }
+
   let preview = { full: "", parameters: "" };
   try {
     preview = buildLink(url, params);
   } catch {}
+
   const names: Record<string, string> = {
-    utm_source: "Origem",
-    utm_medium: "Canal",
-    utm_campaign: "Campanha",
-    utm_term: "Conjunto",
-    utm_content: "Anúncio",
-    utm_creative: "Criativo",
-    utm_country: "País",
-    utm_placement: "Posicionamento",
-    utm_variation: "Variação",
+    utm_source: "Origem (utm_source)",
+    utm_medium: "Canal / Meio (utm_medium)",
+    utm_campaign: "Campanha (utm_campaign)",
+    utm_term: "Conjunto / Termo (utm_term)",
+    utm_content: "Anúncio / Conteúdo (utm_content)",
+    utm_creative: "Criativo (utm_creative)",
+    utm_country: "País (utm_country)",
+    utm_placement: "Posicionamento (utm_placement)",
+    utm_variation: "Variação (utm_variation)",
   };
+
   return (
     <ActionForm
       action={(f) =>
         saveLink(workspace, {
-          name: f.get("name"),
+          name: f.get("name") || name,
           offer_id: offer,
           url,
           params,
         })
       }
-      label="Salvar link"
+      label="Criar e Salvar Link"
       onSuccess={done}
     >
+      <div className="utm-presets-container">
+        <label style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>
+          1. Escolha a Plataforma (1 clique)
+        </label>
+        <p style={{ margin: 0, fontSize: 12, color: "var(--ink-secondary)" }}>
+          Os parâmetros oficiais são configurados automaticamente sem complicação.
+        </p>
+        <div className="utm-preset-grid">
+          {UTM_CHANNEL_PRESETS.map((p) => {
+            const isActive = selectedChannel === p.id;
+            return (
+              <button
+                type="button"
+                key={p.id}
+                className={`utm-preset-btn ${isActive ? "active" : ""}`}
+                onClick={() => handleSelectChannel(p)}
+              >
+                <div className="utm-preset-title">
+                  {p.id === "meta" && "🔵"}
+                  {p.id === "google" && "🔴"}
+                  {p.id === "tiktok" && "⚫"}
+                  {p.id === "whatsapp" && "🟢"}
+                  {p.id === "bio" && "🟣"}
+                  {p.name}
+                </div>
+                <div className="utm-preset-subtitle">{p.badge}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <label>
+          Oferta de destino
+          <select
+            value={offer}
+            onChange={(e) => {
+              const newId = e.target.value;
+              setOffer(newId);
+              const found = offers.find((o) => o.id === newId);
+              if (found) {
+                setUrl(found.landing_url);
+                const currentPreset = UTM_CHANNEL_PRESETS.find(
+                  (p) => p.id === selectedChannel,
+                );
+                setName(`${currentPreset?.name || "Link"} - ${found.name}`);
+              }
+            }}
+          >
+            {offers.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Nome do link
+          <input
+            name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex.: Meta Ads - Minha Oferta"
+            required
+            minLength={2}
+          />
+        </label>
+      </div>
+
       <label>
-        Nome do link
-        <input
-          name="name"
-          placeholder="Ex.: Campanha de lançamento"
-          required
-          minLength={2}
-        />
-      </label>
-      <label>
-        Oferta
-        <select
-          value={offer}
-          onChange={(e) => {
-            setOffer(e.target.value);
-            setUrl(offers.find((o) => o.id === e.target.value)!.landing_url);
-          }}
-        >
-          {offers.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        URL da página
+        URL da página (onde o cliente cai)
         <input
           type="url"
           required
           value={url}
           onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://seu-dominio.com/pagina"
         />
       </label>
-      <div className="fields-grid">
-        {Object.entries(names).map(([key, name]) => (
-          <label key={key}>
-            {name}
-            <input
-              value={params[key] ?? ""}
-              onChange={(e) => setParams({ ...params, [key]: e.target.value })}
-              placeholder={key}
-            />
-          </label>
-        ))}
-      </div>
-      <label>
-        Campo customizado
-        <div className="custom-field">
-          <input
-            value={custom}
-            onChange={(e) => setCustom(e.target.value)}
-            placeholder="Ex.: utm_hook"
-          />
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              if (/^[a-zA-Z][a-zA-Z0-9_]{0,49}$/.test(custom)) {
-                setParams({ ...params, [custom]: "" });
-                setCustom("");
-              }
-            }}
-          >
-            Adicionar
-          </button>
+
+      <div className="utm-link-preview-box">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span className="tag" style={{ margin: 0 }}>
+            LINK PRONTO COM RASTREAMENTO
+          </span>
+          {preview.full && (
+            <Clipboard value={preview.full} label="Copiar link completo" />
+          )}
         </div>
-      </label>
-      {Object.keys(params)
-        .filter((k) => !names[k])
-        .map((k) => (
-          <label key={k}>
-            {k}
-            <input
-              value={params[k]}
-              onChange={(e) => setParams({ ...params, [k]: e.target.value })}
-            />
-          </label>
-        ))}
-      <div className="preview-box">
-        <span className="tag">PRÉVIA DOS PARÂMETROS</span>
-        <code>{preview.parameters || "Informe uma URL válida"}</code>
-        <Clipboard value={preview.parameters} />
+        <code>{preview.full || "Informe uma URL válida acima"}</code>
       </div>
+
+      <details className="utm-advanced-details">
+        <summary>⚙️ Ajustar parâmetros UTM manualmente (opcional)</summary>
+        <p
+          style={{
+            fontSize: 11,
+            color: "var(--ink-secondary)",
+            margin: "8px 0 12px",
+          }}
+        >
+          Campos preenchidos automaticamente. Modifique apenas se quiser usar parâmetros personalizados.
+        </p>
+        <div className="fields-grid">
+          {Object.entries(names).map(([key, labelText]) => (
+            <label key={key}>
+              {labelText}
+              <input
+                value={params[key] ?? ""}
+                onChange={(e) =>
+                  setParams({ ...params, [key]: e.target.value })
+                }
+                placeholder={key}
+              />
+            </label>
+          ))}
+        </div>
+        <label style={{ marginTop: 10 }}>
+          Adicionar campo customizado
+          <div className="custom-field">
+            <input
+              value={custom}
+              onChange={(e) => setCustom(e.target.value)}
+              placeholder="Ex.: utm_hook"
+            />
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                if (/^[a-zA-Z][a-zA-Z0-9_]{0,49}$/.test(custom)) {
+                  setParams({ ...params, [custom]: "" });
+                  setCustom("");
+                }
+              }}
+            >
+              Adicionar
+            </button>
+          </div>
+        </label>
+        {Object.keys(params)
+          .filter((k) => !names[k])
+          .map((k) => (
+            <label key={k}>
+              {k}
+              <input
+                value={params[k]}
+                onChange={(e) => setParams({ ...params, [k]: e.target.value })}
+              />
+            </label>
+          ))}
+      </details>
     </ActionForm>
   );
 }
