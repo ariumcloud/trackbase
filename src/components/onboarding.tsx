@@ -225,6 +225,7 @@ export function OnboardingChecklist({
             return (
               <div
                 key={step.id}
+                className="onboarding-step"
                 style={{
                   padding: "0.75rem",
                   borderRadius: "8px",
@@ -243,6 +244,7 @@ export function OnboardingChecklist({
                       <Circle size={16} color="#94A3B8" />
                     )}
                     <strong
+                      className="onboarding-step-title"
                       style={{
                         fontSize: "0.9rem",
                         color: step.done ? "#065F46" : "var(--ink, #0F172A)",
@@ -252,6 +254,7 @@ export function OnboardingChecklist({
                     </strong>
                   </div>
                   <p
+                    className="onboarding-step-description"
                     style={{
                       margin: "0 0 0.5rem 1.4rem",
                       fontSize: "0.8rem",

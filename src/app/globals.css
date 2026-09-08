@@ -1973,6 +1973,32 @@ tr:hover td {
 .modal h2 {
   font-size: 18px;
   margin-bottom: 4px;
+  padding-right: 44px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+}
+
+.onboarding-step-title,
+.onboarding-step-description { min-width: 0; overflow-wrap: anywhere; }
+.onboarding-step-title { line-height: 1.25; }
+.onboarding-step-description { max-width: 100%; }
+
+.footer-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 18px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .modal p {

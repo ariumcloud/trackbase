@@ -823,7 +823,6 @@ export function Dashboard(p: Props) {
                   {
                     name: "Lucro Operacional",
                     value:
-                      hasPayments &&
                       offer === "all" &&
                       metrics.operatingProfit !== null
                         ? money(metrics.operatingProfit)
@@ -831,7 +830,9 @@ export function Dashboard(p: Props) {
                     hint:
                       offer !== "all"
                         ? "Mídia não isolada por oferta"
-                        : "Receita líquida menos investimento em mídia",
+                        : hasPayments
+                          ? "Receita líquida menos investimento em mídia"
+                          : "Sem receita registrada; o gasto aparece como prejuízo",
                     icon: Wallet,
                     tone:
                       metrics.operatingProfit !== null
