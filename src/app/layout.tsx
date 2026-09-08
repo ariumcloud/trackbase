@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Junte anúncios da Meta Ads, páginas, checkouts e vendas em uma operação clara, rápida e lucrativa com a Trackbase.",
   icons: {
     icon: [
-      { url: "/Logo Roxa 42x42 PNG favicon.png", sizes: "42x42", type: "image/png" },
+      { url: "/Logo Roxa 42x42 PNG favicon.png?v=2", sizes: "42x42", type: "image/png" },
       { url: "/trackbase-icon-192-v2.png", sizes: "192x192", type: "image/png" },
       { url: "/trackbase-icon-512-v2.png", sizes: "512x512", type: "image/png" },
     ],
@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
-        <link rel="icon" href="/Logo Roxa 42x42 PNG favicon.png" type="image/png" />
+        <link rel="icon" href="/Logo Roxa 42x42 PNG favicon.png?v=2" type="image/png" />
         <link rel="apple-touch-icon" href="/trackbase-apple-touch-icon-v2.png" sizes="180x180" />
         <link rel="manifest" href="/manifest.json?v=2" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
