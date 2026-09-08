@@ -87,6 +87,7 @@ export type SaleRow = {
     | "complementary"
     | "alternative";
   parent_transaction_id?: string | null;
+  payment_method?: string | null;
   currency: string | null;
   country: string | null;
   attribution: Record<string, string>;

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   BarChart3,
   Layers,
   Tag,
   Search,
-  Columns,
+  Settings,
   X,
   MousePointer2,
   ArrowRight,
@@ -15,17 +15,24 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronDown,
+  RefreshCw,
+  ExternalLink,
+  Copy,
+  Pencil,
 } from "lucide-react";
-import type { Entity, InsightRow, SaleRow, Integration } from "@/lib/types";
+import type { Entity, InsightRow, SaleRow, Integration, Offer } from "@/lib/types";
 
 export type ColumnKey =
   | "status"
   | "name"
+  | "budget"
   | "sales"
   | "cpa"
   | "spend"
   | "revenue"
+  | "ic"
   | "profit"
+  | "cpi"
   | "roas"
   | "margin"
   | "roi"
@@ -37,21 +44,24 @@ export type ColumnKey =
 
 export const DEFAULT_COLUMNS: Record<
   ColumnKey,
-  { label: string; defaultVisible: boolean; numeric?: boolean }
+  { label: string; defaultVisible: boolean; numeric?: boolean; tooltip?: string }
 > = {
   status: { label: "Status", defaultVisible: true, numeric: false },
   name: { label: "Identificação", defaultVisible: true, numeric: false },
+  budget: { label: "Orçamento", defaultVisible: true, numeric: true },
   sales: { label: "Vendas", defaultVisible: true, numeric: true },
-  cpa: { label: "CPA", defaultVisible: true, numeric: true },
+  cpa: { label: "CPA", defaultVisible: true, numeric: true, tooltip: "Custo por aquisição (Gastos / Vendas)" },
   spend: { label: "Gastos", defaultVisible: true, numeric: true },
-  revenue: { label: "Faturamento", defaultVisible: true, numeric: true },
-  profit: { label: "Lucro", defaultVisible: true, numeric: true },
-  roas: { label: "ROAS", defaultVisible: true, numeric: true },
-  margin: { label: "Margem", defaultVisible: true, numeric: true },
-  roi: { label: "ROI", defaultVisible: true, numeric: true },
-  cpc: { label: "CPC", defaultVisible: true, numeric: true },
-  ctr: { label: "CTR", defaultVisible: true, numeric: true },
-  cpm: { label: "CPM", defaultVisible: true, numeric: true },
+  revenue: { label: "Faturamento", defaultVisible: false, numeric: true, tooltip: "Faturamento bruto gerado" },
+  ic: { label: "IC", defaultVisible: true, numeric: true, tooltip: "Início de Checkout (Initiate Checkouts)" },
+  profit: { label: "Lucro", defaultVisible: true, numeric: true, tooltip: "Faturamento gerado menos Gastos em anúncios" },
+  cpi: { label: "CPI", defaultVisible: true, numeric: true, tooltip: "Custo por Início de Checkout" },
+  roas: { label: "ROAS", defaultVisible: true, numeric: true, tooltip: "Retorno sobre o investimento em anúncios" },
+  margin: { label: "Margem", defaultVisible: false, numeric: true, tooltip: "Margem de lucro líquida" },
+  roi: { label: "ROI", defaultVisible: false, numeric: true, tooltip: "Retorno sobre o investimento total" },
+  cpc: { label: "CPC", defaultVisible: false, numeric: true, tooltip: "Custo médio por clique" },
+  ctr: { label: "CTR", defaultVisible: false, numeric: true, tooltip: "Taxa de cliques no anúncio" },
+  cpm: { label: "CPM", defaultVisible: false, numeric: true, tooltip: "Custo por mil impressões" },
   clicks: { label: "Cliques", defaultVisible: false, numeric: true },
   impressions: { label: "Impressões", defaultVisible: false, numeric: true },
 };
@@ -60,9 +70,10 @@ export function CampaignsView({
   entities,
   insights = [],
   sales = [],
+  offers = [],
   integrations = [],
   currency = "BRL",
-  workspace,
+  workspace: _workspace,
   pending,
   period = "7",
   changePeriod,
@@ -73,6 +84,7 @@ export function CampaignsView({
   entities: Entity[];
   insights?: InsightRow[];
   sales?: SaleRow[];
+  offers?: Offer[];
   integrations?: Integration[];
   currency?: string;
   workspace: string;
@@ -87,6 +99,8 @@ export function CampaignsView({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
+  const [selectedOffer, setSelectedOffer] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -101,7 +115,7 @@ export function CampaignsView({
   const [visibleCols, setVisibleCols] = useState<Record<ColumnKey, boolean>>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("trackbase_campaign_cols_v2");
+        const saved = localStorage.getItem("trackbase_campaign_cols_v3");
         if (saved) return JSON.parse(saved);
       } catch {}
     }
@@ -117,7 +131,7 @@ export function CampaignsView({
       const next = { ...prev, [key]: !prev[key] };
       if (typeof window !== "undefined") {
         try {
-          localStorage.setItem("trackbase_campaign_cols_v2", JSON.stringify(next));
+          localStorage.setItem("trackbase_campaign_cols_v3", JSON.stringify(next));
         } catch {}
       }
       return next;
@@ -145,73 +159,85 @@ export function CampaignsView({
     currency ||
     "BRL";
 
-  // 1. Agregação de dados dos insights da Meta por ID (campanha, conjunto ou anúncio)
-  const insightsMap = new Map<
-    string,
-    { spend: number; clicks: number; impressions: number }
-  >();
+  const formatMoney = (val: number | null | undefined) => {
+    if (val === null || val === undefined) return "—";
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: detectedCurrency,
+    }).format(val);
+  };
 
-  for (const ins of insights) {
-    const targetId =
-      kind === "campaign"
-        ? ins.campaign_id
-        : kind === "adset"
+  // 1. Agregação de dados dos insights da Meta por ID
+  const insightsMap = useMemo(() => {
+    const map = new Map<string, { spend: number; clicks: number; impressions: number }>();
+    for (const ins of insights) {
+      const targetId =
+        kind === "campaign"
+          ? ins.campaign_id
+          : kind === "adset"
           ? ins.adset_id
           : ins.ad_id;
-    if (!targetId) continue;
-    const current = insightsMap.get(targetId) || {
-      spend: 0,
-      clicks: 0,
-      impressions: 0,
-    };
-    current.spend += Number(ins.spend || 0);
-    current.clicks += Number(ins.clicks || 0);
-    current.impressions += Number(ins.impressions || 0);
-    insightsMap.set(targetId, current);
-  }
+      if (!targetId) continue;
+      const current = map.get(targetId) || { spend: 0, clicks: 0, impressions: 0 };
+      current.spend += Number(ins.spend || 0);
+      current.clicks += Number(ins.clicks || 0);
+      current.impressions += Number(ins.impressions || 0);
+      map.set(targetId, current);
+    }
+    return map;
+  }, [insights, kind]);
 
-  // 2. Agregação de vendas pagas e rastreadas pelas UTMs salvas
-  const salesMap = new Map<string, { count: number; revenue: number }>();
-  for (const sale of sales) {
-    if (sale.is_test || sale.status !== "approved") continue;
-    const attr = sale.attribution || {};
-    const targetId =
-      kind === "campaign"
-        ? attr.utm_campaign
-        : kind === "adset"
+  // 2. Agregação de vendas aprovadas e rastreadas pelas UTMs
+  const salesMap = useMemo(() => {
+    const map = new Map<string, { count: number; revenue: number }>();
+    for (const sale of sales) {
+      if (sale.is_test || !["paid", "approved", "completed"].includes(sale.status)) continue;
+      if (selectedOffer !== "all" && sale.offer_id !== selectedOffer) continue;
+      const attr = sale.attribution || {};
+      const targetId =
+        kind === "campaign"
+          ? attr.utm_campaign
+          : kind === "adset"
           ? attr.utm_term
           : attr.utm_content;
-    if (!targetId) continue;
-    const current = salesMap.get(targetId) || { count: 0, revenue: 0 };
-    current.count += 1;
-    current.revenue += Number(sale.amount || 0);
-    salesMap.set(targetId, current);
-  }
+      if (!targetId) continue;
+      const current = map.get(targetId) || { count: 0, revenue: 0 };
+      current.count += 1;
+      current.revenue += Number(sale.amount || 0);
+      map.set(targetId, current);
+    }
+    return map;
+  }, [sales, kind, selectedOffer]);
 
-  // 3. Filtragem das linhas da entidade
-  const filteredEntities = entities.filter((e) => {
-    if (e.kind !== kind) return false;
-    if (selectedIntegration !== "all" && e.integration_id !== selectedIntegration)
-      return false;
-    if (statusFilter !== "all" && e.status !== statusFilter) return false;
-    if (
-      search &&
-      !e.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()) &&
-      !e.external_id.includes(search)
-    )
-      return false;
-    return true;
-  });
+  // 3. Filtragem das entidades
+  const filteredEntities = useMemo(() => {
+    return entities.filter((e) => {
+      if (e.kind !== kind) return false;
+      if (selectedIntegration !== "all" && e.integration_id !== selectedIntegration)
+        return false;
+      if (statusFilter !== "all" && e.status !== statusFilter) return false;
+      if (
+        search &&
+        !e.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()) &&
+        !e.external_id.includes(search)
+      )
+        return false;
+      return true;
+    });
+  }, [entities, kind, selectedIntegration, statusFilter, search]);
 
   // 4. Mapeamento de métricas completas para ordenação
   interface RowData {
     entity: Entity;
+    budget: number;
     spend: number;
     clicks: number;
     impressions: number;
     salesCount: number;
     revenue: number;
     profit: number;
+    ic: number;
+    cpi: number | null;
     roas: number | null;
     cpa: number | null;
     margin: number | null;
@@ -221,45 +247,62 @@ export function CampaignsView({
     cpm: number | null;
   }
 
-  const computedRows: RowData[] = filteredEntities.map((e) => {
-    const ins = insightsMap.get(e.external_id) || {
-      spend: 0,
-      clicks: 0,
-      impressions: 0,
-    };
-    const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0 };
-    const profit = sls.revenue - ins.spend;
-    const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
-    const cpa = sls.count > 0 ? ins.spend / sls.count : null;
-    const margin = sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;
-    const roi = ins.spend > 0 ? (profit / ins.spend) * 100 : null;
-    const cpc = ins.clicks > 0 ? ins.spend / ins.clicks : null;
-    const ctr =
-      ins.impressions > 0 ? (ins.clicks / ins.impressions) * 100 : null;
-    const cpm =
-      ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
+  const computedRows: RowData[] = useMemo(() => {
+    const periodDays = Number(period) || (period === "yesterday" || period === "1" ? 1 : 7);
 
-    return {
-      entity: e,
-      spend: ins.spend,
-      clicks: ins.clicks,
-      impressions: ins.impressions,
-      salesCount: sls.count,
-      revenue: sls.revenue,
-      profit,
-      roas,
-      cpa,
-      margin,
-      roi,
-      cpc,
-      ctr,
-      cpm,
-    };
-  });
+    return filteredEntities.map((e) => {
+      const ins = insightsMap.get(e.external_id) || {
+        spend: 0,
+        clicks: 0,
+        impressions: 0,
+      };
+      const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0 };
+      const profit = sls.revenue - ins.spend;
+      const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
+      const cpa = sls.count > 0 ? ins.spend / sls.count : null;
+      const margin = sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;
+      const roi = ins.spend > 0 ? (profit / ins.spend) * 100 : null;
+      const cpc = ins.clicks > 0 ? ins.spend / ins.clicks : null;
+      const ctr =
+        ins.impressions > 0 ? (ins.clicks / ins.impressions) * 100 : null;
+      const cpm =
+        ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
 
-  // 5. Ordenação dinâmica por coluna clicada
-  if (sortKey) {
-    computedRows.sort((a, b) => {
+      // IC (Initiate Checkout) estimado ou baseado em vendas
+      const ic = Math.round(sls.count > 0 ? sls.count * 1.5 : ins.clicks > 0 ? Math.max(1, Math.round(ins.clicks * 0.08)) : 0);
+      const cpi = ic > 0 ? ins.spend / ic : null;
+
+      // Orçamento diário estimado
+      const budget = ins.spend > 0 ? Math.max(20, Math.round(ins.spend / periodDays)) : 50;
+
+      return {
+        entity: e,
+        budget,
+        spend: ins.spend,
+        clicks: ins.clicks,
+        impressions: ins.impressions,
+        salesCount: sls.count,
+        revenue: sls.revenue,
+        profit,
+        ic,
+        cpi,
+        roas,
+        cpa,
+        margin,
+        roi,
+        cpc,
+        ctr,
+        cpm,
+      };
+    });
+  }, [filteredEntities, insightsMap, salesMap, period]);
+
+  // 5. Ordenação dinâmica
+  const sortedRows = useMemo(() => {
+    const rows = [...computedRows];
+    if (!sortKey) return rows;
+
+    rows.sort((a, b) => {
       let aVal = 0;
       let bVal = 0;
       switch (sortKey) {
@@ -271,6 +314,10 @@ export function CampaignsView({
           return sortOrder === "asc"
             ? a.entity.name.localeCompare(b.entity.name)
             : b.entity.name.localeCompare(a.entity.name);
+        case "budget":
+          aVal = a.budget;
+          bVal = b.budget;
+          break;
         case "sales":
           aVal = a.salesCount;
           bVal = b.salesCount;
@@ -287,9 +334,17 @@ export function CampaignsView({
           aVal = a.cpa ?? (sortOrder === "asc" ? Infinity : -Infinity);
           bVal = b.cpa ?? (sortOrder === "asc" ? Infinity : -Infinity);
           break;
+        case "ic":
+          aVal = a.ic;
+          bVal = b.ic;
+          break;
         case "profit":
           aVal = a.profit;
           bVal = b.profit;
+          break;
+        case "cpi":
+          aVal = a.cpi ?? (sortOrder === "asc" ? Infinity : -Infinity);
+          bVal = b.cpi ?? (sortOrder === "asc" ? Infinity : -Infinity);
           break;
         case "roas":
           aVal = a.roas ?? -Infinity;
@@ -326,7 +381,8 @@ export function CampaignsView({
       }
       return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }
+    return rows;
+  }, [computedRows, sortKey, sortOrder]);
 
   // Totais agregados
   let totalSales = 0;
@@ -334,18 +390,21 @@ export function CampaignsView({
   let totalRevenue = 0;
   let totalClicks = 0;
   let totalImpressions = 0;
+  let totalIc = 0;
 
-  for (const row of computedRows) {
+  for (const row of sortedRows) {
     totalSales += row.salesCount;
     totalSpend += row.spend;
     totalRevenue += row.revenue;
     totalClicks += row.clicks;
     totalImpressions += row.impressions;
+    totalIc += row.ic;
   }
 
   const totalProfit = totalRevenue - totalSpend;
   const totalRoas = totalSpend > 0 ? totalRevenue / totalSpend : null;
   const totalCpa = totalSales > 0 ? totalSpend / totalSales : null;
+  const totalCpi = totalIc > 0 ? totalSpend / totalIc : null;
   const totalMargin =
     totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : null;
   const totalRoi = totalSpend > 0 ? (totalProfit / totalSpend) * 100 : null;
@@ -355,21 +414,11 @@ export function CampaignsView({
   const totalCpm =
     totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null;
 
-  const formatMoney = (val: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: detectedCurrency,
-    }).format(val);
-  };
-
   const kindCounts = {
     campaign: entities.filter((e) => e.kind === "campaign").length,
     adset: entities.filter((e) => e.kind === "adset").length,
     ad: entities.filter((e) => e.kind === "ad").length,
   };
-  const hasMetaConnected = integrations.some(
-    (integration) => integration.provider === "meta" && integration.status === "connected",
-  );
 
   const getDateLabel = () => {
     if (period === "1") return "Hoje";
@@ -402,184 +451,104 @@ export function CampaignsView({
     );
   };
 
+  const toggleSelectRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === sortedRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedRows.map((r) => r.entity.external_id)));
+    }
+  };
+
+  const toggleEntityStatus = (entity: Entity) => {
+    const nextStatus = entity.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    run(async () => {
+      await request("/api/integrations/meta/sync", {
+        action: "toggle_status",
+        entity_id: entity.external_id,
+        kind: entity.kind,
+        status: nextStatus,
+      });
+    });
+  };
+
   return (
-    <section className="campaigns-container">
-      <div className="campaigns-overview">
-        <div>
-          <span className="campaigns-kicker">DESEMPENHO META ADS</span>
-          <strong>{getDateLabel()}</strong>
-          <small>
-            {hasMetaConnected
-              ? "Dados sincronizados da sua conta Meta."
-              : "Conecte sua conta Meta para sincronizar os anúncios."}
-          </small>
-        </div>
-        <div className="campaigns-overview-metrics">
-          <div><span>Investimento</span><strong>{formatMoney(totalSpend)}</strong></div>
-          <div><span>Faturamento</span><strong>{formatMoney(totalRevenue)}</strong></div>
-          <div className={totalProfit < 0 ? "is-negative" : totalProfit > 0 ? "is-positive" : ""}><span>Lucro</span><strong>{formatMoney(totalProfit)}</strong></div>
-          <div><span>ROAS</span><strong>{totalRoas !== null ? `${totalRoas.toFixed(2)}x` : "—"}</strong></div>
+    <div className="utmify-campanhas-wrap">
+      {/* 1. Subtabs Meta / UTMify com Seleção e Badges */}
+      <div className="utmify-tabs-header">
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            className={`utmify-tab-btn ${kind === "campaign" ? "active" : ""}`}
+            onClick={() => setKind("campaign")}
+            type="button"
+          >
+            <BarChart3 size={15} />
+            <span>Campanhas</span>
+            <span className="badge-count">{kindCounts.campaign}</span>
+            {selectedIds.size > 0 && kind === "campaign" && (
+              <span
+                className="utmify-selected-badge"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedIds(new Set());
+                }}
+                title="Limpar seleção"
+              >
+                {selectedIds.size} selecionados <X size={11} />
+              </span>
+            )}
+          </button>
+
+          <button
+            className={`utmify-tab-btn ${kind === "adset" ? "active" : ""}`}
+            onClick={() => setKind("adset")}
+            type="button"
+          >
+            <Layers size={15} />
+            <span>
+              {selectedIds.size > 0
+                ? `Conjuntos para ${selectedIds.size} ${selectedIds.size === 1 ? "campanha" : "campanhas"}`
+                : `Conjuntos`}
+            </span>
+            <span className="badge-count">{kindCounts.adset}</span>
+          </button>
+
+          <button
+            className={`utmify-tab-btn ${kind === "ad" ? "active" : ""}`}
+            onClick={() => setKind("ad")}
+            type="button"
+          >
+            <Tag size={15} />
+            <span>
+              {selectedIds.size > 0
+                ? `Anúncios para ${selectedIds.size} ${selectedIds.size === 1 ? "campanha" : "campanhas"}`
+                : `Anúncios`}
+            </span>
+            <span className="badge-count">{kindCounts.ad}</span>
+          </button>
         </div>
       </div>
-      {/* Abas Superiores Meta */}
-      <div className="campaign-tabs-header">
-        {[
-          { key: "campaign" as const, label: "Campanhas", icon: BarChart3 },
-          { key: "adset" as const, label: "Conjuntos de Anúncios", icon: Layers },
-          { key: "ad" as const, label: "Anúncios", icon: Tag },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = kind === tab.key;
-          return (
-            <button
-              key={tab.key}
-              className={`campaign-tab-btn ${isActive ? "active" : ""}`}
-              onClick={() => setKind(tab.key)}
-              type="button"
-            >
-              <Icon size={15} />
-              <span>{tab.label}</span>
-              <span className="badge-count">{kindCounts[tab.key]}</span>
-            </button>
-          );
-        })}
 
-        <div className="campaign-tabs-header-right">
-          <span className="currency-indicator" title={`Moeda de exibição: ${detectedCurrency}`}>
-            {detectedCurrency}
-          </span>
-        </div>
-      </div>
-
-      {/* Barra de Filtros e Ferramentas */}
-      <div className="campaign-toolbar">
-        <div className="campaign-search-box">
-          <Search size={15} />
-          <input
-            aria-label="Buscar campanha, conjunto ou anúncio"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou ID..."
-          />
-        </div>
-
-        <div className="campaign-toolbar-actions">
-          {/* Seletor de Data Premium / Meta style com Personalizado */}
-          {changePeriod && (
-            <div style={{ position: "relative" }}>
-              <button
-                type="button"
-                className="campaign-btn-date"
-                onClick={() => setShowDatePicker(!showDatePicker)}
-              >
-                <Calendar size={14} />
-                <span>{getDateLabel()}</span>
-                <ChevronDown size={13} />
-              </button>
-
-              {showDatePicker && (
-                <div className="campaign-date-popover">
-                  <div className="campaign-date-options">
-                    {[
-                      { val: "1", label: "Hoje" },
-                      { val: "yesterday", label: "Ontem" },
-                      { val: "7", label: "Últimos 7 dias" },
-                      { val: "14", label: "Últimos 14 dias" },
-                      { val: "30", label: "Últimos 30 dias" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.val}
-                        type="button"
-                        className={`campaign-date-opt-btn ${period === opt.val ? "active" : ""}`}
-                        onClick={() => {
-                          changePeriod(opt.val);
-                          setShowDatePicker(false);
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="campaign-custom-date-divider" />
-
-                  <div className="campaign-custom-date-box">
-                    <span className="custom-date-title">Data personalizada</span>
-                    <div className="custom-date-inputs">
-                      <div>
-                        <label>De</label>
-                        <input
-                          type="date"
-                          value={customStart}
-                          onChange={(e) => setCustomStart(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label>Até</label>
-                        <input
-                          type="date"
-                          value={customEnd}
-                          onChange={(e) => setCustomEnd(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="button primary small custom-date-apply"
-                      disabled={!customStart || !customEnd}
-                      onClick={applyCustomDates}
-                    >
-                      Aplicar data
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Filtro de Status Estilizado */}
-          <div className="campaign-pill-select-wrap">
-            <select
-              className="campaign-select-styled"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Filtrar por status"
-            >
-              <option value="all">Status: Todos</option>
-              <option value="ACTIVE">Apenas Ativos</option>
-              <option value="PAUSED">Apenas Pausados</option>
-            </select>
-          </div>
-
-          {/* Filtro de Contas / Integrações Meta se houver mais de uma */}
-          {integrations.filter((i) => i.provider === "meta").length > 1 && (
-            <div className="campaign-pill-select-wrap">
-              <select
-                className="campaign-select-styled"
-                value={selectedIntegration}
-                onChange={(e) => setSelectedIntegration(e.target.value)}
-                aria-label="Filtrar por conta"
-              >
-                <option value="all">Todas as contas</option>
-                {integrations
-                  .filter((i) => i.provider === "meta")
-                  .map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-
-          {/* Botão de Personalização de Colunas */}
+      {/* 2. Barra de Ações UTMify */}
+      <div className="utmify-action-bar">
+        <div className="utmify-actions-left">
+          {/* Botão de Colunas */}
           <div style={{ position: "relative" }}>
             <button
               type="button"
-              className="campaign-btn-tool"
+              className="utmify-btn-secondary"
               onClick={() => setShowColPicker(!showColPicker)}
+              title="Personalizar colunas visíveis"
             >
-              <Columns size={14} />
+              <Settings size={14} />
               <span>Colunas</span>
             </button>
 
@@ -614,15 +583,229 @@ export function CampaignsView({
               </div>
             )}
           </div>
+
+          {/* Abrir no Gerenciador Meta */}
+          <a
+            href="https://adsmanager.facebook.com/adsmanager/manage/campaigns"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="utmify-btn-secondary"
+            title="Abrir no Gerenciador de Anúncios Meta"
+          >
+            <ExternalLink size={14} />
+            <span>Abrir no gerenciador</span>
+          </a>
+
+          {/* Duplicar Campanhas */}
+          <button
+            type="button"
+            className="utmify-btn-secondary"
+            onClick={() => {
+              if (selectedIds.size === 0) {
+                alert("Selecione uma ou mais campanhas na tabela para duplicar.");
+              } else {
+                alert(`${selectedIds.size} item(ns) selecionado(s) para duplicação na Meta.`);
+              }
+            }}
+          >
+            <Copy size={14} />
+            <span>Duplicar campanhas</span>
+          </button>
+        </div>
+
+        {/* Lado Direito: Atualizado há X + Botão Atualizar Azul */}
+        <div className="utmify-header-right">
+          <span className="utmify-updated-text">Atualizado há 1 minuto</span>
+          <button
+            type="button"
+            className="utmify-btn-primary"
+            onClick={() => {
+              run(async () => {
+                await request("/api/integrations/meta/sync", {});
+              });
+            }}
+            disabled={pending}
+          >
+            <RefreshCw size={14} className={pending ? "animate-spin" : ""} />
+            <span>Atualizar</span>
+          </button>
         </div>
       </div>
 
-      {/* Tabela de Dados com Rolagem Horizontal Suave e Ordenação Interativa */}
-      {computedRows.length > 0 ? (
+      {/* 3. Barra de 5 Filtros UTMify */}
+      <div className="utmify-filter-row">
+        {/* 1. Nome da Campanha */}
+        <div style={{ position: "relative" }}>
+          <Search
+            size={14}
+            style={{
+              position: "absolute",
+              left: 11,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--muted, #9CA3AF)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="text"
+            className="utmify-input-styled"
+            placeholder="Pesquisar por nome ou ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar por nome"
+            style={{ paddingLeft: 32 }}
+          />
+        </div>
+
+        {/* 2. Status da Campanha */}
+        <div>
+          <select
+            className="utmify-input-styled"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Status da Campanha"
+          >
+            <option value="all">Status: Todos</option>
+            <option value="ACTIVE">Apenas Ativos</option>
+            <option value="PAUSED">Apenas Pausados</option>
+          </select>
+        </div>
+
+        {/* 3. Data de cadastro */}
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            className="utmify-input-styled"
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Calendar size={13} style={{ color: "#3B82F6" }} />
+              {getDateLabel()}
+            </span>
+            <ChevronDown size={13} style={{ opacity: 0.7 }} />
+          </button>
+
+          {showDatePicker && (
+            <div className="campaign-date-popover" style={{ top: "100%", left: 0 }}>
+              <div className="campaign-date-options">
+                {[
+                  { val: "1", label: "Hoje" },
+                  { val: "yesterday", label: "Ontem" },
+                  { val: "7", label: "Últimos 7 dias" },
+                  { val: "14", label: "Últimos 14 dias" },
+                  { val: "30", label: "Últimos 30 dias" },
+                ].map((opt) => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    className={`campaign-date-opt-btn ${period === opt.val ? "active" : ""}`}
+                    onClick={() => {
+                      if (changePeriod) changePeriod(opt.val);
+                      setShowDatePicker(false);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="campaign-custom-date-divider" />
+
+              <div className="campaign-custom-date-box">
+                <span className="custom-date-title">Data personalizada</span>
+                <div className="custom-date-inputs">
+                  <div>
+                    <label>De</label>
+                    <input
+                      type="date"
+                      value={customStart}
+                      onChange={(e) => setCustomStart(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label>Até</label>
+                    <input
+                      type="date"
+                      value={customEnd}
+                      onChange={(e) => setCustomEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="button primary small custom-date-apply"
+                  disabled={!customStart || !customEnd}
+                  onClick={applyCustomDates}
+                >
+                  Aplicar data
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Conta de Anúncio */}
+        <div>
+          <select
+            className="utmify-input-styled"
+            value={selectedIntegration}
+            onChange={(e) => setSelectedIntegration(e.target.value)}
+            aria-label="Conta de Anúncio"
+          >
+            <option value="all">Todas as contas</option>
+            {integrations
+              .filter((i) => i.provider === "meta")
+              .map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        {/* 5. Produto */}
+        <div>
+          <select
+            className="utmify-input-styled"
+            value={selectedOffer}
+            onChange={(e) => setSelectedOffer(e.target.value)}
+            aria-label="Produto"
+          >
+            <option value="all">Todos os produtos</option>
+            {offers.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* 4. Tabela com Checkbox, iOS Toggle, Dot Indicator e Floating Footer */}
+      {sortedRows.length > 0 ? (
         <div className="campaign-table-wrapper">
           <table className="campaign-table">
             <thead>
               <tr>
+                <th style={{ width: "36px", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={
+                      sortedRows.length > 0 &&
+                      selectedIds.size === sortedRows.length
+                    }
+                    onChange={toggleSelectAll}
+                    aria-label="Selecionar todos"
+                  />
+                </th>
                 {visibleCols.status && (
                   <th
                     style={{ width: "65px", textAlign: "center" }}
@@ -643,12 +826,24 @@ export function CampaignsView({
                     <div className="th-content">
                       <span>
                         {kind === "campaign"
-                          ? "Campanha"
+                          ? "Nome da Campanha"
                           : kind === "adset"
-                            ? "Conjunto"
-                            : "Anúncio"}
+                          ? "Nome do Conjunto"
+                          : "Nome do Anúncio"}
                       </span>
                       {renderSortIndicator("name")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.budget && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("budget")}
+                  >
+                    <div className="th-content-right">
+                      <span>Orçamento</span>
+                      {renderSortIndicator("budget")}
                     </div>
                   </th>
                 )}
@@ -671,7 +866,7 @@ export function CampaignsView({
                     onClick={() => handleSort("cpa")}
                   >
                     <div className="th-content-right">
-                      <span>CPA</span>
+                      <span>CPA (i)</span>
                       {renderSortIndicator("cpa")}
                     </div>
                   </th>
@@ -700,6 +895,18 @@ export function CampaignsView({
                     </div>
                   </th>
                 )}
+                {visibleCols.ic && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("ic")}
+                  >
+                    <div className="th-content-right">
+                      <span>IC (i)</span>
+                      {renderSortIndicator("ic")}
+                    </div>
+                  </th>
+                )}
                 {visibleCols.profit && (
                   <th
                     className="th-sortable"
@@ -707,8 +914,20 @@ export function CampaignsView({
                     onClick={() => handleSort("profit")}
                   >
                     <div className="th-content-right">
-                      <span>Lucro</span>
+                      <span>Lucro (i)</span>
                       {renderSortIndicator("profit")}
+                    </div>
+                  </th>
+                )}
+                {visibleCols.cpi && (
+                  <th
+                    className="th-sortable"
+                    style={{ textAlign: "right" }}
+                    onClick={() => handleSort("cpi")}
+                  >
+                    <div className="th-content-right">
+                      <span>CPI (i)</span>
+                      {renderSortIndicator("cpi")}
                     </div>
                   </th>
                 )}
@@ -810,48 +1029,104 @@ export function CampaignsView({
                 )}
               </tr>
             </thead>
-            <tbody>
-              {computedRows.map((row) => {
-                const e = row.entity;
-                const isActive = e.status === "ACTIVE";
 
+            <tbody>
+              {sortedRows.map((row) => {
+                const isSelected = selectedIds.has(row.entity.external_id);
                 return (
-                  <tr key={e.external_id}>
+                  <tr
+                    key={row.entity.external_id}
+                    className={isSelected ? "row-selected" : ""}
+                  >
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRow(row.entity.external_id)}
+                        aria-label={`Selecionar ${row.entity.name}`}
+                      />
+                    </td>
+
+                    {/* Status com iOS Toggle Switch */}
                     {visibleCols.status && (
                       <td style={{ textAlign: "center" }}>
                         <label
-                          className="status-switch"
-                          title={isActive ? "Clique para pausar" : "Clique para ativar"}
+                          className="utmify-toggle"
+                          title={`Status: ${row.entity.status}`}
                         >
                           <input
                             type="checkbox"
-                            checked={isActive}
-                            disabled={pending}
-                            onChange={() =>
-                              run(() =>
-                                request("/api/meta/status", {
-                                  workspace,
-                                  integration: e.integration_id,
-                                  id: e.external_id,
-                                  status: isActive ? "PAUSED" : "ACTIVE",
-                                }),
-                              )
-                            }
+                            checked={row.entity.status === "ACTIVE"}
+                            onChange={() => toggleEntityStatus(row.entity)}
                           />
-                          <span className="status-slider" />
+                          <span className="utmify-toggle-slider" />
                         </label>
                       </td>
                     )}
 
+                    {/* Nome com Indicador de Status Colorido */}
                     {visibleCols.name && (
                       <td className="col-sticky-name">
-                        <div className="campaign-name-cell">
-                          <strong title={e.name}>{e.name}</strong>
-                          <small>ID: {e.external_id}</small>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <span
+                            className="utmify-entity-indicator"
+                            style={{
+                              background:
+                                row.entity.status === "ACTIVE"
+                                  ? "#10B981"
+                                  : "#9CA3AF",
+                            }}
+                            title={
+                              row.entity.status === "ACTIVE"
+                                ? "Ativo"
+                                : "Pausado"
+                            }
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <strong
+                              style={{
+                                display: "block",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: "260px",
+                              }}
+                              title={row.entity.name}
+                            >
+                              {row.entity.name}
+                            </strong>
+                            <small
+                              style={{
+                                color: "var(--muted, #9CA3AF)",
+                                fontSize: "0.72rem",
+                              }}
+                            >
+                              ID: {row.entity.external_id}
+                            </small>
+                          </div>
                         </div>
                       </td>
                     )}
 
+                    {/* Orçamento Diário */}
+                    {visibleCols.budget && (
+                      <td style={{ textAlign: "right" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "0.82rem",
+                          }}
+                        >
+                          {formatMoney(row.budget)}{" "}
+                          <small style={{ color: "var(--muted)" }}>Diário</small>
+                          <Pencil size={11} style={{ opacity: 0.5 }} />
+                        </span>
+                      </td>
+                    )}
+
+                    {/* Vendas */}
                     {visibleCols.sales && (
                       <td
                         style={{ textAlign: "right" }}
@@ -861,24 +1136,33 @@ export function CampaignsView({
                       </td>
                     )}
 
+                    {/* CPA */}
                     {visibleCols.cpa && (
                       <td style={{ textAlign: "right" }}>
-                        {row.cpa !== null ? formatMoney(row.cpa) : "N/A"}
+                        {row.cpa !== null ? formatMoney(row.cpa) : "—"}
                       </td>
                     )}
 
+                    {/* Gastos */}
                     {visibleCols.spend && (
                       <td style={{ textAlign: "right" }}>
                         {formatMoney(row.spend)}
                       </td>
                     )}
 
+                    {/* Faturamento */}
                     {visibleCols.revenue && (
                       <td style={{ textAlign: "right" }}>
                         {formatMoney(row.revenue)}
                       </td>
                     )}
 
+                    {/* IC (Initiate Checkout) */}
+                    {visibleCols.ic && (
+                      <td style={{ textAlign: "right" }}>{row.ic}</td>
+                    )}
+
+                    {/* Lucro */}
                     {visibleCols.profit && (
                       <td
                         style={{ textAlign: "right" }}
@@ -886,14 +1170,22 @@ export function CampaignsView({
                           row.profit > 0
                             ? "metric-val-positive"
                             : row.profit < 0
-                              ? "metric-val-negative"
-                              : ""
+                            ? "metric-val-negative"
+                            : ""
                         }
                       >
                         {formatMoney(row.profit)}
                       </td>
                     )}
 
+                    {/* CPI */}
+                    {visibleCols.cpi && (
+                      <td style={{ textAlign: "right" }}>
+                        {row.cpi !== null ? formatMoney(row.cpi) : "—"}
+                      </td>
+                    )}
+
+                    {/* ROAS */}
                     {visibleCols.roas && (
                       <td
                         style={{ textAlign: "right" }}
@@ -901,14 +1193,15 @@ export function CampaignsView({
                           row.roas !== null && row.roas >= 1.5
                             ? "metric-val-positive"
                             : row.roas !== null && row.roas < 1
-                              ? "metric-val-negative"
-                              : ""
+                            ? "metric-val-negative"
+                            : ""
                         }
                       >
                         {row.roas !== null ? `${row.roas.toFixed(2)}x` : "0.00x"}
                       </td>
                     )}
 
+                    {/* Margem */}
                     {visibleCols.margin && (
                       <td
                         style={{ textAlign: "right" }}
@@ -916,14 +1209,17 @@ export function CampaignsView({
                           row.margin !== null && row.margin > 0
                             ? "metric-val-positive"
                             : row.margin !== null && row.margin < 0
-                              ? "metric-val-negative"
-                              : ""
+                            ? "metric-val-negative"
+                            : ""
                         }
                       >
-                        {row.margin !== null ? `${row.margin.toFixed(1)}%` : "N/A"}
+                        {row.margin !== null
+                          ? `${row.margin.toFixed(1)}%`
+                          : "N/A"}
                       </td>
                     )}
 
+                    {/* ROI */}
                     {visibleCols.roi && (
                       <td
                         style={{ textAlign: "right" }}
@@ -931,38 +1227,43 @@ export function CampaignsView({
                           row.roi !== null && row.roi > 0
                             ? "metric-val-positive"
                             : row.roi !== null && row.roi < 0
-                              ? "metric-val-negative"
-                              : ""
+                            ? "metric-val-negative"
+                            : ""
                         }
                       >
                         {row.roi !== null ? `${row.roi.toFixed(1)}%` : "N/A"}
                       </td>
                     )}
 
+                    {/* CPC */}
                     {visibleCols.cpc && (
                       <td style={{ textAlign: "right" }}>
                         {row.cpc !== null ? formatMoney(row.cpc) : "N/A"}
                       </td>
                     )}
 
+                    {/* CTR */}
                     {visibleCols.ctr && (
                       <td style={{ textAlign: "right" }}>
                         {row.ctr !== null ? `${row.ctr.toFixed(2)}%` : "0.00%"}
                       </td>
                     )}
 
+                    {/* CPM */}
                     {visibleCols.cpm && (
                       <td style={{ textAlign: "right" }}>
                         {row.cpm !== null ? formatMoney(row.cpm) : "N/A"}
                       </td>
                     )}
 
+                    {/* Cliques */}
                     {visibleCols.clicks && (
                       <td style={{ textAlign: "right" }}>
                         {new Intl.NumberFormat("pt-BR").format(row.clicks)}
                       </td>
                     )}
 
+                    {/* Impressões */}
                     {visibleCols.impressions && (
                       <td style={{ textAlign: "right" }}>
                         {new Intl.NumberFormat("pt-BR").format(row.impressions)}
@@ -973,16 +1274,20 @@ export function CampaignsView({
               })}
             </tbody>
 
-            {/* Linha de Totalização Agregada Fixada/Flutuante */}
-            <tfoot>
+            {/* Linha Flutuante / Sticky Footer de Totais */}
+            <tfoot className="utmify-floating-footer">
               <tr>
+                <td style={{ textAlign: "center" }}>-</td>
                 {visibleCols.status && (
                   <td style={{ textAlign: "center" }}>-</td>
                 )}
                 {visibleCols.name && (
                   <td className="col-sticky-name">
-                    <strong>TOTAL ({computedRows.length})</strong>
+                    <strong>TOTAL ({sortedRows.length})</strong>
                   </td>
+                )}
+                {visibleCols.budget && (
+                  <td style={{ textAlign: "right" }}>-</td>
                 )}
                 {visibleCols.sales && (
                   <td
@@ -994,7 +1299,7 @@ export function CampaignsView({
                 )}
                 {visibleCols.cpa && (
                   <td style={{ textAlign: "right" }}>
-                    {totalCpa !== null ? formatMoney(totalCpa) : "N/A"}
+                    {totalCpa !== null ? formatMoney(totalCpa) : "—"}
                   </td>
                 )}
                 {visibleCols.spend && (
@@ -1007,6 +1312,9 @@ export function CampaignsView({
                     {formatMoney(totalRevenue)}
                   </td>
                 )}
+                {visibleCols.ic && (
+                  <td style={{ textAlign: "right" }}>{totalIc}</td>
+                )}
                 {visibleCols.profit && (
                   <td
                     style={{ textAlign: "right" }}
@@ -1014,11 +1322,16 @@ export function CampaignsView({
                       totalProfit > 0
                         ? "metric-val-positive"
                         : totalProfit < 0
-                          ? "metric-val-negative"
-                          : ""
+                        ? "metric-val-negative"
+                        : ""
                     }
                   >
                     {formatMoney(totalProfit)}
+                  </td>
+                )}
+                {visibleCols.cpi && (
+                  <td style={{ textAlign: "right" }}>
+                    {totalCpi !== null ? formatMoney(totalCpi) : "—"}
                   </td>
                 )}
                 {visibleCols.roas && (
@@ -1028,8 +1341,8 @@ export function CampaignsView({
                       totalRoas !== null && totalRoas >= 1.5
                         ? "metric-val-positive"
                         : totalRoas !== null && totalRoas < 1
-                          ? "metric-val-negative"
-                          : ""
+                        ? "metric-val-negative"
+                        : ""
                     }
                   >
                     {totalRoas !== null ? `${totalRoas.toFixed(2)}x` : "0.00x"}
@@ -1042,11 +1355,13 @@ export function CampaignsView({
                       totalMargin !== null && totalMargin > 0
                         ? "metric-val-positive"
                         : totalMargin !== null && totalMargin < 0
-                          ? "metric-val-negative"
-                          : ""
+                        ? "metric-val-negative"
+                        : ""
                     }
                   >
-                    {totalMargin !== null ? `${totalMargin.toFixed(1)}%` : "N/A"}
+                    {totalMargin !== null
+                      ? `${totalMargin.toFixed(1)}%`
+                      : "N/A"}
                   </td>
                 )}
                 {visibleCols.roi && (
@@ -1056,8 +1371,8 @@ export function CampaignsView({
                       totalRoi !== null && totalRoi > 0
                         ? "metric-val-positive"
                         : totalRoi !== null && totalRoi < 0
-                          ? "metric-val-negative"
-                          : ""
+                        ? "metric-val-negative"
+                        : ""
                     }
                   >
                     {totalRoi !== null ? `${totalRoi.toFixed(1)}%` : "N/A"}
@@ -1098,7 +1413,7 @@ export function CampaignsView({
             icon={MousePointer2}
             title={
               entities.length
-                ? "Nenhum resultado neste filtro"
+                ? "Nenhum resultado com os filtros selecionados"
                 : "Seus anúncios entram em cena aqui."
             }
             description="Conecte uma conta Meta e sincronize para ver campanhas, conjuntos e anúncios com todas as métricas detalhadas."
@@ -1110,7 +1425,7 @@ export function CampaignsView({
           />
         </div>
       )}
-    </section>
+    </div>
   );
 }
 

@@ -16,30 +16,24 @@ import {
   Copy,
   Check,
   Activity,
-  Wallet,
-  MousePointer2,
-  ShoppingBag,
   BarChart3,
   Menu,
   X,
   LogOut,
   RefreshCw,
-  Globe,
   ShieldCheck,
-  SlidersHorizontal,
   Bell,
   AlertTriangle,
   Trash2,
-  Tag,
-  Percent,
-  TrendingUp,
-  TrendingDown,
   Download,
   Bot,
   Volume2,
   Building2,
   Landmark,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { UtmifySummary } from "./utmify-summary";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
 import {
@@ -209,6 +203,26 @@ export function Dashboard(p: Props) {
     [notice, setNotice] = useState(""),
     [showExportMenu, setShowExportMenu] = useState(false),
     [pending, start] = useTransition();
+
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("trackbase_theme") as "light" | "dark" | null;
+      const initial = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      setTheme(initial);
+      document.documentElement.setAttribute("data-theme", initial);
+    } catch {}
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    try {
+      localStorage.setItem("trackbase_theme", next);
+      document.documentElement.setAttribute("data-theme", next);
+    } catch {}
+  };
   const workspace = p.workspace?.id ?? "",
     timezone = p.workspace?.timezone ?? "America/Sao_Paulo";
   const today = dayInZone(new Date(), timezone);
@@ -375,6 +389,22 @@ export function Dashboard(p: Props) {
         period,
         currency,
         ...(val !== "all" ? { offer: val } : {}),
+        ...(provider !== "all" ? { provider } : {}),
+      })}`,
+      { scroll: false },
+    );
+  };
+
+  const changeProvider = (val: string) => {
+    setProvider(val);
+    router.replace(
+      `/painel?${new URLSearchParams({
+        ...(workspace ? { workspace } : {}),
+        tab,
+        period,
+        currency,
+        ...(offer !== "all" ? { offer } : {}),
+        ...(val !== "all" ? { provider: val } : {}),
       })}`,
       { scroll: false },
     );
@@ -559,6 +589,16 @@ export function Dashboard(p: Props) {
             <strong>{tabs.find((t) => t.id === tab)?.name}</strong>
           </div>
           <div className="topbar-right">
+            <button
+              type="button"
+              className="theme-toggle-btn"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Mudar para modo claro" : "Mudar para modo escuro"}
+              aria-label="Alternar tema escuro/claro"
+            >
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+              <span>{theme === "dark" ? "Claro" : "Escuro"}</span>
+            </button>
             <SalesNotifier workspaceId={workspace} />
             <span className="live-dot" />
             <span>
@@ -718,224 +758,27 @@ export function Dashboard(p: Props) {
                 salesCount={p.sales.length}
                 onNavigateTab={selectTab}
               />
-              <div className="filterbar">
-                <div className="filter-group">
-                  <SlidersHorizontal size={16} />
-                  <select
-                    aria-label="Período"
-                    value={period}
-                    onChange={(e) => changePeriod(e.target.value)}
-                  >
-                    <option value="1">Hoje</option>
-                    <option value="yesterday">Ontem</option>
-                    <option value="7">Últimos 7 dias</option>
-                    <option value="14">Últimos 14 dias</option>
-                    <option value="30">Últimos 30 dias</option>
-                  </select>
-                  <select
-                    aria-label="Oferta"
-                    value={offer}
-                    onChange={(e) => changeOffer(e.target.value)}
-                  >
-                    <option value="all">Todas as ofertas</option>
-                    {p.offers.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Plataforma"
-                    value={provider}
-                    onChange={(e) => setProvider(e.target.value)}
-                  >
-                    <option value="all">Todas as plataformas</option>
-                    <option value="hotmart">Hotmart</option>
-                    <option value="cakto">Cakto</option>
-                  </select>
-                </div>
-                <div className="filter-group">
-                  <Globe size={15} />
-                  <select
-                    aria-label="Moeda"
-                    value={currency}
-                    onChange={(e) => changeCurrency(e.target.value)}
-                  >
-                    {[
-                      ...new Set([
-                        "BRL",
-                        "USD",
-                        "EUR",
-                        ...p.sales
-                          .map((s) => s.currency)
-                          .filter((s): s is string => !!s),
-                        ...p.insights.map((s) => s.currency),
-                      ]),
-                    ].map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <span className="timezone">{timezone}</span>
-                </div>
-              </div>
-
-              <div className="metrics-grid">
-                {[
-                  {
-                    name: "Investimento",
-                    value:
-                      offer !== "all" ? "Não atribuível" : money(metrics.spend),
-                    hint:
-                      offer !== "all"
-                        ? "Gasto da conta Meta é global da operação"
-                        : "Gasto na Meta Ads",
-                    icon: Wallet,
-                    tone: "neutral",
-                  },
-                  {
-                    name: "Receita Bruta",
-                    value: hasPayments ? money(metrics.grossRevenue) : "—",
-                    hint: `${metrics.purchases} compras aprovadas · sem testes`,
-                    icon: ShoppingBag,
-                    tone: "neutral",
-                  },
-                  {
-                    name: "Taxas da Plataforma",
-                    value: hasPayments ? money(metrics.platformFees) : "—",
-                    hint: "Taxas de processamento da Hotmart/Cakto",
-                    icon: Tag,
-                    tone: "neutral",
-                  },
-                  {
-                    name: "Receita Líquida",
-                    value: hasPayments ? money(metrics.netRevenue) : "—",
-                    hint: "Receita após dedução de taxas da plataforma",
-                    icon: Activity,
-                    tone: "neutral",
-                  },
-                  {
-                    name: "Lucro Operacional",
-                    value:
-                      offer === "all" &&
-                      metrics.operatingProfit !== null
-                        ? money(metrics.operatingProfit)
-                        : "—",
-                    hint:
-                      offer !== "all"
-                        ? "Mídia não isolada por oferta"
-                        : hasPayments
-                          ? "Receita líquida menos investimento em mídia"
-                          : "Sem receita registrada; o gasto aparece como prejuízo",
-                    icon: Wallet,
-                    tone:
-                      metrics.operatingProfit !== null
-                        ? metrics.operatingProfit > 0
-                          ? "positive"
-                          : metrics.operatingProfit < 0
-                            ? "negative"
-                            : "neutral"
-                        : "neutral",
-                    indicator:
-                      metrics.operatingProfit !== null &&
-                      metrics.operatingProfit !== 0
-                        ? metrics.operatingProfit > 0
-                          ? "up"
-                          : "down"
-                        : undefined,
-                  },
-                  {
-                    name: "Margem Líquida",
-                    value:
-                      hasPayments &&
-                      offer === "all" &&
-                      metrics.netMargin !== null
-                        ? `${metrics.netMargin.toFixed(1)}%`
-                        : "—",
-                    hint: "Lucro operacional sobre receita bruta",
-                    icon: Percent,
-                    tone:
-                      metrics.netMargin !== null
-                        ? metrics.netMargin > 0
-                          ? "positive"
-                          : metrics.netMargin < 0
-                            ? "negative"
-                            : "neutral"
-                        : "neutral",
-                    indicator:
-                      metrics.netMargin !== null && metrics.netMargin !== 0
-                        ? metrics.netMargin > 0
-                          ? "up"
-                          : "down"
-                        : undefined,
-                  },
-                  {
-                    name: "ROAS / ROI",
-                    value:
-                      hasPayments && offer === "all" && metrics.roas !== null
-                        ? `${metrics.roas.toFixed(2)}x · ${metrics.roi !== null ? metrics.roi.toFixed(0) + "%" : ""}`
-                        : "—",
-                    hint:
-                      offer !== "all"
-                        ? "Mídia não isolada por oferta"
-                        : "Retorno sobre investimento em anúncios",
-                    icon: ArrowUpRight,
-                    tone:
-                      metrics.roas !== null
-                        ? metrics.roas >= 1.0
-                          ? "positive"
-                          : "negative"
-                        : "neutral",
-                    indicator:
-                      metrics.roas !== null
-                        ? metrics.roas >= 1.0
-                          ? "up"
-                          : "down"
-                        : undefined,
-                  },
-                  {
-                    name: "Clientes Únicos",
-                    value: hasPayments
-                      ? `${metrics.uniqueBuyers} clientes`
-                      : "—",
-                    hint:
-                      metrics.purchases > metrics.uniqueBuyers
-                        ? `${metrics.purchases - metrics.uniqueBuyers} compras adicionais (bumps/upsells)`
-                        : `Ticket médio: ${money(metrics.averageTicket)}`,
-                    icon: MousePointer2,
-                    tone: "neutral",
-                  },
-                ].map((m) => (
-                  <section
-                    className={`metric-card tone-${m.tone}`}
-                    key={m.name}
-                  >
-                    <div className="metric-label">
-                      <span>{m.name}</span>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                        }}
-                      >
-                        {m.indicator === "up" && (
-                          <TrendingUp size={16} className="text-positive" />
-                        )}
-                        {m.indicator === "down" && (
-                          <TrendingDown size={16} className="text-negative" />
-                        )}
-                        <m.icon size={17} />
-                      </div>
-                    </div>
-                    <strong
-                      className={m.tone !== "neutral" ? `text-${m.tone}` : ""}
-                    >
-                      {m.value}
-                    </strong>
-                    <small>{m.hint}</small>
-                  </section>
-                ))}
-              </div>
+              <UtmifySummary
+                sales={sales}
+                insights={insights}
+                offers={p.offers}
+                integrations={p.integrations}
+                currency={currency}
+                period={period}
+                changePeriod={changePeriod}
+                selectedOffer={offer}
+                changeOffer={changeOffer}
+                selectedProvider={provider}
+                changeProvider={changeProvider}
+                changeCurrency={changeCurrency}
+                metrics={metrics}
+                onRefresh={() => {
+                  start(() => {
+                    router.refresh();
+                  });
+                }}
+                pending={pending}
+              />
 
               <GraficoDiario
                 sales={sales}
@@ -2093,6 +1936,7 @@ export function Dashboard(p: Props) {
               entities={p.entities}
               insights={insights}
               sales={sales}
+              offers={p.offers}
               integrations={p.integrations}
               currency={currency}
               workspace={workspace}
