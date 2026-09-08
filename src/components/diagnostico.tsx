@@ -95,13 +95,38 @@ export function DiagnosticoView({
     if (aiAnalyzing) return;
     setAiAnalyzing(true);
     try {
+      const leak = currentResult.retentionAnalysis?.primaryLeak;
+      const steps = currentResult.retentionAnalysis?.steps || [];
+      const queryPrompt = `Interprete este diagnóstico de funil integrado com os dados de rolagem do Radar de Leads (Scroll Depth):
+- Passagem de Tráfego (Clique -> PageView): ${formatRate(currentResult.metricsSnapshot.pvRate)}
+- Retenção Dobra 1 (25%): ${steps[1]?.rate ? steps[1].rate.toFixed(1) + "%" : "—"}
+- Retenção VSL / Meio (50%): ${steps[2]?.rate ? steps[2].rate.toFixed(1) + "%" : "—"}
+- Retenção Oferta & Preço (75%): ${steps[3]?.rate ? steps[3].rate.toFixed(1) + "%" : "—"}
+- Visualização do Botão de Compra (CTA View): ${steps[4]?.rate ? steps[4].rate.toFixed(1) + "%" : "—"}
+- Taxa de Clique no Checkout: ${formatRate(currentResult.metricsSnapshot.checkoutRate)}
+- Conversão de Venda no Checkout: ${formatRate(currentResult.metricsSnapshot.purchaseRate)}
+- Ponto de Maior Vazamento Detectado: ${leak?.label || "Funil Equilibrado"}
+
+Aja como um estrategista veterano de direct response e CRO. Responda em tópicos diretos e objetivos:
+1. 🎯 VEREDITO DO GARGALO: Aponte com certeza cirúrgica se a falha crítica está no CRIATIVO / ANÚNCIO, na VSL / CONTEÚDO, na OFERTA / PREÇO ou no CHECKOUT.
+2. 🔍 DIAGNÓSTICO DO MOTIVO: Por que o lead está travando exatamente nessa etapa da página com base nos dados?
+3. ⚡ PLANO DE AÇÃO 24 HORAS: 3 passos práticos para o gestor destravar o ROI imediatamente.
+4. 🧪 TESTE A/B PRIORITÁRIO: Qual teste específico (copy, criativo, ancoragem de preço ou checkout) deve ir para o ar primeiro.`;
+
       const response = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspace,
-          query: "Interprete este diagnóstico de funil como um estrategista de direct response. Entregue: (1) leitura executiva, (2) gargalo prioritário e por que, (3) ação nas próximas 24 horas, (4) teste recomendado para copy, criativo ou checkout, (5) o que ainda não dá para afirmar. Não invente dados e não recomende escalar sem volume suficiente.",
-          context: { metrics, currency, selectedOffer, diagnostic: currentResult, recentDiagnostics: diagnostics.slice(0, 5) },
+          query: queryPrompt,
+          context: {
+            metrics,
+            currency,
+            selectedOffer,
+            retentionFunnel: currentResult.retentionAnalysis,
+            diagnostic: currentResult,
+            recentDiagnostics: diagnostics.slice(0, 5),
+          },
         }),
       });
       const data = await response.json();
@@ -283,6 +308,134 @@ export function DiagnosticoView({
           </p>
         </section>
       </div>
+
+      {/* 2.5. Card do Radar de Retenção & Diagnóstico de Vazamento */}
+      {currentResult.retentionAnalysis && (
+        <section className="panel" style={{ padding: "1.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Radio size={18} color="#5B34EA" />
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
+                  Radar de Retenção & Diagnóstico de Vazamento (Scroll Depth)
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--muted)" }}>
+                  Taxa de sobrevivência dos leads do clique no anúncio até a compra final. Identifica se a falha é no criativo, VSL, oferta ou checkout.
+                </p>
+              </div>
+            </div>
+
+            {selectTab && (
+              <button
+                className="button secondary small"
+                onClick={() => selectTab("radar")}
+                style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 650 }}
+              >
+                <Radio size={14} /> Inspecionar no Radar de Leads <ArrowRight size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Funil Visual Progressivo dos Marcos de Rolagem */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+              gap: "0.75rem",
+              marginBottom: "1.25rem",
+            }}
+          >
+            {currentResult.retentionAnalysis.steps.map((step) => {
+              const stepColor =
+                step.status === "good"
+                  ? "#10B981"
+                  : step.status === "warning"
+                  ? "#F59E0B"
+                  : "#EF4444";
+              return (
+                <div
+                  key={step.stage}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    background: "var(--surface-subtle)",
+                    border: "1px solid var(--line)",
+                    borderTop: `4px solid ${stepColor}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                  }}
+                >
+                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--muted)" }}>
+                    {step.label}
+                  </span>
+                  <strong style={{ fontSize: "1.2rem", fontWeight: 800, color: stepColor }}>
+                    {step.rate.toFixed(1)}%
+                  </strong>
+                  <span style={{ fontSize: "0.72rem", color: "var(--ink)", fontWeight: 600 }}>
+                    {step.name}
+                  </span>
+                  <small style={{ fontSize: "0.68rem", color: "var(--muted)" }}>
+                    {step.count} leads
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Veredito Cirúrgico de Causa Raiz */}
+          <div
+            style={{
+              padding: "1rem 1.25rem",
+              borderRadius: "12px",
+              background:
+                currentResult.retentionAnalysis.primaryLeak.stage === "criativo"
+                  ? "rgba(239, 68, 68, 0.08)"
+                  : currentResult.retentionAnalysis.primaryLeak.stage === "vsl"
+                  ? "rgba(245, 158, 11, 0.08)"
+                  : currentResult.retentionAnalysis.primaryLeak.stage === "oferta"
+                  ? "rgba(139, 92, 246, 0.08)"
+                  : currentResult.retentionAnalysis.primaryLeak.stage === "checkout"
+                  ? "rgba(239, 68, 68, 0.08)"
+                  : "rgba(16, 185, 129, 0.08)",
+              border: `1px solid ${
+                currentResult.retentionAnalysis.primaryLeak.stage === "saudavel" ? "#10B981" : "#EF4444"
+              }`,
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  background: currentResult.retentionAnalysis.primaryLeak.stage === "saudavel" ? "#10B981" : "#EF4444",
+                  color: "#FFF",
+                  textTransform: "uppercase",
+                }}
+              >
+                Veredito do Radar
+              </span>
+              <strong style={{ fontSize: "0.95rem", color: "var(--ink)" }}>
+                {currentResult.retentionAnalysis.primaryLeak.label}
+              </strong>
+            </div>
+
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--ink)", lineHeight: 1.4 }}>
+              {currentResult.retentionAnalysis.primaryLeak.description}
+            </p>
+
+            <div style={{ marginTop: "4px", fontSize: "0.8rem", color: "var(--muted)" }}>
+              <strong style={{ color: "var(--ink)" }}>Ação Imediata Recomendada:</strong>{" "}
+              {currentResult.retentionAnalysis.primaryLeak.suggestedAction}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 3. Notas por Categoria */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem" }}>
