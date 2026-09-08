@@ -515,7 +515,7 @@ export default function Home() {
       </section>
 
       {/* Serviços Comerciais */}
-      <section id="mais-opcoes" className="landing-section">
+      <section id="mais-opcoes" className="landing-section" style={{ display: "none" }}>
         <div className="section-intro">
           <span className="eyebrow">ÁREA COMERCIAL</span>
           <h2>Serviços Técnicos e Código-Fonte</h2>
