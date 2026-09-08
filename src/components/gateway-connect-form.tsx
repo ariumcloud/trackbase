@@ -18,6 +18,12 @@ const providerNames: Record<Provider, string> = {
   cakto: "Cakto",
 };
 
+const providerDocs: Record<Provider, string> = {
+  hotmart: "https://developers.hotmart.com/docs/pt-BR/",
+  kiwify: "https://docs.kiwify.com.br/api-reference/general",
+  cakto: "https://docs.cakto.com.br/introduction",
+};
+
 export function GatewayConnectForm({
   workspace,
   provider,
@@ -72,9 +78,29 @@ export function GatewayConnectForm({
         });
       }}
     >
-      <p className="form-help">
-        Conecte sua conta {providerNames[provider]}, busque os produtos e escolha qual operação importar.
-      </p>
+      <div style={{ background: "#F8F7FF", border: "1px solid #E5DEFF", borderRadius: "0.75rem", padding: "0.85rem 1rem", marginBottom: "1rem" }}>
+        <strong>Como conectar sua {providerNames[provider]}</strong>
+        <ol style={{ margin: "0.55rem 0 0 1.15rem", padding: 0, color: "var(--muted, #64748B)", fontSize: "0.82rem", lineHeight: 1.55 }}>
+          {provider === "hotmart" && <>
+            <li>Abra o painel da Hotmart e entre em <b>Ferramentas &gt; Credenciais de API</b>.</li>
+            <li>Crie uma aplicação e copie <b>Client ID</b>, <b>Client Secret</b> e o <b>Token Basic</b>.</li>
+            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Ferramentas &gt; Webhook</b>.</li>
+          </>}
+          {provider === "kiwify" && <>
+            <li>Na Kiwify, abra <b>Configurações &gt; API</b> e crie uma credencial.</li>
+            <li>Copie o <b>Client ID</b>, <b>Client Secret</b> e o <b>Account ID</b> da conta.</li>
+            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Configurações &gt; Webhooks</b>.</li>
+          </>}
+          {provider === "cakto" && <>
+            <li>Na Cakto, abra a área de <b>API / Desenvolvedores</b> e crie uma credencial com acesso aos produtos.</li>
+            <li>Copie o <b>Client ID</b> e o <b>Client Secret</b>.</li>
+            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Webhooks</b>.</li>
+          </>}
+        </ol>
+        <a href={providerDocs[provider]} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem" }}>
+          Abrir documentação oficial →
+        </a>
+      </div>
       <label>
         Client ID
         <input name="client_id" autoComplete="off" required disabled={loading} />
@@ -96,9 +122,12 @@ export function GatewayConnectForm({
         </label>
       )}
       <label>
-        Segredo do webhook
+        {provider === "hotmart" ? "Hottok do webhook" : provider === "kiwify" ? "Token do webhook" : "Secret do webhook"}
         <input name="webhook_secret" type="password" autoComplete="new-password" required disabled={loading} />
       </label>
+      <p className="form-help" style={{ marginTop: "-0.35rem" }}>
+        Esse segredo é criado/configurado no webhook do gateway. Use o mesmo valor aqui e no painel dele.
+      </p>
       {products.length > 0 && (
         <label>
           Produto para importar
