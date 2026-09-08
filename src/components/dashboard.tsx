@@ -81,6 +81,7 @@ import { BottomBar } from "./bottom-bar";
 import { SalesNotifier } from "./sales-notifier";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
 type Props = {
+  isAdmin?: boolean;
   setup?: boolean;
   workspaces: Workspace[];
   workspace: Workspace | null;
@@ -610,6 +611,7 @@ export function Dashboard(p: Props) {
             <strong>{tabs.find((t) => t.id === tab)?.name}</strong>
           </div>
           <div className="topbar-right">
+            {p.isAdmin && <Link href="/admin" className="button small"><ShieldCheck size={16} /> Admin</Link>}
             <button
               type="button"
               className="theme-toggle-btn"

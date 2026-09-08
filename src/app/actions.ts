@@ -78,7 +78,7 @@ export async function signup(form: FormData): Promise<ActionResult> {
     password: password.data,
     options: {
       emailRedirectTo: `${process.env.APP_URL}/auth/callback`,
-      data: { phone: phone.data },
+      data: { phone: phone.data, app: "trackbase" },
     },
   });
   return error

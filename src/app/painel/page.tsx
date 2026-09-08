@@ -1,4 +1,5 @@
 import { db, configured } from "@/lib/supabase/server";
+import { isPlatformAdmin } from "@/lib/platform-admin";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/components/dashboard";
 import { dayInZone } from "@/lib/metrics";
@@ -63,6 +64,7 @@ export default async function Page({
     data: { user },
   } = await client.auth.getUser();
   if (!user) redirect("/login");
+  const platformAdmin = await isPlatformAdmin(client, user.id);
 
   const { data: workspaces, error: we } = await client
     .from("utm_workspaces")
@@ -241,6 +243,7 @@ export default async function Page({
 
   return (
     <Dashboard
+      isAdmin={platformAdmin}
       workspaces={(workspaces ?? []) as Workspace[]}
       workspace={w}
       offers={(offers.data ?? []) as Offer[]}

@@ -33,6 +33,7 @@ const INTERNAL_PATHS = [
   "/_next",
   "/login",
   "/painel",
+  "/admin",
   "/auth",
   "/api",
   "/demo",
@@ -79,6 +80,7 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
   const needsAuth =
     pathname.startsWith("/painel") ||
+    pathname.startsWith("/admin") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/meta") ||
     pathname.startsWith("/api/settings") ||
