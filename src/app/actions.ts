@@ -211,6 +211,49 @@ export async function saveOffer(
     };
   }
 }
+export async function updateOffer(workspace: string, id: string, form: FormData): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const value = z.object({
+      name: z.string().trim().min(2).max(120), landing_url: webUrl, currency: z.string().regex(/^[A-Z]{3}$/),
+      product_type: z.enum(["main", "upsell", "downsell", "order_bump", "subscription", "complementary", "alternative"]).optional().default("main"),
+      parent_offer_id: z.string().uuid().optional().or(z.literal("")),
+      percent_fee: z.coerce.number().min(0).max(100).optional().default(0), fixed_fee: z.coerce.number().min(0).optional().default(0), cost_per_sale: z.coerce.number().min(0).optional().default(0),
+      platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy"]).optional().or(z.literal("")), checkout_url: webUrl.optional().or(z.literal("")),
+    }).parse(Object.fromEntries(form));
+    z.string().uuid().parse(id);
+    const { error } = await client.from("utm_offers").update({ ...value, parent_offer_id: value.parent_offer_id || null, platform: value.platform || null, checkout_url: value.checkout_url || null }).eq("workspace_id", workspace).eq("id", id);
+    if (error) throw error;
+    revalidatePath("/painel"); return { ok: true };
+  } catch { return { error: "Não foi possível atualizar a oferta. Confira os campos." }; }
+}
+export async function deleteOffer(workspace: string, id: string): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true); z.string().uuid().parse(id);
+    const service = admin();
+    const { count, error: salesError } = await service.from("utm_sales").select("id", { count: "exact", head: true }).eq("workspace_id", workspace).eq("offer_id", id);
+    if (salesError) throw salesError;
+    if (count) {
+      const { error } = await service.from("utm_offers").update({ active: false }).eq("workspace_id", workspace).eq("id", id);
+      if (error) throw error;
+    } else {
+      const { data: integrations, error: readError } = await service.from("utm_integrations").select("id").eq("workspace_id", workspace).eq("offer_id", id);
+      if (readError) throw readError;
+      const ids = (integrations || []).map((item) => item.id);
+      if (ids.length) {
+        const { error: credentialError } = await service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", ids);
+        if (credentialError) throw credentialError;
+        const { error: integrationError } = await service.from("utm_integrations").delete().eq("workspace_id", workspace).in("id", ids);
+        if (integrationError) throw integrationError;
+      }
+      const { error: linksError } = await service.from("utm_links").delete().eq("workspace_id", workspace).eq("offer_id", id);
+      if (linksError) throw linksError;
+      const { error } = await service.from("utm_offers").delete().eq("workspace_id", workspace).eq("id", id);
+      if (error) throw error;
+    }
+    revalidatePath("/painel"); return { ok: true };
+  } catch { return { error: "Não foi possível excluir a oferta." }; }
+}
 export async function saveLink(
   workspace: string,
   value: unknown,
@@ -238,6 +281,25 @@ export async function saveLink(
       error: "Não foi possível salvar o link. Confira a oferta e os campos.",
     };
   }
+}
+export async function updateLink(workspace: string, id: string, value: unknown): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    z.string().uuid().parse(id);
+    const parsed = linkSchema.parse(value);
+    const { error } = await client.from("utm_links").update(parsed).eq("workspace_id", workspace).eq("id", id);
+    if (error) throw error;
+    revalidatePath("/painel"); return { ok: true };
+  } catch { return { error: "Não foi possível atualizar o link. Confira os campos." }; }
+}
+export async function deleteLink(workspace: string, id: string): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    z.string().uuid().parse(id);
+    const { error } = await client.from("utm_links").delete().eq("workspace_id", workspace).eq("id", id);
+    if (error) throw error;
+    revalidatePath("/painel"); return { ok: true };
+  } catch { return { error: "Não foi possível excluir o link." }; }
 }
 export async function toggleLink(
   workspace: string,
@@ -836,4 +898,170 @@ export async function sendTestPushAction(
   }
 }
 
+export async function createShield(
+  workspace: string,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const parsed = z
+      .object({
+        name: z.string().trim().min(2).max(100),
+        offer_id: z.string().uuid(),
+        slug: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .regex(
+            /^[a-z0-9\-_]{3,64}$/,
+            "O slug deve ter entre 3 e 64 caracteres (apenas letras minúsculas, números e traços).",
+          ),
+        white_url: webUrl,
+        gray_url: webUrl,
+        black_url: webUrl,
+        require_click_id: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()),
+        block_datacenters: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()),
+        block_unknown_user_agents: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()),
+      })
+      .parse(Object.fromEntries(form));
+
+    const { error } = await client.from("utm_shields").insert({
+      workspace_id: workspace,
+      offer_id: parsed.offer_id,
+      name: parsed.name,
+      slug: parsed.slug,
+      white_url: parsed.white_url,
+      gray_url: parsed.gray_url,
+      black_url: parsed.black_url,
+      require_click_id: parsed.require_click_id,
+      block_datacenters: parsed.block_datacenters,
+      block_unknown_user_agents: parsed.block_unknown_user_agents,
+      active: true,
+    });
+
+    if (error) {
+      if (error.code === "23505" || error.message?.includes("unique")) {
+        return { error: "Este slug já está em uso por outro link blindado. Escolha um slug diferente." };
+      }
+      throw error;
+    }
+
+    revalidatePath("/painel/shield");
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    return {
+      error: msg || "Não foi possível criar o link blindado. Confira os campos digitados.",
+    };
+  }
+}
+
+export async function updateShield(
+  workspace: string,
+  id: string,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    z.string().uuid().parse(id);
+
+    const parsed = z
+      .object({
+        name: z.string().trim().min(2).max(100),
+        offer_id: z.string().uuid(),
+        slug: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .regex(
+            /^[a-z0-9\-_]{3,64}$/,
+            "O slug deve ter entre 3 e 64 caracteres.",
+          ),
+        white_url: webUrl,
+        gray_url: webUrl,
+        black_url: webUrl,
+        require_click_id: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()),
+        block_datacenters: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()),
+        block_unknown_user_agents: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()),
+      })
+      .parse(Object.fromEntries(form));
+
+    const { error } = await client
+      .from("utm_shields")
+      .update({
+        name: parsed.name,
+        offer_id: parsed.offer_id,
+        slug: parsed.slug,
+        white_url: parsed.white_url,
+        gray_url: parsed.gray_url,
+        black_url: parsed.black_url,
+        require_click_id: parsed.require_click_id,
+        block_datacenters: parsed.block_datacenters,
+        block_unknown_user_agents: parsed.block_unknown_user_agents,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("workspace_id", workspace)
+      .eq("id", id);
+
+    if (error) {
+      if (error.code === "23505" || error.message?.includes("unique")) {
+        return { error: "Este slug já está em uso. Escolha um slug diferente." };
+      }
+      throw error;
+    }
+
+    revalidatePath("/painel/shield");
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    return {
+      error: msg || "Não foi possível atualizar o link blindado.",
+    };
+  }
+}
+
+export async function toggleShield(
+  workspace: string,
+  id: string,
+  active: boolean,
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    z.string().uuid().parse(id);
+
+    const { error } = await client
+      .from("utm_shields")
+      .update({ active, updated_at: new Date().toISOString() })
+      .eq("workspace_id", workspace)
+      .eq("id", id);
+
+    if (error) throw error;
+    revalidatePath("/painel/shield");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível alterar o status do link blindado." };
+  }
+}
+
+export async function deleteShield(
+  workspace: string,
+  id: string,
+): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    z.string().uuid().parse(id);
+
+    const { error } = await client
+      .from("utm_shields")
+      .delete()
+      .eq("workspace_id", workspace)
+      .eq("id", id);
+
+    if (error) throw error;
+    revalidatePath("/painel/shield");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível excluir o link blindado." };
+  }
+}
 

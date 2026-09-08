@@ -15,6 +15,8 @@ import type {
   DashboardSummary,
   PixelRow,
   DiagnosticRow,
+  ShieldRow,
+  ShieldLogRow,
 } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +49,8 @@ export default async function Page({
         entities={[]}
         logs={[]}
         pixels={[]}
+        shields={[]}
+        shieldLogs={[]}
         alerts={[]}
         summary={null}
         initialTab={p.tab}
@@ -85,7 +89,6 @@ export default async function Page({
     since = `${yStr}T00:00:00Z`;
     until = `${yStr}T23:59:59Z`;
   } else if (periodParam.includes("_")) {
-    // Período personalizado: "YYYY-MM-DD_YYYY-MM-DD"
     const [startDate, endDate] = periodParam.split("_");
     since = `${startDate || today}T00:00:00Z`;
     until = `${endDate || today}T23:59:59Z`;
@@ -109,6 +112,8 @@ export default async function Page({
     summaryRes,
     alerts,
     diagnosticsRes,
+    shields,
+    shieldLogs,
   ] = w
     ? await Promise.all([
         client
@@ -183,6 +188,17 @@ export default async function Page({
               .order("created_at", { ascending: false })
               .limit(20)
           : empty,
+        client
+          .from("utm_shields")
+          .select("*")
+          .eq("workspace_id", w.id)
+          .order("created_at", { ascending: false }),
+        client
+          .from("utm_shield_logs")
+          .select("*")
+          .eq("workspace_id", w.id)
+          .order("created_at", { ascending: false })
+          .limit(100),
       ])
     : [
         empty,
@@ -195,6 +211,7 @@ export default async function Page({
         empty,
         { data: null, error: null },
         [] as AlertItem[],
+        empty,
         empty,
         empty,
       ];
@@ -235,6 +252,8 @@ export default async function Page({
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
+      shields={(shields.data ?? []) as ShieldRow[]}
+      shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
       initialTab={p.tab}

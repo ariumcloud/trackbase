@@ -22,6 +22,7 @@ export type Offer = {
   percent_fee?: number;
   fixed_fee?: number;
   cost_per_sale?: number;
+  active?: boolean;
 };
 export type LinkRow = {
   id: string;
@@ -144,5 +145,33 @@ export type DiagnosticRow = {
   bottlenecks: unknown[];
   recommendations: string[];
   metrics_snapshot: Record<string, unknown>;
+  created_at: string;
+};
+export type ShieldRow = {
+  id: string;
+  workspace_id: string;
+  offer_id: string;
+  name: string;
+  slug: string;
+  white_url: string;
+  gray_url: string;
+  black_url: string;
+  require_click_id: boolean;
+  block_datacenters: boolean;
+  block_unknown_user_agents: boolean;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+export type ShieldLogRow = {
+  id: string;
+  shield_id: string;
+  workspace_id: string;
+  verdict: "white" | "gray" | "black";
+  reason: string;
+  ip_masked: string | null;
+  is_datacenter: boolean;
+  user_agent: string | null;
+  referer: string | null;
   created_at: string;
 };

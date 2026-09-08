@@ -30,6 +30,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260907190000_account_privacy.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260908180000_trackbase_shield.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -485,6 +488,34 @@ async function main() {
     [wa],
   );
   assert.ok(diag.rows[0].id);
+
+  // Teste Trackbase Shield (Zero-Redirect & Cloaking Defensivo)
+  const shield = await db.query<{ id: string }>(
+    "insert into public.utm_shields(workspace_id, offer_id, name, slug, white_url, gray_url, black_url) values($1, $2, 'Nutra Protegido', 'nutra-shield', 'https://safe.com', 'https://decoy.com', 'https://real.com') returning id",
+    [wa, offer],
+  );
+  assert.ok(shield.rows[0].id);
+
+  // Usuário 'a' não pode inserir shield para workspace 'wb' (RLS)
+  await assert.rejects(() =>
+    db.query(
+      "insert into public.utm_shields(workspace_id, offer_id, name, slug, white_url, gray_url, black_url) values($1, $2, 'Invasor', 'slug-invasor', 'https://safe.com', 'https://decoy.com', 'https://real.com')",
+      [wb, offer],
+    ),
+  );
+
+  // Inserção de log via service_role
+  await db.exec("reset role; set role service_role");
+  await db.query(
+    "insert into public.utm_shield_logs(shield_id, workspace_id, verdict, reason, ip_masked, is_datacenter) values($1, $2, 'black', 'Lead qualificado', '177.18.***.***', false)",
+    [shield.rows[0].id, wa],
+  );
+  await db.exec("reset role");
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
+  await db.exec("set role authenticated");
+
+  const logs = await db.query("select * from public.utm_shield_logs where shield_id = $1", [shield.rows[0].id]);
+  assert.equal(logs.rows.length, 1);
 
   await db.exec("reset role; set role service_role");
   await db.query("select public.utm_delete_account_data($1)", [a]);

@@ -17,7 +17,6 @@ import {
   ChevronDown,
   RefreshCw,
   ExternalLink,
-  Copy,
   Pencil,
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration, Offer } from "@/lib/types";
@@ -73,7 +72,6 @@ export function CampaignsView({
   offers = [],
   integrations = [],
   currency = "BRL",
-  workspace: _workspace,
   pending,
   period = "7",
   changePeriod,
@@ -87,7 +85,6 @@ export function CampaignsView({
   offers?: Offer[];
   integrations?: Integration[];
   currency?: string;
-  workspace: string;
   pending: boolean;
   period?: string;
   changePeriod?: (val: string) => void;
@@ -103,6 +100,9 @@ export function CampaignsView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const latestMetaSync = integrations
+    .filter((integration) => integration.provider === "meta" && integration.last_synced_at)
+    .sort((a, b) => new Date(b.last_synced_at!).getTime() - new Date(a.last_synced_at!).getTime())[0]?.last_synced_at;
 
   // Ordenação por colunas (crescente / decrescente)
   const [sortKey, setSortKey] = useState<ColumnKey | null>("profit");
@@ -596,26 +596,15 @@ export function CampaignsView({
             <span>Abrir no gerenciador</span>
           </a>
 
-          {/* Duplicar Campanhas */}
-          <button
-            type="button"
-            className="utmify-btn-secondary"
-            onClick={() => {
-              if (selectedIds.size === 0) {
-                alert("Selecione uma ou mais campanhas na tabela para duplicar.");
-              } else {
-                alert(`${selectedIds.size} item(ns) selecionado(s) para duplicação na Meta.`);
-              }
-            }}
-          >
-            <Copy size={14} />
-            <span>Duplicar campanhas</span>
-          </button>
         </div>
 
         {/* Lado Direito: Atualizado há X + Botão Atualizar Azul */}
         <div className="utmify-header-right">
-          <span className="utmify-updated-text">Atualizado há 1 minuto</span>
+          <span className="utmify-updated-text">
+            {latestMetaSync
+              ? `Atualizado em ${new Date(latestMetaSync).toLocaleString("pt-BR")}`
+              : "Ainda não sincronizado"}
+          </span>
           <button
             type="button"
             className="utmify-btn-primary"

@@ -7,6 +7,7 @@ import {
   updatePassword,
   createWorkspace,
   saveOffer,
+  updateOffer,
   type ActionResult,
 } from "@/app/actions";
 export function ActionForm({
@@ -199,22 +200,33 @@ export function WorkspaceForm() {
 export function OfferForm({
   workspace,
   offers = [],
+  offer,
+  onSuccess,
 }: {
   workspace: string;
   offers?: { id: string; name: string }[];
+  offer?: {
+    id: string; name: string; landing_url: string; currency: string; product_type?: string;
+    parent_offer_id?: string | null; platform?: string; checkout_url?: string | null;
+    percent_fee?: number; fixed_fee?: number; cost_per_sale?: number;
+  };
+  onSuccess?: () => void;
 }) {
-  const [productType, setProductType] = useState("main");
+  const [productType, setProductType] = useState(offer?.product_type || "main"),
+    [advanced, setAdvanced] = useState(Boolean(offer));
 
   return (
     <ActionForm
-      action={(f) => saveOffer(workspace, f)}
-      label="Cadastrar oferta"
+      action={(f) => offer ? updateOffer(workspace, offer.id, f) : saveOffer(workspace, f)}
+      label={offer ? "Salvar alterações" : "Cadastrar oferta"}
+      onSuccess={onSuccess}
     >
       <label>
         Nome da oferta
         <input
           name="name"
           placeholder="Ex.: Método Primeira Venda"
+          defaultValue={offer?.name}
           required
           minLength={2}
           maxLength={120}
@@ -226,9 +238,14 @@ export function OfferForm({
           name="landing_url"
           type="url"
           placeholder="https://suaoferta.com"
+          defaultValue={offer?.landing_url}
           required
         />
       </label>
+      <button type="button" className="text-button" onClick={() => setAdvanced(!advanced)}>
+        {advanced ? "Ocultar configurações adicionais" : "Adicionar checkout, custos ou funil (opcional)"}
+      </button>
+      {advanced && <>
       <div className="form-grid form-grid-2">
         <label>
           Tipo de produto
@@ -248,7 +265,7 @@ export function OfferForm({
         </label>
         <label>
           Moeda da oferta
-          <select name="currency">
+          <select name="currency" defaultValue={offer?.currency || "BRL"}>
             <option>BRL</option>
             <option>USD</option>
             <option>EUR</option>
@@ -261,7 +278,7 @@ export function OfferForm({
       {productType !== "main" && offers.length > 0 && (
         <label>
           Oferta principal vinculada (funil)
-          <select name="parent_offer_id">
+          <select name="parent_offer_id" defaultValue={offer?.parent_offer_id || ""}>
             <option value="">Nenhuma / Independente</option>
             {offers.map((o) => (
               <option key={o.id} value={o.id}>
@@ -274,7 +291,7 @@ export function OfferForm({
       <div className="form-grid form-grid-2">
         <label>
           Plataforma de checkout
-          <select name="platform">
+          <select name="platform" defaultValue={offer?.platform || ""}>
             <option value="">Nenhuma / Outra</option>
             <option value="hotmart">Hotmart</option>
             <option value="kiwify">Kiwify</option>
@@ -292,6 +309,7 @@ export function OfferForm({
             name="checkout_url"
             type="url"
             placeholder="https://pay.exemplo.com/checkout"
+            defaultValue={offer?.checkout_url || ""}
           />
         </label>
       </div>
@@ -305,7 +323,7 @@ export function OfferForm({
             min="0"
             max="100"
             placeholder="9.90"
-            defaultValue="0"
+            defaultValue={offer?.percent_fee ?? 0}
           />
         </label>
         <label>
@@ -316,7 +334,7 @@ export function OfferForm({
             step="0.01"
             min="0"
             placeholder="1.00"
-            defaultValue="0"
+            defaultValue={offer?.fixed_fee ?? 0}
           />
         </label>
         <label>
@@ -327,10 +345,11 @@ export function OfferForm({
             step="0.01"
             min="0"
             placeholder="0.00"
-            defaultValue="0"
+            defaultValue={offer?.cost_per_sale ?? 0}
           />
         </label>
       </div>
+      </>}
     </ActionForm>
   );
 }

@@ -66,7 +66,10 @@ import type {
   DashboardSummary,
   PixelRow,
   DiagnosticRow,
+  ShieldRow,
+  ShieldLogRow,
 } from "@/lib/types";
+import { ShieldView } from "./shield-view";
 import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
 import dynamic from "next/dynamic";
@@ -96,12 +99,15 @@ type Props = {
   initialPeriod?: string;
   appUrl: string;
   error?: string;
+  shields?: ShieldRow[];
+  shieldLogs?: ShieldLogRow[];
 };
 const tabs = [
   { id: "visao", name: "Visão geral", icon: LayoutDashboard },
   { id: "ofertas", name: "Minhas ofertas", icon: Layers },
   { id: "links", name: "Links e UTMs", icon: Link2 },
   { id: "campanhas", name: "Campanhas", icon: BarChart3 },
+  { id: "shield", name: "Shield (Anti-Spy)", icon: ShieldCheck },
   { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
   { id: "radar", name: "Radar de Leads", icon: Radio },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
@@ -140,6 +146,10 @@ const titles: Record<string, [string, string]> = {
   integracoes: [
     "Conecte os pontos.",
     "Suas fontes de tráfego, vendas e Pixels/CAPI na mesma operação.",
+  ],
+  shield: [
+    "Proteção de Ofertas (Anti-Clonagem & Anti-Spy).",
+    "Zero-Redirect e entrega inteligente de páginas White, Gray e Black contra espionagem.",
   ],
   assistente: [
     "Assistente Trackbase IA.",
@@ -1949,7 +1959,6 @@ export function Dashboard(p: Props) {
               offers={p.offers}
               integrations={p.integrations}
               currency={currency}
-              workspace={workspace}
               pending={pending}
               period={period}
               changePeriod={changePeriod}
@@ -2187,6 +2196,15 @@ export function Dashboard(p: Props) {
                 />
               )}
             </section>
+          )}
+          {tab === "shield" && (
+            <ShieldView
+              workspaceId={workspace}
+              offers={p.offers}
+              shields={p.shields ?? []}
+              logs={p.shieldLogs ?? []}
+              appUrl={p.appUrl}
+            />
           )}
         </main>
       </div>
