@@ -349,14 +349,14 @@ export function runFunnelDiagnostic(input: FunnelDiagnosticInput): FunnelDiagnos
   if (hasPurchaseSample && !hasCapi) {
     bottlenecks.push({
       id: "missing_capi",
-      title: "CAPI não configurada",
-      headline: "Há compras suficientes para justificar validar a CAPI.",
+      title: "Vendas não estão sendo enviadas para o Facebook",
+      headline: "Há compras aprovadas, mas o envio via servidor para a Meta ainda não foi conectado.",
       severity: "high",
-      observed: `${purchases} compras foram registradas, mas não há pixel CAPI ativo e configurado neste workspace.`,
-      hypothesis: "Sem CAPI, parte da atribuição server-side pode não chegar à Meta; a perda efetiva não é mensurada por este diagnóstico.",
-      recommendation: "Configure um pixel CAPI ativo e valide o log de envio antes de avaliar impacto em atribuição.",
+      observed: `${purchases} compras foram aprovadas, mas o envio direto para a Meta (Pixel / Servidor) não está ativo neste workspace.`,
+      hypothesis: "Sem o envio via servidor, compradores no iPhone (iOS) e com bloqueadores de anúncios são perdidos pelo Facebook Ads. O algoritmo perde inteligência e seu custo por venda (CPA) sobe.",
+      recommendation: "Conecte seu Pixel e Token da Meta em Integrações para alimentar o algoritmo do Facebook com dados precisos e baratear suas vendas.",
       estimatedLoss: null,
-      actionLabel: "Configurar CAPI",
+      actionLabel: "Conectar ao Facebook",
       actionTab: "integracoes",
     });
   }

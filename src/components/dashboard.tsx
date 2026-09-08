@@ -145,11 +145,11 @@ const titles: Record<string, [string, string]> = {
   ],
   integracoes: [
     "Conecte os pontos.",
-    "Suas fontes de tráfego, vendas e Pixels/CAPI na mesma operação.",
+    "Suas fontes de tráfego, plataformas de vendas e envio para o Facebook na mesma operação.",
   ],
   shield: [
-    "Proteção de Ofertas (Anti-Clonagem & Anti-Spy).",
-    "Zero-Redirect e entrega inteligente de páginas White, Gray e Black contra espionagem.",
+    "Proteção de Ofertas (Anti-Clonagem & Anti-Espião).",
+    "Carregamento ultra-rápido e entrega inteligente para proteger sua VSL de concorrentes.",
   ],
   assistente: [
     "Assistente Trackbase IA.",
@@ -1789,10 +1789,9 @@ export function Dashboard(p: Props) {
               <section className="panel" style={{ marginTop: "1.5rem" }}>
                 <div className="panel-heading">
                   <div>
-                    <h2>Meta Pixel & Conversions API (CAPI)</h2>
+                    <h2>Envio Automático de Vendas para o Facebook (Pixel &amp; API)</h2>
                     <p>
-                      Disparos server-side redundantes com deduplicação por
-                      event_id
+                      Envia as compras aprovadas direto via servidor para o Facebook Ads, imune ao iOS 14+ e bloqueadores de anúncios
                     </p>
                   </div>
                 </div>
@@ -1808,11 +1807,11 @@ export function Dashboard(p: Props) {
                   <div>
                     <ActionForm
                       action={(f) => savePixel(workspace, f)}
-                      label="Salvar Pixel / Token CAPI"
+                      label="Conectar Envio ao Facebook"
                       onSuccess={() => {}}
                     >
                       <label>
-                        Pixel ID (Meta)
+                        ID do Pixel da Meta
                         <input
                           name="pixel_id"
                           placeholder="Ex: 123456789012345"
@@ -1824,7 +1823,7 @@ export function Dashboard(p: Props) {
                         Oferta vinculada (opcional)
                         <select name="offer_id">
                           <option value="">
-                            Global do workspace (todas as ofertas)
+                            Todas as ofertas deste workspace (Recomendado)
                           </option>
                           {p.offers.map((o) => (
                             <option key={o.id} value={o.id}>
@@ -1834,7 +1833,7 @@ export function Dashboard(p: Props) {
                         </select>
                       </label>
                       <label>
-                        Token de Acesso da Conversions API (CAPI)
+                        Token de Acesso da Meta (Gerado no Gerenciador de Eventos)
                         <input
                           name="capi_token"
                           type="password"
@@ -1844,15 +1843,14 @@ export function Dashboard(p: Props) {
                         />
                       </label>
                       <label>
-                        Test Event Code (opcional para depuração no Gerenciador)
+                        Código de Teste da Meta (Opcional - para testar eventos ao vivo)
                         <input
                           name="test_event_code"
                           placeholder="Ex: TEST12345"
                         />
                       </label>
                       <p className="form-help">
-                        O token CAPI é criptografado com AES-256 no banco e
-                        nunca é exposto ao navegador.
+                        🔒 Suas credenciais são criptografadas com segurança máxima e usadas exclusivamente para alimentar o algoritmo do Facebook com vendas reais.
                       </p>
                     </ActionForm>
                   </div>
@@ -1934,8 +1932,8 @@ export function Dashboard(p: Props) {
                       </div>
                     ) : (
                       <Empty
-                        title="Nenhum Pixel configurado"
-                        description="Adicione seu Pixel e Token CAPI para rastreamento server-side à prova de bloqueadores."
+                        title="Nenhum Pixel conectado"
+                        description="Adicione seu Pixel e Token da Meta para que suas vendas sejam enviadas automaticamente ao Facebook Ads mesmo com o iOS 14+ e AdBlock."
                       />
                     )}
                   </div>

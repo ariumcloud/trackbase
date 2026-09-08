@@ -42,7 +42,7 @@ const plans = [
     items: [
       "Meta Ads e 7 plataformas de checkout",
       "Até 1.000 vendas",
-      "Pixel e CAPI server-side deduplicados",
+      "Envio de vendas via Servidor (imune ao AdBlock e iOS 14+)",
       "Diagnóstico de gargalos com cálculo de perda financeira",
       "Assistente Trackbase IA para análise de ROAS e CPA",
       "Upsell, downsell e order bump separados",
@@ -69,9 +69,9 @@ const plans = [
 
 const faqs = [
   {
-    question: "Como o Trackbase evita eventos duplicados na Meta CAPI?",
+    question: "Minhas vendas correm risco de duplicar no Facebook?",
     answer:
-      "O Trackbase utiliza o mesmo event_id rigorosamente compartilhado entre o script do navegador e o servidor server-side. A Meta recebe os dois sinais e, por conterem o mesmo identificador único, aproveita os parâmetros enriquecidos descartando a duplicação. Além disso, aplicamos hash SHA-256 apenas em dados pessoais (e-mail e telefone) preservando cookies brutos fbp, fbc, IP e User-Agent para nota máxima no Event Quality Match (EMQ).",
+      "Não! O Trackbase possui tecnologia de desduplicação automática e enriquecimento de dados. O Facebook unifica o sinal do navegador com o sinal seguro do servidor em uma única venda confirmada. Isso eleva a nota de qualidade no Gerenciador de Eventos e ensina o algoritmo a encontrar novos compradores pagando menos por venda.",
   },
   {
     question: "Quais plataformas de checkout são suportadas?",
@@ -224,7 +224,7 @@ export default function Home() {
             <em>sem pagar fortunas.</em>
           </h1>
           <p>
-            Trackbase une Meta Ads, CAPI server-side deduplicada, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 79/mês</strong>.
+            Trackbase une rastreamento imune ao iOS, envio de vendas via servidor, diagnóstico de gargalos com cálculo de perda financeira e proteção de ofertas em uma única central por <strong>R$ 79/mês</strong>.
           </p>
           <div className="landing-actions">
             <Link href="/demo" className="button primary large">
@@ -248,7 +248,7 @@ export default function Home() {
       {/* Proof Strip */}
       <section className="proof-strip">
         <span>
-          <strong>Meta Ads &amp; CAPI</strong> eventos server-side deduplicados
+          <strong>Meta Ads Server-Side</strong> rastreamento à prova de bloqueadores e iOS
         </span>
         <span>
           <strong>Hotmart, Kiwify &amp; Cakto</strong> webhooks ponta a ponta
@@ -472,7 +472,7 @@ export default function Home() {
             <h3>Setup completo — R$ 497</h3>
             <p>
               Nossa equipe configura toda a sua operação: Meta Ads, pixels,
-              CAPI server-side, webhooks, parâmetros UTM e integração completa
+              envio de conversões via servidor, parâmetros UTM e integração completa
               com Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze e Wiapy.
             </p>
             <Link href="/login" className="button primary" style={{ marginTop: "14px" }}>
@@ -507,7 +507,7 @@ export default function Home() {
         <div className="section-intro">
           <span className="eyebrow">DÚVIDAS FREQUENTES</span>
           <h2>Tudo o que você precisa saber sobre o Trackbase</h2>
-          <p>Perguntas comuns sobre rastreamento, CAPI, clonagem e segurança.</p>
+          <p>Perguntas comuns sobre rastreamento, envio de vendas, proteção de ofertas e lucros.</p>
         </div>
         <FaqAccordion items={faqs} />
       </section>

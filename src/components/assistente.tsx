@@ -125,7 +125,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
     { label: "📊 Meu ROAS e Lucro", query: "Qual meu ROAS, receita líquida e lucro operacional atual?" },
     { label: "🛑 Onde estou perdendo dinheiro?", query: "Onde estão os principais gargalos e perdas de tráfego do meu funil?" },
     { label: "🎯 Pausar ou Escalar?", query: "Quais campanhas devo pausar ou escalar com base no CPA e ROAS?" },
-    { label: "🔄 Como configurar a CAPI?", query: "Como a CAPI server-side do Trackbase funciona e evita eventos duplicados?" },
+    { label: "🔄 Envio de Vendas pro Facebook", query: "Como o envio de conversões via servidor do Trackbase protege minhas vendas do bloqueio do iOS e AdBlock?" },
     { label: "🛒 Aumentar Ticket com Order Bump", query: "Como estruturar um Order Bump eficiente na minha esteira de produtos?" },
   ];
 

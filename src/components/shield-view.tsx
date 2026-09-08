@@ -196,7 +196,7 @@ export function ShieldView({
               }}
             >
               <ShieldCheck size={14} color="var(--green, #10B981)" />
-              TRACKBASE SHIELD • ZERO-REDIRECT & ANTI-SPY
+              TRACKBASE SHIELD • PROTEÇÃO DE OFERTA &amp; ANTI-CLONAGEM
             </div>
             <h2
               style={{
@@ -216,13 +216,13 @@ export function ShieldView({
                 lineHeight: "1.5",
               }}
             >
-              Nossa tecnologia de borda inspeciona cada clique em menos de 10ms.
-              Revisores de anúncios veem a{" "}
-              <strong style={{ color: "#2563EB" }}>White Page (Artigo Seguro)</strong>,
-              ferramentas de espionagem (AdHeart, bots) caem na{" "}
-              <strong style={{ color: "#D97706" }}>Gray Page (Isca Falsa)</strong>, e apenas leads
-              humanos reais veem sua{" "}
-              <strong style={{ color: "var(--green, #10B981)" }}>Black Page (VSL Real)</strong>.
+              Carregamento instantâneo com tripla blindagem inteligente:
+              revisores do Facebook/Google veem a{" "}
+              <strong style={{ color: "#2563EB" }}>Página Segura (White)</strong> para aprovar seus
+              anúncios sem risco de bloqueio; ferramentas espiãs (AdHeart, robôs) caem na{" "}
+              <strong style={{ color: "#D97706" }}>Página Isca (Gray)</strong> para clonarem o
+              conteúdo errado; e compradores reais entram direto na sua{" "}
+              <strong style={{ color: "var(--green, #10B981)" }}>Oferta Real de Alta Conversão (Black)</strong>.
             </p>
           </div>
 
@@ -477,9 +477,9 @@ export function ShieldView({
                   Cole a URL no seu Anúncio
                 </div>
                 <p style={{ fontSize: "0.82rem", color: "var(--muted)", lineHeight: "1.4" }}>
-                  Cole o link blindado no Meta Ads ou TikTok. O Shield faz o <strong>Zero-Redirect</strong>{" "}
-                  (sem saltos de tela branca) e <strong>injeta automaticamente o Radar de Leads</strong>{" "}
-                  (rolagem 25/50/75/90%) e o CAPI na sua página!
+                  Cole o link blindado no Meta Ads ou TikTok. A página abre instantaneamente sem
+                  redirecionamento (zero tela branca) e o Trackbase já mede a atenção do lead (rolagem
+                  25/50/75/90%) e envia as compras direto para o Facebook Ads automaticamente!
                 </p>
               </div>
             </div>
@@ -1275,7 +1275,7 @@ export function ShieldView({
             <span className="tag">TRACKBASE SHIELD</span>
             <h2>{editingShield ? "Editar Blindagem de Oferta" : "Nova Blindagem de Oferta"}</h2>
             <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
-              Configure a entrega com Zero-Redirect. A oferta real só é exibida para leads qualificados de anúncios pagos.
+              Sua página carrega instantaneamente sem redirecionamentos visíveis. A oferta verdadeira só é liberada para quem veio dos seus anúncios oficiais.
             </p>
 
             {errorMsg && (
@@ -1474,7 +1474,7 @@ export function ShieldView({
                     placeholder="https://oferta-secreta.com/vsl"
                   />
                   <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 400 }}>
-                    Sua página de vendas verdadeira. O Trackbase auto-injeta o Radar de Leads (scroll 25/50/75/90%) e CAPI!
+                    Sua página de vendas verdadeira. O Trackbase conecta automaticamente o Radar de Atenção dos Leads e o envio de conversões para o Facebook Ads.
                   </span>
                 </label>
               </div>
