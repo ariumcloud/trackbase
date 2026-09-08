@@ -1816,7 +1816,9 @@ export function Dashboard(p: Props) {
                         } else setModal(i.id);
                       }}
                     >
-                      Conectar {i.name} <ArrowUpRight size={15} />
+                      {i.id === "cakto" && p.integrations.some((connection) => connection.provider === "cakto")
+                        ? "Adicionar outro produto"
+                        : `Conectar ${i.name}`} <ArrowUpRight size={15} />
                     </button>
                   </section>
                 ))}
