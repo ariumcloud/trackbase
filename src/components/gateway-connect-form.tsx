@@ -92,9 +92,9 @@ export function GatewayConnectForm({
             <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Configurações &gt; Webhooks</b>.</li>
           </>}
           {provider === "cakto" && <>
-            <li>Na Cakto, abra a área de <b>API / Desenvolvedores</b> e crie uma credencial com acesso aos produtos.</li>
+            <li>Na Cakto, abra a área de <b>API / Desenvolvedores</b> e crie uma credencial marcando <b>Produtos</b> e <b>Webhooks</b>.</li>
             <li>Copie o <b>Client ID</b> e o <b>Client Secret</b>.</li>
-            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Webhooks</b>.</li>
+            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Webhooks</b> e use o mesmo secret neste formulário.</li>
           </>}
         </ol>
         <a href={providerDocs[provider]} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem" }}>
