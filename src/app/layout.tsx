@@ -16,9 +16,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/Logo Roxa 42x42 PNG favicon.png", sizes: "42x42", type: "image/png" },
-      { url: "/logo.png", sizes: "192x192", type: "image/png" },
+      { url: "/Logo Roxa 42x42 PNG favicon.png", sizes: "42x42", type: "image/png" },
     ],
-    apple: [{ url: "/logo.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/Logo Roxa 42x42 PNG favicon.png", sizes: "42x42", type: "image/png" }],
   },
 };
 
