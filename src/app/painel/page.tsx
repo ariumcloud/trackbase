@@ -125,7 +125,7 @@ export default async function Page({
           .order("created_at", { ascending: false }),
         client
           .from("utm_integrations")
-          .select("id,name,provider,status,account_id,currency,last_synced_at")
+          .select("id,name,provider,status,offer_id,account_id,currency,last_synced_at")
           .eq("workspace_id", w.id)
           .order("created_at"),
         client

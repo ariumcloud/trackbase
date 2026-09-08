@@ -453,7 +453,8 @@ export async function saveGatewayWebhookSecret(
       integration: z.string().uuid(),
       secret: z.string().trim().min(4).max(500),
     }).parse({ integration, secret });
-    const { error } = await admin()
+    const service = admin();
+    const { error } = await service
       .from("utm_credentials")
       .update({
         webhook_hash: digest(value.secret),
@@ -462,6 +463,12 @@ export async function saveGatewayWebhookSecret(
       .eq("workspace_id", workspace)
       .eq("integration_id", value.integration);
     if (error) throw error;
+    const { error: integrationError } = await service
+      .from("utm_integrations")
+      .update({ status: "connected" })
+      .eq("workspace_id", workspace)
+      .eq("id", value.integration);
+    if (integrationError) throw integrationError;
     revalidatePath("/painel");
     return { ok: true };
   } catch {

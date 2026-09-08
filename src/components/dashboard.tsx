@@ -1534,7 +1534,7 @@ export function Dashboard(p: Props) {
                           </code>
                         </div>
                       )}
-                      {p.integrations.some((integration) => integration.offer_id === o.id && integration.provider === "cakto") && (
+                      {p.integrations.some((integration) => integration.offer_id === o.id && integration.provider === "cakto" && integration.status !== "connected") && (
                         <div className="offer-activation">
                           <div>
                             <strong>Falta ativar as vendas</strong>
