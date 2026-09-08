@@ -66,6 +66,23 @@ function extractWebhookToken(
       String(p.secret || p.token || "")
     );
   }
+  if (provider === "lowfy") {
+    return (
+      request.headers.get("x-lowfy-token") ||
+      request.headers.get("x-lowfy-signature") ||
+      request.headers.get("x-lowfy-secret") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(
+        p.token ||
+        p.secret ||
+        p.signature ||
+        p.api_key ||
+        url.searchParams.get("token") ||
+        url.searchParams.get("secret") ||
+        ""
+      )
+    );
+  }
   return "";
 }
 

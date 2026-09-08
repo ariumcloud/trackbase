@@ -283,6 +283,7 @@ export function OfferForm({
             <option value="eduzz">Eduzz</option>
             <option value="monetizze">Monetizze</option>
             <option value="wiapy">Wiapy</option>
+            <option value="lowfy">Lowfy</option>
           </select>
         </label>
         <label>

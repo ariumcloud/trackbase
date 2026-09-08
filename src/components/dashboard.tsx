@@ -1789,6 +1789,13 @@ export function Dashboard(p: Props) {
                     text: "Plataforma de vendas com checkout de alta conversão.",
                     color: "purple",
                   },
+                  {
+                    id: "lowfy",
+                    name: "Lowfy",
+                    letter: "L",
+                    text: "Checkout e pagamentos para infoprodutos e vendas digitais.",
+                    color: "purple",
+                  },
                 ].map((i) => (
                   <section className="panel integration-card" key={i.id}>
                     <div className={`provider-logo ${i.color}`}>{i.letter}</div>
@@ -2370,8 +2377,10 @@ export function Dashboard(p: Props) {
                                   : modal === "monetizze"
                                     ? "Monetizze"
                                     : modal === "wiapy"
-                                      ? "Wiapy"
-                                      : modal
+                                        ? "Wiapy"
+                                        : modal === "lowfy"
+                                          ? "Lowfy"
+                                          : modal
                       }`}
             </h2>
             {modal === "workspace" ? (
@@ -2471,7 +2480,9 @@ export function Dashboard(p: Props) {
                               ? "Chave Única do webhook Monetizze"
                               : modal === "wiapy"
                                 ? "Token de webhook Wiapy"
-                                : "Secret / Token do webhook"}
+                                : modal === "lowfy"
+                                  ? "Token / Secret de webhook Lowfy"
+                                  : "Secret / Token do webhook"}
                   <input
                     name="secret"
                     type="password"
@@ -2495,6 +2506,8 @@ export function Dashboard(p: Props) {
                     "Na Monetizze (Ferramentas > Postback), informe sua Chave Única."}
                   {modal === "wiapy" &&
                     "Na Wiapy (Webhooks), insira a URL da Trackbase e o token gerado."}
+                  {modal === "lowfy" &&
+                    "Na Lowfy (Webhooks), insira a URL do webhook gerada e o token de autenticação (ou defina uma chave segura)."}
                   O token será armazenado como hash seguro para autenticar cada webhook.
                 </p>
               </ActionForm>
@@ -2879,6 +2892,7 @@ function IntegrationCard({
             {i.provider === "eduzz" && "Configure em Ferramentas > Webhooks na Eduzz / Órbita."}
             {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
             {i.provider === "wiapy" && "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
+            {i.provider === "lowfy" && "Configure na área de Webhooks da Lowfy com o token cadastrado."}
           </small>
           {["cakto", "kiwify", "hotmart"].includes(i.provider) && (i.status !== "connected" || editingWebhookSecret) && (
             <form

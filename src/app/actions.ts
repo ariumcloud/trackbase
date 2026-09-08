@@ -170,6 +170,7 @@ export async function saveOffer(
             "eduzz",
             "monetizze",
             "wiapy",
+            "lowfy",
           ])
           .optional()
           .or(z.literal("")),
@@ -274,6 +275,7 @@ export async function savePaymentIntegration(
           "eduzz",
           "monetizze",
           "wiapy",
+          "lowfy",
         ]),
         offer_id: z.string().uuid(),
         external_product_id: z.string().trim().min(1).max(200),

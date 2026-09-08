@@ -598,6 +598,104 @@ export const wiapyAdapter: PaymentAdapter = {
   },
 };
 
+// 8. ADAPTADOR LOWFY
+export const lowfyAdapter: PaymentAdapter = {
+  provider: "lowfy",
+  normalize(payload, context) {
+    const root = record(payload);
+    const data = record(root.data || root.order || root.transaction || root);
+    const customer = record(data.customer || data.buyer || data.client || root.customer || root.buyer);
+    const product = record(
+      data.product ||
+      (Array.isArray(data.items) ? data.items[0] : undefined) ||
+      (Array.isArray(root.items) ? root.items[0] : undefined) ||
+      root.product
+    );
+    const tracking = record(data.tracking || data.utm || data.utms || data.metadata || root.tracking || root.utm || root.utms || root.metadata);
+
+    const event = str(root.event || root.type || root.status || data.event || data.type || data.status).toLowerCase();
+    const paymentMethod = str(data.payment_method || root.payment_method || data.method || root.method).toLowerCase();
+    const rawType = str(data.product_type || data.type || root.type).toLowerCase();
+    const isBump = rawType.includes("bump") || Boolean(data.order_bump || root.order_bump);
+    const isUpsell = rawType.includes("upsell");
+    const isDownsell = rawType.includes("downsell");
+
+    let type: PaymentEventType = "payment_pending";
+    if (
+      event.includes("approved") ||
+      event.includes("paid") ||
+      event.includes("pago") ||
+      event.includes("aprovad") ||
+      event.includes("success") ||
+      event.includes("authorized") ||
+      event.includes("complete") ||
+      event === "order.paid" ||
+      event === "payment.approved"
+    ) {
+      if (isBump) type = "order_bump_approved";
+      else if (isUpsell) type = "upsell_approved";
+      else if (isDownsell) type = "downsell_approved";
+      else type = "purchase_approved";
+    } else if (event.includes("refund") || event.includes("reembols") || event.includes("estorn")) {
+      type = "purchase_refunded";
+    } else if (event.includes("chargeback") || event.includes("disput")) {
+      type = "chargeback_created";
+    } else if (event.includes("cancel") || event.includes("recusad") || event.includes("failed") || event.includes("rejeit")) {
+      type = "purchase_canceled";
+    } else if (event.includes("pix")) {
+      type = "pix_created";
+    } else if (event.includes("boleto") || event.includes("billet") || event.includes("slip")) {
+      type = "boleto_created";
+    } else if (event.includes("pending") || event.includes("aguard") || event.includes("wait") || event.includes("criado")) {
+      if (paymentMethod.includes("pix")) type = "pix_created";
+      else if (paymentMethod.includes("boleto")) type = "boleto_created";
+      else type = "payment_pending";
+    }
+
+    const transaction = str(data.transaction_id || data.id || data.order_id || data.code || root.transaction_id || root.id || root.order_id) || "lowfy_tx";
+    const gross = num(data.amount) ?? num(data.total) ?? num(data.total_amount) ?? num(data.price) ?? num(data.value) ?? num(root.amount) ?? num(root.total) ?? 0;
+    const fee = num(data.fee) ?? num(data.fees) ?? num(data.tax) ?? num(root.fee) ?? num(root.fees) ?? 0;
+    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+
+    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
+    const productId = str(product.id || data.product_id || root.product_id || data.external_id || product.name) || "prod";
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "lowfy",
+        externalTransactionId: transaction,
+        externalEventId: str(root.event_id || root.id || data.event_id) || null,
+        type,
+        productId,
+        offerId: str(data.offer_id || root.offer_id || product.offer_id) || null,
+        productType,
+        parentProductId: null,
+        parentTransactionId: str(data.parent_id || data.parent_transaction_id || root.parent_id) || null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: cleanCurrency(data.currency || root.currency, context.fallbackCurrency),
+        netCurrency: cleanCurrency(data.currency || root.currency, context.fallbackCurrency),
+        country: cleanCountry(customer.country || data.country),
+        buyer: {
+          name: str(customer.name || customer.full_name || customer.first_name) || null,
+          email: str(customer.email) || null,
+        },
+        attribution: extractAttribution(tracking),
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId: str(tracking.fbclid) || null,
+        occurredAt: parseDate(data.paid_at || data.created_at || root.created_at || root.paid_at, context.receivedAt),
+        receivedAt: context.receivedAt,
+        isTest: Boolean(data.is_test || root.is_test),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
 export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   hotmart: hotmartAdapter,
   kiwify: kiwifyAdapter,
@@ -606,4 +704,5 @@ export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   eduzz: eduzzAdapter,
   monetizze: monetizzeAdapter,
   wiapy: wiapyAdapter,
+  lowfy: lowfyAdapter,
 };

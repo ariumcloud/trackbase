@@ -65,7 +65,7 @@ export default function TermosPage() {
           <ul style={{ paddingLeft: "1.4rem", marginBottom: "1rem" }}>
             <li>Rastreamento e geração de parâmetros UTM dinâmicos para campanhas de publicidade;</li>
             <li>Conexão de APIs de conversão server-side (Meta Conversions API e Google Ads API) com deduplicação de eventos;</li>
-            <li>Recepção e normalização de webhooks de plataformas de checkout (Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, entre outras);</li>
+            <li>Recepção e normalização de webhooks de plataformas de checkout (Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, Lowfy, entre outras);</li>
             <li>Auditoria técnica e diagnóstico de gargalos de conversão em páginas de venda;</li>
             <li>Ferramenta de clonagem e extração de blocos para modelagem de funis de venda autorizados;</li>
             <li>Assistente com inteligência artificial para consulta analítica de métricas financeiras.</li>

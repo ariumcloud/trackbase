@@ -78,7 +78,7 @@ export default function PrivacidadePage() {
               <strong>Parâmetros de rastreamento de tráfego e marketing:</strong> Parâmetros de URL (como <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_content</code>, <code>utm_term</code>), identificadores de clique (<code>fbclid</code>, <code>gclid</code>, <code>ttclid</code>), cookies de sessão primários (<code>_fbp</code>, <code>_fbc</code>, <code>trackbase_sid</code>), endereço IP e User-Agent do navegador.
             </li>
             <li>
-              <strong>Dados de transações comerciais (Webhooks):</strong> Quando você conecta seus gateways de pagamento (Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, etc.), a Trackbase recebe notificações criptografadas contendo o identificador da transação, valor bruto, taxas, moeda, status da transação e informações do comprador (nome e e-mail).
+              <strong>Dados de transações comerciais (Webhooks):</strong> Quando você conecta seus gateways de pagamento (Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, Lowfy, etc.), a Trackbase recebe notificações criptografadas contendo o identificador da transação, valor bruto, taxas, moeda, status da transação e informações do comprador (nome e e-mail).
             </li>
             <li>
               <strong>Dados de contas de anúncios (Google Ads e Meta Ads):</strong> Métricas de desempenho de campanhas, conjuntos de anúncios e criativos (gastos, cliques, impressões) obtidos via conexão OAuth autorizada expressamente pelo usuário.
