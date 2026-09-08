@@ -6,6 +6,7 @@ export interface ShieldRecord {
   offer_id: string;
   name: string;
   slug: string;
+  custom_domain?: string | null;
   white_url: string;
   gray_url: string;
   black_url: string;

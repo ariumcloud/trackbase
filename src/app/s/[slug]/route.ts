@@ -12,19 +12,21 @@ export async function GET(
     return new NextResponse("Link não encontrado", { status: 404 });
   }
 
-  // 1. Busca configuração do Shield no banco pelo slug
+  // 1. Busca configuração do Shield no banco pelo slug OU pelo domínio próprio
   const service = admin();
   const { data: shieldData, error } = await service
     .from("utm_shields")
-    .select("*")
-    .eq("slug", slug)
+    .select("*, utm_offers(public_key)")
+    .or(`slug.eq.${slug},custom_domain.eq.${slug}`)
     .single();
 
   if (error || !shieldData) {
     return new NextResponse("Página não encontrada ou desativada", { status: 404 });
   }
 
-  const shield = shieldData as ShieldRecord;
+  const shield = shieldData as unknown as ShieldRecord;
+  const offerPublicKey = (shieldData as unknown as { utm_offers?: { public_key?: string } })
+    ?.utm_offers?.public_key;
 
   // 2. Extrai dados da requisição
   const clientIp =
@@ -110,6 +112,18 @@ export async function GET(
       html = html.replace(/<head\b[^>]*>/, `$&<base href="${baseHref}">`);
     }
 
+    // Auto-injeção do Tracker.js do Trackbase: ativa automaticamente o Radar de Leads (scroll depth 25/50/75/90%),
+    // gravação de sessão e CAPI no checkout mesmo sem o usuário precisar colar script no site dele!
+    const appUrl = process.env.APP_URL || "";
+    if (offerPublicKey && evaluation.verdict === "black") {
+      const trackerScript = `<script src="${appUrl}/tracker.js" data-key="${offerPublicKey}" defer></script>`;
+      if (html.includes("</head>")) {
+        html = html.replace("</head>", `${trackerScript}</head>`);
+      } else if (html.includes("</body>")) {
+        html = html.replace("</body>", `${trackerScript}</body>`);
+      }
+    }
+
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
     headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -119,7 +133,7 @@ export async function GET(
     if (evaluation.sessionTokenToSet) {
       headers.set(
         "Set-Cookie",
-        `tb_shield_session=${evaluation.sessionTokenToSet}; Path=/s/${shield.slug}; Max-Age=86400; HttpOnly; SameSite=Lax; Secure`,
+        `tb_shield_session=${evaluation.sessionTokenToSet}; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax; Secure`,
       );
     }
 

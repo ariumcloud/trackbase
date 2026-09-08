@@ -916,6 +916,16 @@ export async function createShield(
             /^[a-z0-9\-_]{3,64}$/,
             "O slug deve ter entre 3 e 64 caracteres (apenas letras minúsculas, números e traços).",
           ),
+        custom_domain: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .regex(
+            /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/,
+            "Domínio inválido. Use um formato como: oferta.meusite.com",
+          )
+          .optional()
+          .or(z.literal("")),
         white_url: webUrl,
         gray_url: webUrl,
         black_url: webUrl,
@@ -930,6 +940,7 @@ export async function createShield(
       offer_id: parsed.offer_id,
       name: parsed.name,
       slug: parsed.slug,
+      custom_domain: parsed.custom_domain ? parsed.custom_domain : null,
       white_url: parsed.white_url,
       gray_url: parsed.gray_url,
       black_url: parsed.black_url,
@@ -941,6 +952,9 @@ export async function createShield(
 
     if (error) {
       if (error.code === "23505" || error.message?.includes("unique")) {
+        if (error.message?.includes("custom_domain") || error.details?.includes("custom_domain")) {
+          return { error: "Este domínio próprio já está cadastrado em outro link blindado." };
+        }
         return { error: "Este slug já está em uso por outro link blindado. Escolha um slug diferente." };
       }
       throw error;
@@ -977,6 +991,16 @@ export async function updateShield(
             /^[a-z0-9\-_]{3,64}$/,
             "O slug deve ter entre 3 e 64 caracteres.",
           ),
+        custom_domain: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .regex(
+            /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/,
+            "Domínio inválido. Use um formato como: oferta.meusite.com",
+          )
+          .optional()
+          .or(z.literal("")),
         white_url: webUrl,
         gray_url: webUrl,
         black_url: webUrl,
@@ -992,6 +1016,7 @@ export async function updateShield(
         name: parsed.name,
         offer_id: parsed.offer_id,
         slug: parsed.slug,
+        custom_domain: parsed.custom_domain ? parsed.custom_domain : null,
         white_url: parsed.white_url,
         gray_url: parsed.gray_url,
         black_url: parsed.black_url,
@@ -1005,6 +1030,9 @@ export async function updateShield(
 
     if (error) {
       if (error.code === "23505" || error.message?.includes("unique")) {
+        if (error.message?.includes("custom_domain") || error.details?.includes("custom_domain")) {
+          return { error: "Este domínio próprio já está cadastrado em outro link blindado." };
+        }
         return { error: "Este slug já está em uso. Escolha um slug diferente." };
       }
       throw error;
@@ -1064,4 +1092,5 @@ export async function deleteShield(
     return { error: "Não foi possível excluir o link blindado." };
   }
 }
+
 

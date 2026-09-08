@@ -33,6 +33,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260908180000_trackbase_shield.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260908183000_shield_custom_domain.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
