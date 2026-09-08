@@ -50,9 +50,38 @@ export async function POST(request: Request) {
         { status: 429, headers: { ...corsHeaders, "Retry-After": "60" } },
       );
     }
+
+    // Mapeamento compatível para a RPC do banco:
+    // O banco aceita ('pageview', 'cta', 'checkout'). Eventos de rolagem e cta_view são armazenados como 'cta' com metadados na attribution.
+    let dbEventType: "pageview" | "cta" | "checkout" = "cta";
+    const enrichedAttribution: Record<string, string> = { ...(eventData.attribution || {}) };
+
+    if (eventData.event_type === "pageview") {
+      dbEventType = "pageview";
+    } else if (eventData.event_type === "checkout") {
+      dbEventType = "checkout";
+    } else if (eventData.event_type.startsWith("scroll_")) {
+      const depth = eventData.event_type.replace("scroll_", "");
+      enrichedAttribution.scroll_depth = depth;
+      enrichedAttribution.action = eventData.event_type;
+      dbEventType = "cta";
+    } else if (eventData.event_type === "scroll") {
+      if (eventData.scroll_depth) {
+        enrichedAttribution.scroll_depth = String(eventData.scroll_depth);
+      }
+      enrichedAttribution.action = "scroll";
+      dbEventType = "cta";
+    } else if (eventData.event_type === "cta_view") {
+      enrichedAttribution.cta_view = "true";
+      enrichedAttribution.action = "cta_view";
+      dbEventType = "cta";
+    } else {
+      dbEventType = "cta";
+    }
+
     let capiPayloadCiphertext: string | undefined;
     if (
-      (eventData.event_type === "pageview" || eventData.event_type === "checkout") &&
+      (dbEventType === "pageview" || dbEventType === "checkout") &&
       eventData.event_id
     ) {
       try {
@@ -71,7 +100,12 @@ export async function POST(request: Request) {
     const service = admin();
     const { data, error } = await service.rpc("utm_track_event", {
       p_key: key,
-      p_event: { ...eventData, capi_payload_ciphertext: capiPayloadCiphertext },
+      p_event: {
+        ...eventData,
+        event_type: dbEventType,
+        attribution: enrichedAttribution,
+        capi_payload_ciphertext: capiPayloadCiphertext,
+      },
     });
 
     if (error) {

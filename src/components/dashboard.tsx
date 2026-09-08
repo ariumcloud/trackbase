@@ -32,6 +32,7 @@ import {
   Landmark,
   Sun,
   Moon,
+  Smartphone,
 } from "lucide-react";
 import { UtmifySummary } from "./utmify-summary";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
@@ -72,6 +73,7 @@ import dynamic from "next/dynamic";
 const AssistenteTrackbase = dynamic(() => import("./assistente").then((m) => m.AssistenteTrackbase), { ssr: false });
 const DiagnosticoViewLazy = dynamic(() => import("./diagnostico").then((m) => m.DiagnosticoView), { ssr: false });
 import { CampaignsView } from "./campaigns-view";
+import { LeadScrollVisualizer } from "./lead-scroll-visualizer";
 import { BottomBar } from "./bottom-bar";
 import { SalesNotifier } from "./sales-notifier";
 import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
@@ -101,6 +103,7 @@ const tabs = [
   { id: "links", name: "Links e UTMs", icon: Link2 },
   { id: "campanhas", name: "Campanhas", icon: BarChart3 },
   { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
+  { id: "simulador", name: "Simulador de Lead", icon: Smartphone },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
   { id: "assistente", name: "Assistente IA", icon: Bot },
   { id: "alertas", name: "Alertas", icon: Bell },
@@ -125,6 +128,10 @@ const titles: Record<string, [string, string]> = {
   diagnostico: [
     "Diagnóstico de Funil.",
     "Identifique gargalos, perdas de tráfego e impacto financeiro nas suas ofertas.",
+  ],
+  simulador: [
+    "Radar & Simulador de Lead em Tempo Real.",
+    "Acompanhe o percurso do lead na página, marcos de rolagem (25%, 50%, 75%, 90%) e disparos no Pixel/CAPI.",
   ],
   integracoes: [
     "Conecte os pontos.",
@@ -1958,6 +1965,7 @@ export function Dashboard(p: Props) {
               selectTab={selectTab}
             />
           )}
+          {tab === "simulador" && <LeadScrollVisualizer />}
           {tab === "assistente" && (
             <AssistenteTrackbase
               workspace={workspace}

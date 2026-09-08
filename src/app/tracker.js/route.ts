@@ -62,16 +62,36 @@ export function GET() {
     var attr = getAttribution();
     var endpoint = (scriptTag && scriptTag.src) ? new URL('/api/track', scriptTag.src).href : '/api/track';
 
-    function sendEvent(type, extraUrl) {
+    function sendEvent(type, extraUrl, extraMeta) {
       try {
         var eventId = 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 11);
         
         // Dispara o Pixel nativo no browser com o exato mesmo eventID para deduplicação da Meta
         if (window.fbq && typeof window.fbq === 'function') {
-          var fbEvent = type === 'pageview' ? 'PageView' : (type === 'checkout' ? 'InitiateCheckout' : 'ViewContent');
           try {
-            window.fbq('track', fbEvent, {}, { eventID: eventId });
+            if (type === 'pageview') {
+              window.fbq('track', 'PageView', {}, { eventID: eventId });
+            } else if (type === 'checkout') {
+              window.fbq('track', 'InitiateCheckout', {}, { eventID: eventId });
+            } else if (type === 'cta') {
+              window.fbq('track', 'ViewContent', {}, { eventID: eventId });
+            } else if (type.indexOf('scroll_') === 0) {
+              var d = parseInt(type.split('_')[1], 10);
+              window.fbq('trackCustom', 'ScrollDepth_' + d, { depth: d }, { eventID: eventId });
+            } else if (type === 'cta_view') {
+              window.fbq('trackCustom', 'ViewCTA', {}, { eventID: eventId });
+            }
           } catch(err) {}
+        }
+
+        var eventAttr = {};
+        for (var k in attr) {
+          if (attr.hasOwnProperty(k)) eventAttr[k] = attr[k];
+        }
+        if (extraMeta) {
+          for (var mk in extraMeta) {
+            if (extraMeta.hasOwnProperty(mk)) eventAttr[mk] = extraMeta[mk];
+          }
         }
 
         var payload = JSON.stringify({
@@ -80,7 +100,7 @@ export function GET() {
           event_id: eventId,
           session_id: sessionId,
           url: extraUrl || window.location.href,
-          attribution: attr
+          attribution: eventAttr
         });
 
         if (navigator.sendBeacon) {
@@ -98,6 +118,85 @@ export function GET() {
 
     // Dispara pageview inicial
     sendEvent('pageview');
+
+    // 1. Monitoramento Inteligente de Scroll Depth (25%, 50%, 75%, 90%)
+    var scrollMilestones = { 25: false, 50: false, 75: false, 90: false };
+    var isTicking = false;
+
+    function checkScrollDepth() {
+      try {
+        var doc = document.documentElement;
+        var body = document.body;
+        var winH = window.innerHeight || (doc ? doc.clientHeight : 0) || 0;
+        var docH = Math.max(
+          (body ? body.scrollHeight : 0) || 0,
+          (doc ? doc.scrollHeight : 0) || 0,
+          (body ? body.offsetHeight : 0) || 0,
+          (doc ? doc.offsetHeight : 0) || 0,
+          (body ? body.clientHeight : 0) || 0,
+          (doc ? doc.clientHeight : 0) || 0
+        );
+        var scrollPos = (window.pageYOffset || (doc ? doc.scrollTop : 0) || (body ? body.scrollTop : 0) || 0) + winH;
+        if (docH <= 0) return;
+
+        var pct = Math.floor((scrollPos / docH) * 100);
+        var thresholds = [25, 50, 75, 90];
+        for (var i = 0; i < thresholds.length; i++) {
+          var m = thresholds[i];
+          if (pct >= m && !scrollMilestones[m]) {
+            scrollMilestones[m] = true;
+            sendEvent('scroll_' + m, null, { scroll_depth: String(m) });
+          }
+        }
+      } catch(err) {}
+    }
+
+    window.addEventListener('scroll', function() {
+      if (!isTicking) {
+        if (window.requestAnimationFrame) {
+          window.requestAnimationFrame(function() {
+            checkScrollDepth();
+            isTicking = false;
+          });
+        } else {
+          setTimeout(function() {
+            checkScrollDepth();
+            isTicking = false;
+          }, 150);
+        }
+        isTicking = true;
+      }
+    }, { passive: true });
+
+    // 2. CTA View Observer (detecta quando o botão de checkout entra no campo de visão do lead)
+    var ctaSeen = false;
+    function initCtaObserver() {
+      try {
+        if (typeof IntersectionObserver !== 'function') return;
+        var ctaEl = document.querySelector('a[href*="hotmart"], a[href*="kiwify"], a[href*="cakto"], a[href*="kirvano"], button[data-checkout], .btn-comprar, .cta-button');
+        if (!ctaEl) return;
+
+        var obs = new IntersectionObserver(function(entries) {
+          for (var i = 0; i < entries.length; i++) {
+            if (entries[i].isIntersecting && !ctaSeen) {
+              ctaSeen = true;
+              sendEvent('cta_view', null, { cta_visible: 'true' });
+              obs.disconnect();
+              break;
+            }
+          }
+        }, { threshold: 0.25 });
+        obs.observe(ctaEl);
+      } catch(e) {}
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(initCtaObserver, 600);
+    } else {
+      window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initCtaObserver, 600);
+      });
+    }
 
     function isAllowed(urlStr) {
       if (!urlStr || urlStr.indexOf('#') === 0 || /^(mailto|tel|javascript):/i.test(urlStr)) return false;

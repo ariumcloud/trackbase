@@ -6,6 +6,7 @@ import {
   ArrowRight,
   RefreshCw,
   Sparkles,
+  Smartphone,
 } from "lucide-react";
 import type { Offer, DiagnosticRow } from "@/lib/types";
 import { runFunnelDiagnostic, type FunnelDiagnosticResult } from "@/lib/funnel-diagnostic";
@@ -161,6 +162,15 @@ export function DiagnosticoView({
             <button className="button ghost" disabled={aiAnalyzing} onClick={handleAiAnalysis}>
               <Sparkles size={15} /> {aiAnalyzing ? "Interpretando..." : "Interpretar com IA"}
             </button>
+            {selectTab && (
+              <button
+                className="button secondary"
+                onClick={() => selectTab("simulador")}
+                title="Abrir Simulador de Lead em Tempo Real"
+              >
+                <Smartphone size={15} /> Simulador de Lead
+              </button>
+            )}
           </div>
         </div>
       </section>

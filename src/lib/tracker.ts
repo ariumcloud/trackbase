@@ -2,10 +2,21 @@ import { z } from "zod";
 
 export const trackPayloadSchema = z.object({
   key: z.string().trim().min(8).max(100),
-  event_type: z.enum(["pageview", "cta", "checkout"]),
+  event_type: z.enum([
+    "pageview",
+    "cta",
+    "checkout",
+    "scroll",
+    "scroll_25",
+    "scroll_50",
+    "scroll_75",
+    "scroll_90",
+    "cta_view",
+  ]),
   event_id: z.string().trim().max(100).optional(),
   session_id: z.string().trim().min(1).max(80),
   url: z.string().max(2048),
+  scroll_depth: z.number().min(0).max(100).optional(),
   attribution: z
     .record(
       z.string().regex(/^[a-zA-Z0-9_]{1,50}$/),
