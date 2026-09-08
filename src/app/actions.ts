@@ -327,6 +327,8 @@ export async function connectImportedGateway(
   workspace: string,
   form: FormData,
 ): Promise<ActionResult> {
+  let stage = "validar acesso";
+  let provider = "gateway";
   try {
     await requireFeature(workspace, "integrations");
     const value = z.object({
@@ -338,6 +340,7 @@ export async function connectImportedGateway(
       webhook_secret: z.string().trim().max(500).optional(),
       external_product_id: z.string().trim().min(1).max(300),
     }).parse(Object.fromEntries(form));
+    provider = value.provider;
     if (value.provider !== "cakto" && (!value.webhook_secret || value.webhook_secret.length < 4)) {
       return { error: "Informe o segredo do webhook antes de conectar este gateway." };
     }
@@ -348,6 +351,7 @@ export async function connectImportedGateway(
       accountId: value.account_id || undefined,
       basicToken: value.basic_token || undefined,
     };
+    stage = "consultar produto no gateway";
     const products = await listGatewayProducts(value.provider as CatalogProvider, credentials);
     const product = products.find((item) => item.externalProductId === value.external_product_id);
     if (!product) return { error: "O produto selecionado não está mais disponível. Busque novamente." };
@@ -358,6 +362,7 @@ export async function connectImportedGateway(
       kiwify: "https://kiwify.com.br",
       cakto: "https://cakto.com.br",
     }[value.provider];
+    stage = "criar produto no Trackbase";
     const { data: offer, error: offerError } = await service
       .from("utm_offers")
       .insert({
@@ -374,6 +379,7 @@ export async function connectImportedGateway(
       .single();
     if (offerError || !offer) throw offerError || new Error("Não foi possível criar a oferta.");
 
+    stage = "criar integração";
     const { data: integration, error: integrationError } = await service
       .from("utm_integrations")
       .insert({
@@ -392,6 +398,7 @@ export async function connectImportedGateway(
       throw integrationError || new Error("Não foi possível criar a integração.");
     }
 
+    stage = "proteger credenciais";
     const { error: credentialError } = await service.from("utm_credentials").insert({
       workspace_id: workspace,
       integration_id: integration.id,
@@ -410,8 +417,23 @@ export async function connectImportedGateway(
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
+    console.error("Falha ao importar produto do gateway", {
+      provider,
+      workspace,
+      stage,
+      error: message || "Erro desconhecido",
+    });
     if (message.includes("Limite")) return { error: message };
-    return { error: "Não foi possível importar o produto. Confira as chaves, o produto e as permissões da API." };
+    if (message.includes("Chave de criptografia")) {
+      return { error: "A chave de criptografia do servidor não está configurada. Avise o suporte da Trackbase." };
+    }
+    if (message.includes("Credencial do servidor")) {
+      return { error: "A credencial segura do servidor não está configurada. Avise o suporte da Trackbase." };
+    }
+    if (message.includes("token") || message.includes("Credenciais") || message.includes("permissão")) {
+      return { error: `A ${provider === "cakto" ? "Cakto" : provider} recusou a consulta do produto. Confira as permissões da chave.` };
+    }
+    return { error: `Não foi possível concluir a etapa “${stage}”. Tente novamente em alguns segundos.` };
   }
 }
 
