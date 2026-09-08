@@ -10,7 +10,7 @@ if (rawSubject && !rawSubject.startsWith("mailto:") && !rawSubject.startsWith("h
 }
 const vapidSubject = rawSubject;
 
-let isVapidConfigured = false;
+export let isVapidConfigured = false;
 try {
   if (vapidPublicKey && vapidPrivateKey && vapidPublicKey.length > 20 && vapidPrivateKey.length > 20) {
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
@@ -107,13 +107,13 @@ export async function notifySalePush(
       body,
       url: `/painel?workspace=${workspaceId}&tab=visao`,
       tag: `sale-${Date.now()}`,
-      sound: "/cash-machine.mp3",
       timestamp: Date.now(),
     });
 
     // Send push to each registered subscriber
     const deadSubIds: string[] = [];
     let sentCount = 0;
+    let failedCount = 0;
 
     await Promise.all(
       subs.map(async (sub) => {
@@ -134,12 +134,15 @@ export async function notifySalePush(
           );
           sentCount++;
         } catch (err: unknown) {
+          failedCount++;
           const statusCode =
             typeof err === "object" && err !== null && "statusCode" in err
               ? (err as { statusCode: number }).statusCode
               : 0;
           if (statusCode === 404 || statusCode === 410) {
             deadSubIds.push(sub.id);
+          } else {
+            console.error("Falha ao entregar push de venda", { subscriptionId: sub.id, statusCode });
           }
         }
       }),
@@ -153,6 +156,9 @@ export async function notifySalePush(
         .in("id", deadSubIds);
     }
 
+    if (sentCount === 0 && failedCount > 0) {
+      return { ok: false, count: 0, total: subs.length, reason: "push_delivery_failed" };
+    }
     return { ok: true, count: sentCount, total: subs.length };
   } catch (err) {
     console.error("notifySalePush error:", err);

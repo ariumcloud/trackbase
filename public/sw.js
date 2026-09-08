@@ -15,13 +15,12 @@ self.addEventListener("push", (event) => {
     const title = payload.title || "💰 Venda Realizada!";
     const options = {
       body: payload.body || "Nova compra aprovada na sua operação.",
-      icon: "/Logo Roxa 42x42 PNG favicon.png",
+      icon: "/icon-192.png",
       badge: "/Logo Roxa 42x42 PNG favicon.png",
       vibrate: [200, 100, 200, 100, 400],
       tag: payload.tag || `sale-${Date.now()}`,
       data: {
         url: payload.url || "/painel",
-        sound: "/cash-machine.mp3",
       },
       actions: [
         { action: "open", title: "Ver no Painel" },
@@ -33,7 +32,7 @@ self.addEventListener("push", (event) => {
 
     event.waitUntil(
       self.registration.showNotification(title, options).then(() => {
-        // Envia mensagem para abas abertas tocarem o som da caixa registradora
+        // Com o painel aberto, a aba recebe a mensagem e toca o som localmente.
         return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
           clientList.forEach((client) => {
             client.postMessage({

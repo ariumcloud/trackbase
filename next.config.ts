@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
+  // Permite uma build limpa em um diretório alternativo sem reaproveitar um
+  // cache local corrompido (o padrão de produção continua sendo .next).
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   async headers() {
     return [
       {

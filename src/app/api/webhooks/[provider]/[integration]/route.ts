@@ -310,13 +310,30 @@ export async function POST(
         }
 
         if (isApproved) {
-          notifySalePush(i.workspace_id, {
+          const { data: offer } = await service
+            .from("utm_offers")
+            .select("name")
+            .eq("id", i.offer_id)
+            .maybeSingle();
+          const pushResult = await notifySalePush(i.workspace_id, {
             amount: event.grossAmount ?? 0,
             currency: event.grossCurrency || i.currency || "BRL",
             buyerName: event.buyer?.name || null,
-            productName: event.productType || null,
+            productName: offer?.name || null,
             provider: provider,
-          }).catch(() => {});
+          });
+          if (!pushResult.ok && pushResult.reason !== "no_subscribers") {
+            console.error("Push de venda não entregue", {
+              integration,
+              eventId: webhookEventIdentity(event),
+              reason: pushResult.reason,
+            });
+            await service
+              .from("utm_webhook_logs")
+              .update({ reason: "Notificação push não entregue." })
+              .eq("integration_id", integration)
+              .eq("event_id", webhookEventIdentity(event));
+          }
         }
       }
     }

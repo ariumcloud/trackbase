@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { admin, db } from "@/lib/supabase/server";
 import { body, rateLimit, sameOrigin } from "@/lib/security";
+import { isVapidConfigured } from "@/lib/push-notifications";
 
 const subscribeSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -21,6 +22,12 @@ const unsubscribeSchema = z.object({
 export async function POST(request: Request) {
   try {
     sameOrigin(request);
+    if (!isVapidConfigured) {
+      return NextResponse.json(
+        { error: "Notificações ainda não foram configuradas no servidor." },
+        { status: 503 },
+      );
+    }
     const {
       data: { user },
     } = await (await db()).auth.getUser();

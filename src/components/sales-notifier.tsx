@@ -72,6 +72,7 @@ export function SalesNotifier({ workspaceId }: Props) {
       alert(
         "No iPhone/iOS, as notificações push só funcionam se você adicionar o app à Tela de Início:\n\n1. Abra o Safari e toque no botão de Compartilhar (quadrado com seta para cima);\n2. Escolha 'Adicionar à Tela de Início';\n3. Abra o app pelo ícone criado na sua tela e ative as notificações aqui!",
       );
+      setLoading(false);
       return;
     }
 
@@ -101,8 +102,10 @@ export function SalesNotifier({ workspaceId }: Props) {
           return;
         }
 
-        const envKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        const publicKey = (envKey && envKey.length > 20) ? envKey : "BCUQChXv4HEiaFXIllkn3E4_-6a3SE_Aks-xTeO4TPvTLH0Az0yDvJhM8fsfuaDVnvzfE-OG2GQv1er2bqzmzmk";
+        const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!publicKey || publicKey.length < 20) {
+          throw new Error("As notificações ainda não foram configuradas no servidor.");
+        }
 
         const convertedKey = urlBase64ToUint8Array(publicKey);
 
@@ -153,7 +156,7 @@ export function SalesNotifier({ workspaceId }: Props) {
           className={`notifier-btn ${isSubscribed ? "active" : ""}`}
           disabled={loading || !workspaceId}
           onClick={toggleSubscription}
-          title={isSubscribed ? "Notificações de venda ativas (Clique para desativar)" : "Ativar alertas de venda com som de caixa registradora"}
+          title={isSubscribed ? "Notificações de venda ativas (clique para desativar)" : "Ativar alertas de venda"}
           aria-label="Notificações de venda"
         >
           {isSubscribed ? (
