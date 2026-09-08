@@ -41,6 +41,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
+import { GatewayConnectForm } from "./gateway-connect-form";
 import {
   saveLink,
   toggleLink,
@@ -2395,6 +2396,15 @@ export function Dashboard(p: Props) {
                   }
                 />
               )
+            ) : ["hotmart", "kiwify", "cakto"].includes(modal) ? (
+              <GatewayConnectForm
+                workspace={workspace}
+                provider={modal as "hotmart" | "kiwify" | "cakto"}
+                onSuccess={() => {
+                  setModal(null);
+                  router.refresh();
+                }}
+              />
             ) : (
               <ActionForm
                 action={(f) => savePaymentIntegration(workspace, f)}

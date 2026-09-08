@@ -2,6 +2,7 @@
 import { requireFeature } from "@/lib/feature-access";
 import { db, admin } from "@/lib/supabase/server";
 import { authorize, digest, rateLimit, encrypt } from "@/lib/security";
+import { listGatewayProducts, type CatalogProvider } from "@/lib/gateway-catalog";
 import { linkSchema, webUrl } from "@/lib/utm";
 import { z } from "zod";
 import { redirect } from "next/navigation";
@@ -312,6 +313,92 @@ export async function savePaymentIntegration(
       error:
         "Não foi possível configurar. Verifique a oferta, o token e a configuração do servidor.",
     };
+  }
+}
+
+export async function connectImportedGateway(
+  workspace: string,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    await requireFeature(workspace, "integrations");
+    const value = z.object({
+      provider: z.enum(["hotmart", "kiwify", "cakto"]),
+      client_id: z.string().trim().min(3).max(300),
+      client_secret: z.string().trim().min(4).max(1000),
+      account_id: z.string().trim().max(300).optional(),
+      basic_token: z.string().trim().max(1000).optional(),
+      webhook_secret: z.string().trim().min(4).max(500),
+      external_product_id: z.string().trim().min(1).max(300),
+    }).parse(Object.fromEntries(form));
+
+    const credentials = {
+      clientId: value.client_id,
+      clientSecret: value.client_secret,
+      accountId: value.account_id || undefined,
+      basicToken: value.basic_token || undefined,
+    };
+    const products = await listGatewayProducts(value.provider as CatalogProvider, credentials);
+    const product = products.find((item) => item.externalProductId === value.external_product_id);
+    if (!product) return { error: "O produto selecionado não está mais disponível. Busque novamente." };
+
+    const service = admin();
+    const landingUrl = product.checkoutUrl || {
+      hotmart: "https://hotmart.com",
+      kiwify: "https://kiwify.com.br",
+      cakto: "https://cakto.com.br",
+    }[value.provider];
+    const { data: offer, error: offerError } = await service
+      .from("utm_offers")
+      .insert({
+        workspace_id: workspace,
+        name: product.name,
+        landing_url: landingUrl,
+        checkout_url: product.checkoutUrl,
+        currency: product.currency,
+        platform: value.provider,
+        external_product_id: product.externalProductId,
+        external_offer_id: product.externalOfferId,
+      })
+      .select("id")
+      .single();
+    if (offerError || !offer) throw offerError || new Error("Não foi possível criar a oferta.");
+
+    const { data: integration, error: integrationError } = await service
+      .from("utm_integrations")
+      .insert({
+        workspace_id: workspace,
+        offer_id: offer.id,
+        provider: value.provider,
+        name: `${value.provider.toUpperCase()} · ${product.name}`,
+        external_product_id: product.externalProductId,
+        external_offer_id: product.externalOfferId,
+        currency: product.currency,
+      })
+      .select("id")
+      .single();
+    if (integrationError || !integration) {
+      await service.from("utm_offers").delete().eq("id", offer.id).eq("workspace_id", workspace);
+      throw integrationError || new Error("Não foi possível criar a integração.");
+    }
+
+    const { error: credentialError } = await service.from("utm_credentials").insert({
+      workspace_id: workspace,
+      integration_id: integration.id,
+      webhook_hash: digest(value.webhook_secret),
+      api_credentials_ciphertext: encrypt(JSON.stringify(credentials)),
+    });
+    if (credentialError) {
+      await service.from("utm_integrations").delete().eq("id", integration.id).eq("workspace_id", workspace);
+      await service.from("utm_offers").delete().eq("id", offer.id).eq("workspace_id", workspace);
+      throw credentialError;
+    }
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("Limite")) return { error: message };
+    return { error: "Não foi possível importar o produto. Confira as chaves, o produto e as permissões da API." };
   }
 }
 export async function cleanupTests(workspace: string): Promise<ActionResult> {
