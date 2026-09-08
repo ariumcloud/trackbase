@@ -6,7 +6,7 @@ import {
   ArrowRight,
   RefreshCw,
   Sparkles,
-  Smartphone,
+  Radio,
 } from "lucide-react";
 import type { Offer, DiagnosticRow } from "@/lib/types";
 import { runFunnelDiagnostic, type FunnelDiagnosticResult } from "@/lib/funnel-diagnostic";
@@ -165,10 +165,10 @@ export function DiagnosticoView({
             {selectTab && (
               <button
                 className="button secondary"
-                onClick={() => selectTab("simulador")}
-                title="Abrir Simulador de Lead em Tempo Real"
+                onClick={() => selectTab("radar")}
+                title="Abrir Radar de Leads em Tempo Real"
               >
-                <Smartphone size={15} /> Simulador de Lead
+                <Radio size={15} /> Radar de Leads
               </button>
             )}
           </div>

@@ -32,7 +32,7 @@ import {
   Landmark,
   Sun,
   Moon,
-  Smartphone,
+  Radio,
 } from "lucide-react";
 import { UtmifySummary } from "./utmify-summary";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
@@ -103,7 +103,7 @@ const tabs = [
   { id: "links", name: "Links e UTMs", icon: Link2 },
   { id: "campanhas", name: "Campanhas", icon: BarChart3 },
   { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
-  { id: "simulador", name: "Simulador de Lead", icon: Smartphone },
+  { id: "radar", name: "Radar de Leads", icon: Radio },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
   { id: "assistente", name: "Assistente IA", icon: Bot },
   { id: "alertas", name: "Alertas", icon: Bell },
@@ -129,9 +129,13 @@ const titles: Record<string, [string, string]> = {
     "Diagnóstico de Funil.",
     "Identifique gargalos, perdas de tráfego e impacto financeiro nas suas ofertas.",
   ],
+  radar: [
+    "Radar de Leads em Tempo Real.",
+    "Acompanhe a sessão individual de cada lead no seu funil: origem do anúncio, rolagem (25%, 50%, 75%, 90%) e intenção de compra.",
+  ],
   simulador: [
-    "Radar & Simulador de Lead em Tempo Real.",
-    "Acompanhe o percurso do lead na página, marcos de rolagem (25%, 50%, 75%, 90%) e disparos no Pixel/CAPI.",
+    "Radar de Leads em Tempo Real.",
+    "Acompanhe a sessão individual de cada lead no seu funil: origem do anúncio, rolagem (25%, 50%, 75%, 90%) e intenção de compra.",
   ],
   integracoes: [
     "Conecte os pontos.",
@@ -1965,7 +1969,9 @@ export function Dashboard(p: Props) {
               selectTab={selectTab}
             />
           )}
-          {tab === "simulador" && <LeadScrollVisualizer />}
+          {(tab === "radar" || tab === "simulador") && (
+            <LeadScrollVisualizer sales={p.sales} />
+          )}
           {tab === "assistente" && (
             <AssistenteTrackbase
               workspace={workspace}

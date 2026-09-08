@@ -2,195 +2,556 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  Smartphone,
-  Eye,
+  Radio,
   Play,
   Pause,
-  RotateCcw,
   CheckCircle2,
   Activity,
-  Zap,
   ShieldCheck,
   ShoppingBag,
   Clock,
-  Radio,
+  MapPin,
+  Eye,
+  Plus,
+  Compass,
 } from "lucide-react";
+import type { SaleRow } from "@/lib/types";
 
-interface EventLog {
+export interface LeadSession {
   id: string;
-  time: string;
-  type: string;
-  label: string;
-  detail: string;
-  color: string;
+  leadNumber: number;
+  name: string;
+  location: string;
+  device: string;
+  source: string;
+  campaign: string;
+  relativeTime: string;
+  maxScroll: number; // 0 a 100
+  timeSpentSeconds: number;
+  status: "purchased" | "checkout_clicked" | "cta_viewed" | "offer_viewed" | "bounced";
+  statusLabel: string;
+  statusColor: string;
+  amount?: number;
+  events: {
+    time: string;
+    type: string;
+    label: string;
+    detail: string;
+    color: string;
+  }[];
 }
 
-export function LeadScrollVisualizer() {
-  const phoneScrollRef = useRef<HTMLDivElement>(null);
-  const [scrollPercent, setScrollPercent] = useState<number>(0);
-  const [currentSection, setCurrentSection] = useState<string>("Topo / Dobra 1");
-  const [secondsOnPage, setSecondsOnPage] = useState<number>(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(false);
-  const [reachedMilestones, setReachedMilestones] = useState<{
-    pageview: boolean;
-    scroll25: boolean;
-    scroll50: boolean;
-    scroll75: boolean;
-    ctaView: boolean;
-    checkout: boolean;
-  }>({
-    pageview: true,
-    scroll25: false,
-    scroll50: false,
-    scroll75: false,
-    ctaView: false,
-    checkout: false,
-  });
-
-  const [logs, setLogs] = useState<EventLog[]>([
-    {
-      id: "init",
-      time: "00:00",
-      type: "PageView",
-      label: "Lead acessou a página",
-      detail: "UTMs e FBP capturados · Meta Pixel & CAPI acionados (EventID: ev_init)",
-      color: "#3B82F6",
-    },
-  ]);
-
-  // Cronômetro do tempo na página
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsOnPage((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const addLog = (type: string, label: string, detail: string, color: string) => {
-    const timeStr = formatTime(secondsOnPage);
-    setLogs((prev) => [
+const initialMockLeads: LeadSession[] = [
+  {
+    id: "lead_8491",
+    leadNumber: 8491,
+    name: "Lucas M.",
+    location: "São Paulo, SP",
+    device: "iPhone 15 Pro · iOS 18",
+    source: "Instagram Stories",
+    campaign: "cbo_escala_v2 · Criativo 03",
+    relativeTime: "Há 2 min",
+    maxScroll: 100,
+    timeSpentSeconds: 215,
+    status: "purchased",
+    statusLabel: "Comprou R$ 297,00",
+    statusColor: "#10B981",
+    amount: 297,
+    events: [
       {
-        id: Math.random().toString(36).substring(2, 9),
-        time: timeStr,
-        type,
-        label,
-        detail,
-        color,
+        time: "00:00",
+        type: "PageView",
+        label: "Lead acessou a página de vendas",
+        detail: "UTM: source=instagram, campaign=cbo_escala_v2 · FBP e IP capturados",
+        color: "#3B82F6",
       },
-      ...prev.slice(0, 19),
-    ]);
-  };
+      {
+        time: "00:25",
+        type: "ScrollDepth_25",
+        label: "Passou da primeira dobra (25%)",
+        detail: "Lead assistiu ao início da VSL · Baixa taxa de rejeição",
+        color: "#10B981",
+      },
+      {
+        time: "01:40",
+        type: "ScrollDepth_50",
+        label: "Consumiu metade do conteúdo (50%)",
+        detail: "Leu os 3 maiores gargalos de tráfego com alto engajamento",
+        color: "#10B981",
+      },
+      {
+        time: "02:50",
+        type: "ScrollDepth_75",
+        label: "Chegou na Seção de Oferta & Bônus (75%)",
+        detail: "Visualizou os 4 bônus exclusivos e ancoragem de preço",
+        color: "#F59E0B",
+      },
+      {
+        time: "03:05",
+        type: "ViewCTA",
+        label: "Botão de Compra visível no ecrã (90%)",
+        detail: "Botão pulsante 'QUERO GARANTIR MINHA VAGA' entrou no visor",
+        color: "#8B5CF6",
+      },
+      {
+        time: "03:20",
+        type: "InitiateCheckout",
+        label: "Lead clicou no Botão de Compra",
+        detail: "Redirecionado com SCK e UTMs injetadas na Cakto/Kiwify",
+        color: "#EF4444",
+      },
+      {
+        time: "03:35",
+        type: "Purchase",
+        label: "Venda aprovada via Pix!",
+        detail: "Valor de R$ 297,00 compensado instantaneamente",
+        color: "#10B981",
+      },
+    ],
+  },
+  {
+    id: "lead_8490",
+    leadNumber: 8490,
+    name: "Visitante Anônimo",
+    location: "Curitiba, PR",
+    device: "Samsung Galaxy S24 · Android 14",
+    source: "Facebook Feed",
+    campaign: "ad_criativo_direto_04",
+    relativeTime: "Há 6 min",
+    maxScroll: 88,
+    timeSpentSeconds: 154,
+    status: "cta_viewed",
+    statusLabel: "Viu Oferta & Preço (88%)",
+    statusColor: "#8B5CF6",
+    events: [
+      {
+        time: "00:00",
+        type: "PageView",
+        label: "Lead acessou a página de vendas",
+        detail: "UTM: source=facebook, campaign=ad_criativo_direto_04",
+        color: "#3B82F6",
+      },
+      {
+        time: "00:30",
+        type: "ScrollDepth_25",
+        label: "Passou da primeira dobra (25%)",
+        detail: "Iniciou leitura do mecanismo único",
+        color: "#10B981",
+      },
+      {
+        time: "01:20",
+        type: "ScrollDepth_50",
+        label: "Super engajado na narrativa (50%)",
+        detail: "Consumiu depoimentos de prova social",
+        color: "#10B981",
+      },
+      {
+        time: "02:10",
+        type: "ScrollDepth_75",
+        label: "Visualizou Oferta e Tabela de Preço (75%)",
+        detail: "Público ultra qualificado para remarketing no Meta Ads",
+        color: "#F59E0B",
+      },
+      {
+        time: "02:30",
+        type: "ViewCTA",
+        label: "Botão de Compra visível no ecrã!",
+        detail: "Lead viu o botão mas não clicou. Gargalo: objeção de garantia ou parcelamento.",
+        color: "#8B5CF6",
+      },
+    ],
+  },
+  {
+    id: "lead_8489",
+    leadNumber: 8489,
+    name: "Juliana F.",
+    location: "Belo Horizonte, MG",
+    device: "iPhone 14 · iOS 17",
+    source: "Instagram Reels",
+    campaign: "reels_historia_dor · Ad 02",
+    relativeTime: "Há 14 min",
+    maxScroll: 95,
+    timeSpentSeconds: 198,
+    status: "checkout_clicked",
+    statusLabel: "Clicou no Checkout (95%)",
+    statusColor: "#EF4444",
+    events: [
+      {
+        time: "00:00",
+        type: "PageView",
+        label: "Lead acessou a página de vendas",
+        detail: "UTM: source=instagram, campaign=reels_historia_dor",
+        color: "#3B82F6",
+      },
+      {
+        time: "00:20",
+        type: "ScrollDepth_25",
+        label: "Rolou até 25% da página",
+        detail: "Dobra inicial ultrapassada",
+        color: "#10B981",
+      },
+      {
+        time: "01:10",
+        type: "ScrollDepth_50",
+        label: "Rolou até 50% da página",
+        detail: "Assistiu 3 minutos da VSL",
+        color: "#10B981",
+      },
+      {
+        time: "02:15",
+        type: "ScrollDepth_75",
+        label: "Visualizou Oferta Completa (75%)",
+        detail: "Analisou o preço de 12x de R$ 29,70",
+        color: "#F59E0B",
+      },
+      {
+        time: "02:40",
+        type: "ViewCTA",
+        label: "Botão de Compra no ecrã",
+        detail: "Visualizou botão verde de checkout",
+        color: "#8B5CF6",
+      },
+      {
+        time: "03:10",
+        type: "InitiateCheckout",
+        label: "Clicou no Botão de Compra!",
+        detail: "Iniciou checkout na plataforma de pagamento",
+        color: "#EF4444",
+      },
+    ],
+  },
+  {
+    id: "lead_8488",
+    leadNumber: 8488,
+    name: "Visitante Anônimo",
+    location: "Campinas, SP",
+    device: "Motorola Edge 40 · Android 14",
+    source: "Google Pesquisa",
+    campaign: "search_trafego_direto",
+    relativeTime: "Há 22 min",
+    maxScroll: 52,
+    timeSpentSeconds: 65,
+    status: "offer_viewed",
+    statusLabel: "Parou na VSL/Dores (52%)",
+    statusColor: "#3B82F6",
+    events: [
+      {
+        time: "00:00",
+        type: "PageView",
+        label: "Lead acessou a página de vendas",
+        detail: "Origem: Busca Orgânica / Google Ads",
+        color: "#3B82F6",
+      },
+      {
+        time: "00:25",
+        type: "ScrollDepth_25",
+        label: "Passou da dobra 1 (25%)",
+        detail: "Leu a headline e deu play no vídeo",
+        color: "#10B981",
+      },
+      {
+        time: "01:00",
+        type: "ScrollDepth_50",
+        label: "Alcançou 50% da página",
+        detail: "Sessão encerrada antes de ver o preço e a oferta",
+        color: "#10B981",
+      },
+    ],
+  },
+  {
+    id: "lead_8487",
+    leadNumber: 8487,
+    name: "Visitante Anônimo",
+    location: "Fortaleza, CE",
+    device: "Xiaomi Redmi Note 13",
+    source: "Direto / Orgânico",
+    campaign: "link_bio_instagram",
+    relativeTime: "Há 35 min",
+    maxScroll: 22,
+    timeSpentSeconds: 12,
+    status: "bounced",
+    statusLabel: "Rejeição Rápida (22%)",
+    statusColor: "#94A3B8",
+    events: [
+      {
+        time: "00:00",
+        type: "PageView",
+        label: "Lead acessou a página de vendas",
+        detail: "Acesso direto via link da bio",
+        color: "#3B82F6",
+      },
+      {
+        time: "00:12",
+        type: "SessionEnd",
+        label: "Saiu da página em 12 segundos",
+        detail: "Não passou da primeira dobra. Possível desconexão com a promessa do anúncio.",
+        color: "#94A3B8",
+      },
+    ],
+  },
+];
 
-  // Trata a rolagem na tela do celular
-  const handlePhoneScroll = () => {
+export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
+  const phoneScrollRef = useRef<HTMLDivElement>(null);
+  const [leads, setLeads] = useState<LeadSession[]>(initialMockLeads);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>(initialMockLeads[0].id);
+  const [filterType, setFilterType] = useState<"all" | "purchased" | "hot" | "cta" | "cold">("all");
+  const [isReplaying, setIsReplaying] = useState<boolean>(false);
+  const [currentScrollPct, setCurrentScrollPct] = useState<number>(0);
+
+  const selectedLead = leads.find((l) => l.id === selectedLeadId) || leads[0];
+
+  // Se houver vendas reais no workspace, mescla os compradores reais
+  useEffect(() => {
+    if (!sales || sales.length === 0) return;
+    const realBuyerLeads: LeadSession[] = sales.slice(0, 3).map((s, idx) => {
+      const buyerName = s.attribution?.buyer_name || s.attribution?.name || "Comprador Verificado";
+      const src = s.attribution?.utm_source || s.provider || "Tráfego Pago";
+      const camp = s.attribution?.utm_campaign || "Campanha Principal";
+      const num = 9000 + idx;
+      return {
+        id: `real_${s.id}`,
+        leadNumber: num,
+        name: buyerName,
+        location: "Brasil",
+        device: "Dispositivo do Comprador",
+        source: src,
+        campaign: camp,
+        relativeTime: "Venda Real",
+        maxScroll: 100,
+        timeSpentSeconds: 180,
+        status: "purchased",
+        statusLabel: `Comprou R$ ${(s.gross_amount || s.amount || 0).toFixed(2)}`,
+        statusColor: "#10B981",
+        amount: s.gross_amount || s.amount || 0,
+        events: [
+          {
+            time: "00:00",
+            type: "PageView",
+            label: "Acesso registrado no funil",
+            detail: `Origem: ${src} · Campanha: ${camp}`,
+            color: "#3B82F6",
+          },
+          {
+            time: "00:28",
+            type: "ScrollDepth_25",
+            label: "Passou da dobra 1",
+            detail: "Iniciou consumo do conteúdo",
+            color: "#10B981",
+          },
+          {
+            time: "01:30",
+            type: "ScrollDepth_50",
+            label: "Metade da página alcançada",
+            detail: "Interesse validado",
+            color: "#10B981",
+          },
+          {
+            time: "02:20",
+            type: "ScrollDepth_75",
+            label: "Visualizou Oferta & Preço",
+            detail: "Lead quente",
+            color: "#F59E0B",
+          },
+          {
+            time: "02:45",
+            type: "ViewCTA",
+            label: "Botão de compra no visor",
+            detail: "Visualizou o checkout",
+            color: "#8B5CF6",
+          },
+          {
+            time: "03:00",
+            type: "Purchase",
+            label: `Compra aprovada na ${s.provider.toUpperCase()}!`,
+            detail: `Valor: R$ ${(s.gross_amount || s.amount || 0).toFixed(2)}`,
+            color: "#10B981",
+          },
+        ],
+      };
+    });
+
+    setLeads((prev) => {
+      const existingRealIds = new Set(prev.filter((p) => p.id.startsWith("real_")).map((p) => p.id));
+      const toAdd = realBuyerLeads.filter((r) => !existingRealIds.has(r.id));
+      return [...toAdd, ...prev];
+    });
+  }, [sales]);
+
+  // Atualiza a posição do celular ao trocar de lead selecionado
+  useEffect(() => {
+    if (!selectedLead) return;
+    setIsReplaying(false);
     const el = phoneScrollRef.current;
     if (!el) return;
 
-    const scrollTop = el.scrollTop;
-    const scrollHeight = el.scrollHeight - el.clientHeight;
-    const pct = Math.min(100, Math.max(0, Math.round((scrollTop / scrollHeight) * 100)));
-    setScrollPercent(pct);
+    // Calcula o scroll até o ponto máximo daquele lead
+    const maxScrollHeight = el.scrollHeight - el.clientHeight;
+    const targetScrollTop = (selectedLead.maxScroll / 100) * maxScrollHeight;
+    el.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+    setCurrentScrollPct(selectedLead.maxScroll);
+  }, [selectedLeadId, selectedLead]);
 
-    // Identifica seção ativa
-    if (pct < 20) {
-      setCurrentSection("Dobra 1: Headline & VSL");
-    } else if (pct < 45) {
-      setCurrentSection("Seção 2: Os 3 Maiores Gargalos");
-    } else if (pct < 70) {
-      setCurrentSection("Seção 3: Prova Social & Resultados");
-    } else if (pct < 90) {
-      setCurrentSection("Seção 4: Oferta Irresistível & Preço");
-    } else {
-      setCurrentSection("Seção 5: Garantia 30 Dias & Checkout");
-    }
-
-    // Gatilhos de Marcos de Scroll
-    if (pct >= 25 && !reachedMilestones.scroll25) {
-      setReachedMilestones((prev) => ({ ...prev, scroll25: true }));
-      addLog("ScrollDepth_25", "Lead passou da primeira dobra (25%)", "Superou o bounce inicial · Disparado fbq('trackCustom', 'ScrollDepth_25')", "#10B981");
-    }
-    if (pct >= 50 && !reachedMilestones.scroll50) {
-      setReachedMilestones((prev) => ({ ...prev, scroll50: true }));
-      addLog("ScrollDepth_50", "Lead consumiu metade da página (50%)", "Alto engajamento · Disparado fbq('trackCustom', 'ScrollDepth_50')", "#10B981");
-    }
-    if (pct >= 75 && !reachedMilestones.scroll75) {
-      setReachedMilestones((prev) => ({ ...prev, scroll75: true }));
-      addLog("ScrollDepth_75", "Lead chegou na Oferta e Bônus (75%)", "Público qualificado para remarketing · fbq('trackCustom', 'ScrollDepth_75')", "#F59E0B");
-    }
-    if (pct >= 85 && !reachedMilestones.ctaView) {
-      setReachedMilestones((prev) => ({ ...prev, ctaView: true }));
-      addLog("ViewCTA", "Botão de Compra visível no ecrã!", "Lead visualizou o botão de checkout · fbq('trackCustom', 'ViewCTA')", "#8B5CF6");
-    }
-  };
-
-  // Simulação Automática de um Lead lendo a página
+  // Modo Replay da Sessão (animação passo a passo do lead descendo a página)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isAutoPlaying) {
-      interval = setInterval(() => {
-        const el = phoneScrollRef.current;
-        if (!el) return;
+    if (isReplaying) {
+      const el = phoneScrollRef.current;
+      if (el) {
+        el.scrollTo({ top: 0, behavior: "auto" });
+      }
+      setCurrentScrollPct(0);
 
-        const maxScroll = el.scrollHeight - el.clientHeight;
-        if (el.scrollTop >= maxScroll - 5) {
-          setIsAutoPlaying(false);
+      let step = 0;
+      interval = setInterval(() => {
+        const container = phoneScrollRef.current;
+        if (!container) return;
+
+        const maxScrollHeight = container.scrollHeight - container.clientHeight;
+        const targetScrollTop = (selectedLead.maxScroll / 100) * maxScrollHeight;
+
+        step += 35;
+        if (step >= targetScrollTop) {
+          container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+          setCurrentScrollPct(selectedLead.maxScroll);
+          setIsReplaying(false);
           return;
         }
 
-        // Simula pausas humanas e rolagem fluida
-        el.scrollBy({ top: 35, behavior: "smooth" });
-      }, 350);
+        container.scrollTo({ top: step, behavior: "smooth" });
+        const pct = Math.min(100, Math.round((step / maxScrollHeight) * 100));
+        setCurrentScrollPct(pct);
+      }, 300);
     }
     return () => clearInterval(interval);
-  }, [isAutoPlaying]);
+  }, [isReplaying, selectedLead]);
 
-  const handleReset = () => {
-    setIsAutoPlaying(false);
-    if (phoneScrollRef.current) {
-      phoneScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-    setScrollPercent(0);
-    setCurrentSection("Dobra 1: Headline & VSL");
-    setSecondsOnPage(0);
-    setReachedMilestones({
-      pageview: true,
-      scroll25: false,
-      scroll50: false,
-      scroll75: false,
-      ctaView: false,
-      checkout: false,
-    });
-    setLogs([
-      {
-        id: "reset",
-        time: "00:00",
-        type: "PageView",
-        label: "Nova sessão iniciada",
-        detail: "Lead chegou na página de vendas · Sessão limpa e monitorando rolagem",
-        color: "#3B82F6",
-      },
-    ]);
+  // Manual scroll handler
+  const handlePhoneScroll = () => {
+    const el = phoneScrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+    const pct = Math.min(100, Math.max(0, Math.round((el.scrollTop / maxScroll) * 100)));
+    setCurrentScrollPct(pct);
   };
 
-  const handleCheckoutClick = () => {
-    setReachedMilestones((prev) => ({ ...prev, checkout: true }));
-    addLog(
-      "InitiateCheckout",
-      "Lead clicou no Botão de Compra!",
-      "Redirecionando para Cakto/Kiwify com parâmetros sck, utm_source, utm_campaign injetados",
-      "#EF4444"
-    );
+  // Simular a chegada de um Novo Lead em Tempo Real
+  const handleAddLiveLead = () => {
+    const randomNum = Math.floor(8492 + Math.random() * 500);
+    const cities = ["Florianópolis, SC", "Goiânia, GO", "Salvador, BA", "Recife, PE", "Brasília, DF"];
+    const sources = ["Instagram Stories", "TikTok Ads", "Facebook Feed", "Google Search"];
+    const scrollOptions = [28, 55, 78, 92, 100];
+    const pickedScroll = scrollOptions[Math.floor(Math.random() * scrollOptions.length)];
+    const randomCity = cities[Math.floor(Math.random() * cities.length)];
+    const randomSource = sources[Math.floor(Math.random() * sources.length)];
+
+    const isPurchase = pickedScroll === 100;
+    const isCta = pickedScroll >= 85;
+
+    const newLead: LeadSession = {
+      id: `lead_${randomNum}`,
+      leadNumber: randomNum,
+      name: isPurchase ? "Comprador Novo" : "Novo Visitante",
+      location: randomCity,
+      device: "iPhone 15 · 5G",
+      source: randomSource,
+      campaign: "cbo_escala_ao_vivo",
+      relativeTime: "Agora mesmo",
+      maxScroll: pickedScroll,
+      timeSpentSeconds: pickedScroll * 2,
+      status: isPurchase ? "purchased" : isCta ? "cta_viewed" : "offer_viewed",
+      statusLabel: isPurchase ? "Comprou R$ 297,00" : isCta ? "Viu Oferta & Preço" : `Parou em ${pickedScroll}%`,
+      statusColor: isPurchase ? "#10B981" : isCta ? "#8B5CF6" : "#3B82F6",
+      amount: isPurchase ? 297 : undefined,
+      events: [
+        {
+          time: "00:00",
+          type: "PageView",
+          label: "Lead acessou a página agora",
+          detail: `Origem: ${randomSource} · IP e FBP registrados`,
+          color: "#3B82F6",
+        },
+        ...(pickedScroll >= 25
+          ? [
+              {
+                time: "00:20",
+                type: "ScrollDepth_25",
+                label: "Passou da primeira dobra (25%)",
+                detail: "Interesse confirmado",
+                color: "#10B981",
+              },
+            ]
+          : []),
+        ...(pickedScroll >= 50
+          ? [
+              {
+                time: "01:10",
+                type: "ScrollDepth_50",
+                label: "Metade da página (50%)",
+                detail: "Consumiu a história e mecanismo",
+                color: "#10B981",
+              },
+            ]
+          : []),
+        ...(pickedScroll >= 75
+          ? [
+              {
+                time: "02:00",
+                type: "ScrollDepth_75",
+                label: "Visualizou Oferta (75%)",
+                detail: "Chegou na tabela de preços e bônus",
+                color: "#F59E0B",
+              },
+            ]
+          : []),
+        ...(isCta
+          ? [
+              {
+                time: "02:25",
+                type: "ViewCTA",
+                label: "Botão de Compra no Visor",
+                detail: "Lead viu o botão de checkout",
+                color: "#8B5CF6",
+              },
+            ]
+          : []),
+        ...(isPurchase
+          ? [
+              {
+                time: "02:40",
+                type: "Purchase",
+                label: "Venda aprovada via Pix!",
+                detail: "R$ 297,00 creditados na operação",
+                color: "#10B981",
+              },
+            ]
+          : []),
+      ],
+    };
+
+    setLeads((prev) => [newLead, ...prev]);
+    setSelectedLeadId(newLead.id);
+  };
+
+  // Filtro dos leads na barra
+  const filteredLeads = leads.filter((l) => {
+    if (filterType === "purchased") return l.status === "purchased";
+    if (filterType === "hot") return l.maxScroll >= 75;
+    if (filterType === "cta") return l.status === "cta_viewed" || l.status === "checkout_clicked";
+    if (filterType === "cold") return l.maxScroll < 50;
+    return true;
+  });
+
+  const formatSecs = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}m ${sec.toString().padStart(2, "0")}s`;
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Top Banner Explicativo */}
+      {/* Top Banner do Radar de Leads */}
       <div
         className="panel"
         style={{
@@ -219,46 +580,137 @@ export function LeadScrollVisualizer() {
                 fontWeight: 700,
               }}
             >
-              <Radio size={12} className="spin" /> SENSOR ATIVO
+              <Radio size={12} className="spin" /> RADAR DE LEADS EM TEMPO REAL
             </span>
-            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>
-              Visualizador de Rastreamento de Lead em Tempo Real
+            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--ink)" }}>
+              Radar de Leads · Sessões Individuais do Funil
             </h2>
           </div>
           <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
-            Veja exatamente onde o lead está na página, quais seções ele lê, quando alcança os marcos de <strong>25%, 50%, 75%</strong> e quando visualiza o botão de compra.
+            Selecione qualquer lead abaixo para ver o percurso exato dele no celular, onde ele parou de ler, tempo na tela e eventos acionados.
           </p>
         </div>
 
-        {/* Controles de Demonstração */}
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           <button
-            className={`button ${isAutoPlaying ? "secondary" : "primary"}`}
-            onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-            style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 600 }}
+            className="button primary"
+            onClick={handleAddLiveLead}
+            style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 650 }}
           >
-            {isAutoPlaying ? (
-              <>
-                <Pause size={15} /> Pausar Simulação
-              </>
-            ) : (
-              <>
-                <Play size={15} /> ▶ Simular Lead Automático
-              </>
-            )}
-          </button>
-          <button
-            className="button ghost"
-            onClick={handleReset}
-            title="Reiniciar Simulação"
-            style={{ display: "flex", alignItems: "center", gap: "4px" }}
-          >
-            <RotateCcw size={15} /> Reiniciar
+            <Plus size={15} /> 📡 Simular Novo Lead Chegando
           </button>
         </div>
       </div>
 
-      {/* Grid Principal Lado a Lado: Celular Mockup vs Painel de Telemetria */}
+      {/* SELETOR DE LEADS DO FUNIL (Sessões Individuais) */}
+      <div className="panel" style={{ padding: "1.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Compass size={18} color="#5B34EA" />
+            <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
+              Leads e Sessões Recentes no Funil ({leads.length})
+            </h3>
+          </div>
+
+          {/* Filtros Rápidos */}
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            {[
+              { id: "all", label: "Todos os Leads" },
+              { id: "hot", label: "🔥 Na Oferta (75%+)" },
+              { id: "purchased", label: "💰 Compradores" },
+              { id: "cta", label: "🛒 Clicaram/Viram CTA" },
+              { id: "cold", label: "❄️ Frios (<50%)" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilterType(f.id as "all" | "purchased" | "hot" | "cta" | "cold")}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  border: "1px solid",
+                  borderColor: filterType === f.id ? "#5B34EA" : "var(--line)",
+                  background: filterType === f.id ? "#5B34EA" : "var(--surface)",
+                  color: filterType === f.id ? "#FFF" : "var(--muted)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cards de Sessões Individuais (Grid com Scroll Horizontal Suave) */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: "0.75rem",
+            maxHeight: "180px",
+            overflowY: "auto",
+            paddingRight: "4px",
+          }}
+        >
+          {filteredLeads.map((lead) => {
+            const isSelected = lead.id === selectedLeadId;
+            return (
+              <div
+                key={lead.id}
+                onClick={() => setSelectedLeadId(lead.id)}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "10px",
+                  border: isSelected ? "2px solid #5B34EA" : "1px solid var(--line)",
+                  background: isSelected ? "rgba(91, 52, 234, 0.06)" : "var(--surface-subtle)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <strong style={{ fontSize: "0.82rem", color: "var(--ink)" }}>
+                    Lead #{lead.leadNumber} · {lead.name}
+                  </strong>
+                  <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{lead.relativeTime}</span>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--muted)" }}>
+                  <MapPin size={11} />
+                  <span>{lead.location}</span>
+                  <span>·</span>
+                  <span>{lead.source}</span>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                  <span
+                    style={{
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      background: `${lead.statusColor}18`,
+                      color: lead.statusColor,
+                    }}
+                  >
+                    {lead.statusLabel}
+                  </span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink)" }}>
+                    {lead.maxScroll}% rolado
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grid Principal Lado a Lado: Celular do Lead vs Telemetria da Sessão */}
       <div
         style={{
           display: "grid",
@@ -268,14 +720,43 @@ export function LeadScrollVisualizer() {
         }}
         className="lead-visualizer-grid"
       >
-        {/* COLUNA ESQUERDA: Celular Mockup Interativo */}
+        {/* COLUNA ESQUERDA: Celular Mockup com o percurso do Lead Selecionado */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", color: "var(--muted)" }}>
-            <Smartphone size={15} />
-            <span>Role a tela do celular abaixo:</span>
+          {/* Card Resumo do Lead Selecionado */}
+          <div
+            style={{
+              width: "340px",
+              padding: "10px 14px",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+              borderRadius: "12px",
+              fontSize: "0.78rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 700, color: "var(--ink)" }}>
+                Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
+              </div>
+              <div style={{ color: "var(--muted)", fontSize: "0.72rem" }}>
+                {selectedLead.device} · {selectedLead.location}
+              </div>
+            </div>
+
+            <button
+              className="button secondary small"
+              onClick={() => setIsReplaying(!isReplaying)}
+              title="Ver replay da rolagem do lead"
+              style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", padding: "4px 8px" }}
+            >
+              {isReplaying ? <Pause size={12} /> : <Play size={12} />}
+              <span>{isReplaying ? "Pausar" : "Replay"}</span>
+            </button>
           </div>
 
-          {/* Smartphone Frame (Estilo iPhone) */}
+          {/* Smartphone Frame */}
           <div
             style={{
               width: "340px",
@@ -289,7 +770,7 @@ export function LeadScrollVisualizer() {
               flexDirection: "column",
             }}
           >
-            {/* Ilha Dinâmica / Notch do Celular */}
+            {/* Notch / Ilha Dinâmica */}
             <div
               style={{
                 position: "absolute",
@@ -311,7 +792,7 @@ export function LeadScrollVisualizer() {
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#1a1a2e" }} />
             </div>
 
-            {/* Tela com Rolagem do Celular (Página de Vendas Mockup) */}
+            {/* Tela com Rolagem */}
             <div
               ref={phoneScrollRef}
               onScroll={handlePhoneScroll}
@@ -328,7 +809,7 @@ export function LeadScrollVisualizer() {
                 scrollbarWidth: "none",
               }}
             >
-              {/* Barra de Status do Celular */}
+              {/* Barra de Status */}
               <div
                 style={{
                   position: "sticky",
@@ -336,7 +817,7 @@ export function LeadScrollVisualizer() {
                   left: 0,
                   right: 0,
                   height: "38px",
-                  background: "rgba(255, 255, 255, 0.92)",
+                  background: "rgba(255, 255, 255, 0.94)",
                   backdropFilter: "blur(6px)",
                   display: "flex",
                   alignItems: "center",
@@ -353,7 +834,7 @@ export function LeadScrollVisualizer() {
                 <span style={{ fontSize: "0.68rem", color: "#64748B" }}>4G · 100%</span>
               </div>
 
-              {/* Indicador Flutuante de Scroll no Celular */}
+              {/* Barra de Scroll do Celular */}
               <div
                 style={{
                   position: "sticky",
@@ -368,14 +849,14 @@ export function LeadScrollVisualizer() {
                 <div
                   style={{
                     height: "100%",
-                    width: `${scrollPercent}%`,
+                    width: `${currentScrollPct}%`,
                     background: "linear-gradient(90deg, #10B981, #5B34EA)",
                     transition: "width 0.1s ease-out",
                   }}
                 />
               </div>
 
-              {/* CONTEÚDO DA PÁGINA DE VENDAS ALEATÓRIA (MOCKUP REALISTA) */}
+              {/* CONTEÚDO DA PÁGINA DE VENDAS */}
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: "20px" }}>
                 {/* DOBRA 1 (0% a 25%) */}
                 <div style={{ textAlign: "center" }}>
@@ -400,7 +881,6 @@ export function LeadScrollVisualizer() {
                     Veja o passo a passo exato para rastrear 100% das suas vendas e escalar campanhas com lucro garantido.
                   </p>
 
-                  {/* VSL Player Mock */}
                   <div
                     style={{
                       width: "100%",
@@ -413,7 +893,6 @@ export function LeadScrollVisualizer() {
                       justifyContent: "center",
                       color: "#FFFFFF",
                       position: "relative",
-                      overflow: "hidden",
                       boxShadow: "0 8px 16px rgba(0,0,0,0.15)",
                     }}
                   >
@@ -434,21 +913,6 @@ export function LeadScrollVisualizer() {
                     <span style={{ fontSize: "0.7rem", marginTop: "8px", fontWeight: 600 }}>
                       ▶ VSL Exclusiva (14:20)
                     </span>
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 6,
-                        left: 10,
-                        right: 10,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.62rem",
-                        color: "#94A3B8",
-                      }}
-                    >
-                      <span>03:45</span>
-                      <span>Assista até o final</span>
-                    </div>
                   </div>
                 </div>
 
@@ -468,18 +932,9 @@ export function LeadScrollVisualizer() {
                     Você está jogando 40% da sua verba de anúncio no lixo!
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "0.72rem", color: "#334155" }}>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <span style={{ color: "#EF4444", fontWeight: 700 }}>✖</span>
-                      <span>O Meta Ads não recebe as vendas dos checkouts e desotimiza suas campanhas.</span>
-                    </div>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <span style={{ color: "#EF4444", fontWeight: 700 }}>✖</span>
-                      <span>Você não sabe qual criativo realmente gerou o lucro no final do dia.</span>
-                    </div>
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <span style={{ color: "#EF4444", fontWeight: 700 }}>✖</span>
-                      <span>Leads saem da página sem você saber onde eles pararam de ler.</span>
-                    </div>
+                    <div>✖ O Meta Ads não recebe as vendas dos checkouts e desotimiza suas campanhas.</div>
+                    <div>✖ Você não sabe qual criativo realmente gerou o lucro no final do dia.</div>
+                    <div>✖ Leads saem da página sem você saber onde eles pararam de ler.</div>
                   </div>
                 </div>
 
@@ -498,19 +953,11 @@ export function LeadScrollVisualizer() {
                   <h3 style={{ fontSize: "0.88rem", fontWeight: 700, margin: "4px 0 8px" }}>
                     Mais de 3.420 gestores e infoprodutores escalando
                   </h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ background: "#FFF", padding: "8px", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.7rem" }}>
-                      <strong>&quot;Faturei R$ 42.000 no primeiro mês&quot;</strong>
-                      <p style={{ margin: "2px 0 0", color: "#64748B", fontSize: "0.65rem" }}>
-                        &quot;O rastreamento me mostrou que o lead lia até o preço e não comprava. Ajustei a oferta e explodiu!&quot; — Lucas M.
-                      </p>
-                    </div>
-                    <div style={{ background: "#FFF", padding: "8px", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.7rem" }}>
-                      <strong>&quot;ROI de 4.8x em tráfego direto&quot;</strong>
-                      <p style={{ margin: "2px 0 0", color: "#64748B", fontSize: "0.65rem" }}>
-                        &quot;CAPI sincronizada na hora e remarketing só pra quem viu 75% da página.&quot; — Camila R.
-                      </p>
-                    </div>
+                  <div style={{ background: "#FFF", padding: "8px", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.7rem" }}>
+                    <strong>&quot;Faturei R$ 42.000 no primeiro mês&quot;</strong>
+                    <p style={{ margin: "2px 0 0", color: "#64748B", fontSize: "0.65rem" }}>
+                      &quot;O rastreamento me mostrou que o lead lia até o preço e não comprava. Ajustei a oferta e explodiu!&quot; — Lucas M.
+                    </p>
                   </div>
                 </div>
 
@@ -544,12 +991,9 @@ export function LeadScrollVisualizer() {
                     <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#16A34A", lineHeight: 1.1 }}>
                       12x de R$ 29,70
                     </div>
-                    <span style={{ fontSize: "0.7rem", color: "#64748B" }}>ou R$ 297 à vista</span>
                   </div>
 
-                  {/* BOTÃO DE CHECKOUT (CTA) */}
                   <button
-                    onClick={handleCheckoutClick}
                     style={{
                       width: "100%",
                       padding: "12px",
@@ -565,17 +1009,13 @@ export function LeadScrollVisualizer() {
                       alignItems: "center",
                       justifyContent: "center",
                       gap: "6px",
-                      transition: "transform 0.1s ease",
                     }}
                   >
                     <ShoppingBag size={15} /> QUERO GARANTIR MINHA VAGA
                   </button>
-                  <span style={{ fontSize: "0.62rem", color: "#64748B", display: "block", marginTop: "6px" }}>
-                    🔒 Pagamento 100% Seguro · Acesso Imediato
-                  </span>
                 </div>
 
-                {/* DOBRA 5 (90% a 100%) - Garantia & Rodapé */}
+                {/* DOBRA 5 (90% a 100%) - Garantia */}
                 <div
                   style={{
                     background: "#F8FAFC",
@@ -589,55 +1029,77 @@ export function LeadScrollVisualizer() {
                   <h4 style={{ fontSize: "0.82rem", fontWeight: 700, margin: "0 0 4px" }}>
                     Garantia Incondicional de 30 Dias
                   </h4>
-                  <p style={{ fontSize: "0.68rem", color: "#64748B", margin: 0, lineHeight: 1.3 }}>
-                    Se você não tiver resultados reais ou não gostar do conteúdo, devolvemos cada centavo sem perguntas.
+                  <p style={{ fontSize: "0.68rem", color: "#64748B", margin: 0 }}>
+                    Risco zero garantido por contrato.
                   </p>
                 </div>
 
-                <div style={{ textAlign: "center", fontSize: "0.62rem", color: "#94A3B8", paddingBottom: "20px" }}>
-                  © 2026 Método Escala Digital · Todos os direitos reservados.
+                {/* Marcador Visual do Ponto de Parada do Lead */}
+                <div
+                  style={{
+                    padding: "6px",
+                    borderRadius: "8px",
+                    background: `${selectedLead.statusColor}22`,
+                    border: `1px dashed ${selectedLead.statusColor}`,
+                    textAlign: "center",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    color: selectedLead.statusColor,
+                  }}
+                >
+                  📍 Ponto de parada do Lead #{selectedLead.leadNumber} ({selectedLead.maxScroll}%)
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* COLUNA DIREITA: Painel de Telemetria e Eventos em Tempo Real */}
+        {/* COLUNA DIREITA: Telemetria e Diagnóstico Específico da Sessão do Lead */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Card 1: Gauge de Posição do Lead */}
+          {/* Painel 1: Perfil e Telemetria do Lead */}
           <div className="panel" style={{ padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <Activity size={18} color="#5B34EA" />
-                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>
-                  Posicionamento do Lead na Página
-                </h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Activity size={18} color="#5B34EA" />
+                  <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
+                    Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
+                  </h3>
+                </div>
+                <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                  {selectedLead.location} · {selectedLead.source} · {selectedLead.campaign}
+                </span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.8rem", color: "var(--muted)" }}>
-                <Clock size={14} />
-                <span>Tempo na tela: <strong>{formatTime(secondsOnPage)}</strong></span>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Clock size={15} color="var(--muted)" />
+                <span style={{ fontSize: "0.82rem", color: "var(--ink)", fontWeight: 600 }}>
+                  Tempo na tela: <strong>{formatSecs(selectedLead.timeSpentSeconds)}</strong>
+                </span>
               </div>
             </div>
 
-            {/* Barra de Progresso de Rolagem */}
-            <div style={{ marginBottom: "0.75rem" }}>
+            {/* Medidor de Rolagem Alcançado */}
+            <div style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
-                <span style={{ fontWeight: 600, color: "var(--ink)" }}>Profundidade de Rolagem (Scroll Depth)</span>
-                <strong style={{ color: "#5B34EA", fontSize: "1.1rem" }}>{scrollPercent}%</strong>
+                <span style={{ fontWeight: 600, color: "var(--ink)" }}>Profundidade Máxima Alcançada pelo Lead</span>
+                <strong style={{ color: selectedLead.statusColor, fontSize: "1.15rem" }}>
+                  {selectedLead.maxScroll}% da página
+                </strong>
               </div>
               <div style={{ width: "100%", height: "10px", background: "var(--line)", borderRadius: "6px", overflow: "hidden" }}>
                 <div
                   style={{
                     height: "100%",
-                    width: `${scrollPercent}%`,
-                    background: "linear-gradient(90deg, #10B981 0%, #3B82F6 50%, #5B34EA 100%)",
-                    transition: "width 0.15s ease",
+                    width: `${selectedLead.maxScroll}%`,
+                    background: selectedLead.statusColor,
+                    transition: "width 0.2s ease",
                   }}
                 />
               </div>
             </div>
 
-            {/* Badge da Seção Atualmente Lida */}
+            {/* Diagnóstico do Comportamento deste Lead */}
             <div
               style={{
                 display: "flex",
@@ -647,205 +1109,120 @@ export function LeadScrollVisualizer() {
                 background: "var(--surface-subtle)",
                 borderRadius: "8px",
                 border: "1px solid var(--line)",
-                fontSize: "0.85rem",
+                fontSize: "0.82rem",
               }}
             >
-              <Eye size={16} color="#10B981" />
-              <span style={{ color: "var(--muted)" }}>Lendo no momento:</span>
-              <strong style={{ color: "var(--ink)" }}>{currentSection}</strong>
+              <Eye size={16} color="#5B34EA" />
+              <span style={{ color: "var(--muted)" }}>Diagnóstico da sessão:</span>
+              <strong style={{ color: "var(--ink)" }}>
+                {selectedLead.status === "purchased"
+                  ? "Lead converteu com sucesso e realizou o pagamento total!"
+                  : selectedLead.status === "checkout_clicked"
+                  ? "Lead clicou no botão de compra mas abandonou na página do checkout."
+                  : selectedLead.status === "cta_viewed"
+                  ? "Visualizou o botão de compra e a tabela de preços, mas não clicou (Objeção de preço)."
+                  : selectedLead.status === "offer_viewed"
+                  ? "Chegou até a metade da VSL e abandonou antes de ver o preço."
+                  : "Saiu nos primeiros segundos da página (rejeição de headline/promessa)."}
+              </strong>
             </div>
           </div>
 
-          {/* Card 2: Marcos de Leitura & Gatilhos do Funil */}
+          {/* Painel 2: Marcos Acionados pelo Lead */}
           <div className="panel" style={{ padding: "1.25rem" }}>
             <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-              Marcos de Retenção & Disparos ao Meta Pixel / CAPI
+              Marcos Atingidos por este Lead
             </h3>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                 gap: "0.75rem",
               }}
             >
-              {/* Marco 1: PageView */}
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  background: reachedMilestones.pageview ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
-                  border: `1px solid ${reachedMilestones.pageview ? "#10B981" : "var(--line)"}`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: reachedMilestones.pageview ? "#10B981" : "var(--muted)" }}>
-                    0% · ENTRADA
-                  </span>
-                  {reachedMilestones.pageview && <CheckCircle2 size={14} color="#10B981" />}
+              {[
+                { label: "0% · PageView", active: true, desc: "Entrou na página" },
+                { label: "25% · Dobra 1", active: selectedLead.maxScroll >= 25, desc: "Passou da introdução" },
+                { label: "50% · Meio/VSL", active: selectedLead.maxScroll >= 50, desc: "Engajado no conteúdo" },
+                { label: "75% · Oferta", active: selectedLead.maxScroll >= 75, desc: "Viu a ancoragem" },
+                { label: "90% · CTA Visível", active: selectedLead.maxScroll >= 85, desc: "Botão no ecrã" },
+                { label: "Checkout/Compra", active: selectedLead.status === "purchased" || selectedLead.status === "checkout_clicked", desc: "Ação de conversão" },
+              ].map((m, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "8px",
+                    background: m.active ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
+                    border: `1px solid ${m.active ? "#10B981" : "var(--line)"}`,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: m.active ? "#10B981" : "var(--muted)" }}>
+                      {m.label}
+                    </span>
+                    {m.active && <CheckCircle2 size={14} color="#10B981" />}
+                  </div>
+                  <small style={{ color: "var(--muted)", fontSize: "0.72rem", display: "block", marginTop: "2px" }}>
+                    {m.desc}
+                  </small>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginTop: "2px", color: "var(--ink)" }}>PageView</div>
-                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Disparo CAPI sincronizado</small>
-              </div>
-
-              {/* Marco 2: Scroll 25% */}
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  background: reachedMilestones.scroll25 ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
-                  border: `1px solid ${reachedMilestones.scroll25 ? "#10B981" : "var(--line)"}`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: reachedMilestones.scroll25 ? "#10B981" : "var(--muted)" }}>
-                    25% · DOBRA 1
-                  </span>
-                  {reachedMilestones.scroll25 && <CheckCircle2 size={14} color="#10B981" />}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginTop: "2px", color: "var(--ink)" }}>ScrollDepth_25</div>
-                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Superou rejeição inicial</small>
-              </div>
-
-              {/* Marco 3: Scroll 50% */}
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  background: reachedMilestones.scroll50 ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
-                  border: `1px solid ${reachedMilestones.scroll50 ? "#10B981" : "var(--line)"}`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: reachedMilestones.scroll50 ? "#10B981" : "var(--muted)" }}>
-                    50% · MEIO DA PÁGINA
-                  </span>
-                  {reachedMilestones.scroll50 && <CheckCircle2 size={14} color="#10B981" />}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginTop: "2px", color: "var(--ink)" }}>ScrollDepth_50</div>
-                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Consumiu a história/dor</small>
-              </div>
-
-              {/* Marco 4: Scroll 75% */}
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  background: reachedMilestones.scroll75 ? "rgba(245, 158, 11, 0.1)" : "var(--surface-subtle)",
-                  border: `1px solid ${reachedMilestones.scroll75 ? "#F59E0B" : "var(--line)"}`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: reachedMilestones.scroll75 ? "#F59E0B" : "var(--muted)" }}>
-                    75% · OFERTA
-                  </span>
-                  {reachedMilestones.scroll75 && <CheckCircle2 size={14} color="#F59E0B" />}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginTop: "2px", color: "var(--ink)" }}>ScrollDepth_75</div>
-                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Visualizou o preço/bônus</small>
-              </div>
-
-              {/* Marco 5: CTA View */}
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  background: reachedMilestones.ctaView ? "rgba(139, 92, 246, 0.1)" : "var(--surface-subtle)",
-                  border: `1px solid ${reachedMilestones.ctaView ? "#8B5CF6" : "var(--line)"}`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: reachedMilestones.ctaView ? "#8B5CF6" : "var(--muted)" }}>
-                    CTA VISÍVEL
-                  </span>
-                  {reachedMilestones.ctaView && <CheckCircle2 size={14} color="#8B5CF6" />}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginTop: "2px", color: "var(--ink)" }}>ViewCTA</div>
-                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Botão de compra no ecrã</small>
-              </div>
-
-              {/* Marco 6: Checkout */}
-              <div
-                style={{
-                  padding: "10px",
-                  borderRadius: "8px",
-                  background: reachedMilestones.checkout ? "rgba(239, 68, 68, 0.1)" : "var(--surface-subtle)",
-                  border: `1px solid ${reachedMilestones.checkout ? "#EF4444" : "var(--line)"}`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: reachedMilestones.checkout ? "#EF4444" : "var(--muted)" }}>
-                    CLIQUE NO CHECKOUT
-                  </span>
-                  {reachedMilestones.checkout && <CheckCircle2 size={14} color="#EF4444" />}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginTop: "2px", color: "var(--ink)" }}>InitiateCheckout</div>
-                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>SCK & UTMs injetados</small>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Card 3: Feed de Disparos em Tempo Real (Terminal de Eventos) */}
-          <div className="panel" style={{ padding: "1.25rem", flex: 1 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Zap size={16} color="#F59E0B" />
-                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-                  Feed de Eventos Disparados em Tempo Real
-                </h3>
-              </div>
-              <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{logs.length} eventos registrados</span>
-            </div>
+          {/* Painel 3: Trilha de Eventos desta Sessão Específica */}
+          <div className="panel" style={{ padding: "1.25rem" }}>
+            <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
+              Linha do Tempo da Sessão (Feed do Lead #{selectedLead.leadNumber})
+            </h3>
 
-            {/* Lista com Rolagem dos Eventos */}
             <div
               style={{
-                background: "var(--surface-subtle)",
-                borderRadius: "8px",
-                border: "1px solid var(--line)",
-                padding: "8px 12px",
-                maxHeight: "220px",
-                overflowY: "auto",
                 display: "flex",
                 flexDirection: "column",
                 gap: "8px",
+                maxHeight: "220px",
+                overflowY: "auto",
               }}
             >
-              {logs.map((log) => (
+              {selectedLead.events.map((ev, idx) => (
                 <div
-                  key={log.id}
+                  key={idx}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
                     gap: "10px",
-                    padding: "6px 8px",
+                    padding: "6px 10px",
                     borderRadius: "6px",
                     background: "var(--surface)",
-                    borderLeft: `3px solid ${log.color}`,
+                    borderLeft: `3px solid ${ev.color}`,
                     fontSize: "0.8rem",
+                    border: "1px solid var(--line)",
                   }}
                 >
-                  <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--muted)" }}>
-                    [{log.time}]
+                  <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--muted)", flexShrink: 0 }}>
+                    [{ev.time}]
                   </span>
-                  <div style={{ flex: 1 }}>
+                  <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <span
                         style={{
-                          fontSize: "0.7rem",
+                          fontSize: "0.68rem",
                           fontWeight: 700,
                           padding: "1px 6px",
                           borderRadius: "4px",
-                          background: `${log.color}15`,
-                          color: log.color,
+                          background: `${ev.color}15`,
+                          color: ev.color,
                         }}
                       >
-                        {log.type}
+                        {ev.type}
                       </span>
-                      <strong style={{ color: "var(--ink)" }}>{log.label}</strong>
+                      <strong style={{ color: "var(--ink)" }}>{ev.label}</strong>
                     </div>
                     <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--muted)" }}>
-                      {log.detail}
+                      {ev.detail}
                     </p>
                   </div>
                 </div>
