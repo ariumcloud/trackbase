@@ -1,32 +1,74 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function isInternalHost(hostname: string | undefined, appHost: string | null): boolean {
+  if (!hostname) return true;
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".vercel.app") ||
+    hostname === "trackbase.com.br" ||
+    hostname.endsWith(".trackbase.com.br")
+  ) {
+    return true;
+  }
+  if (appHost) {
+    if (hostname === appHost || hostname.endsWith(`.${appHost}`)) {
+      return true;
+    }
+    const parts = appHost.split(".");
+    if (parts.length >= 2) {
+      const rootDomain = parts.slice(-2).join(".");
+      if (hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+const INTERNAL_PATHS = [
+  "/_next",
+  "/login",
+  "/painel",
+  "/auth",
+  "/api",
+  "/demo",
+  "/recuperar-senha",
+  "/privacidade",
+  "/termos",
+  "/s/",
+  "/tracker.js",
+  "/favicon.ico",
+];
+
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const configuredAppUrl = process.env.APP_URL?.trim();
-  const appHost = configuredAppUrl ? new URL(configuredAppUrl).hostname.toLowerCase() : null;
+  let appHost: string | null = null;
+  try {
+    if (configuredAppUrl) {
+      appHost = new URL(
+        configuredAppUrl.startsWith("http") ? configuredAppUrl : `https://${configuredAppUrl}`,
+      ).hostname.toLowerCase();
+    }
+  } catch {
+    appHost = null;
+  }
+
+  const { pathname } = request.nextUrl;
 
   // Verifica se a requisição veio de um domínio próprio configurado via CNAME
-  const isCustomDomain =
-    hostname &&
-    hostname !== "localhost" &&
-    hostname !== "127.0.0.1" &&
-    hostname !== appHost &&
-    !hostname.endsWith(".vercel.app");
+  const isCustomDomain = !isInternalHost(hostname, appHost);
 
   if (isCustomDomain) {
-    const { pathname } = request.nextUrl;
-    // Permite que arquivos estáticos, rotas de assets e o tracker passem direto
-    if (
-      !pathname.startsWith("/_next") &&
-      !pathname.startsWith("/api/track") &&
-      !pathname.startsWith("/tracker.js") &&
-      !pathname.startsWith("/favicon") &&
-      !pathname.endsWith(".png") &&
-      !pathname.endsWith(".jpg") &&
-      !pathname.endsWith(".svg") &&
-      !pathname.endsWith(".ico")
-    ) {
+    const isInternalPath =
+      INTERNAL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+      Boolean(pathname.match(/\.(png|jpg|jpeg|svg|ico|css|js|woff|woff2|webp)$/i));
+
+    if (!isInternalPath) {
       // Faz o rewrite transparente mantendo o domínio do cliente na barra do navegador
       const url = request.nextUrl.clone();
       url.pathname = `/s/${hostname}`;
@@ -35,7 +77,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const response = NextResponse.next({ request });
-  const { pathname } = request.nextUrl;
   const needsAuth =
     pathname.startsWith("/painel") ||
     pathname.startsWith("/login") ||
