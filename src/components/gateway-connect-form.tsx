@@ -78,6 +78,7 @@ export function GatewayConnectForm({
         });
       }}
     >
+      <input type="hidden" name="provider" value={provider} />
       <div style={{ background: "#F8F7FF", border: "1px solid #E5DEFF", borderRadius: "0.75rem", padding: "0.85rem 1rem", marginBottom: "1rem" }}>
         <strong>Como conectar sua {providerNames[provider]}</strong>
         <ol style={{ margin: "0.55rem 0 0 1.15rem", padding: 0, color: "var(--muted, #64748B)", fontSize: "0.82rem", lineHeight: 1.55 }}>
