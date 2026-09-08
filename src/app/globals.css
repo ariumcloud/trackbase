@@ -4329,3 +4329,28 @@ textarea {
 .utm-advanced-details[open] summary {
   margin-bottom: 12px;
 }
+
+.utm-split-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.utm-split-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.utm-split-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.utm-split-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink, #0F172A);
+}
+

@@ -1527,15 +1527,32 @@ export function Dashboard(p: Props) {
                             {l.active ? "Ativo" : "Inativo"}
                           </span>
                         </div>
-                        <p>{p.offers.find((o) => o.id === l.offer_id)?.name}</p>
-                        <label>
-                          Link completo
-                          <textarea readOnly value={built.full} />
-                        </label>
-                        <label>
-                          Parâmetros de URL da Meta
-                          <textarea readOnly value={built.parameters} />
-                        </label>
+                        <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--ink-secondary)" }}>
+                          Oferta: <strong>{p.offers.find((o) => o.id === l.offer_id)?.name}</strong>
+                        </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                          <label>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                              <span style={{ fontSize: "12px", fontWeight: 700 }}>1. URL do site (Página de destino limpa para a Meta)</span>
+                              <Clipboard value={l.url} label="Copiar URL do site" />
+                            </div>
+                            <input readOnly value={l.url} style={{ width: "100%" }} />
+                          </label>
+                          <label>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                              <span style={{ fontSize: "12px", fontWeight: 700 }}>2. Parâmetros de URL (Campo da Meta Ads)</span>
+                              <Clipboard value={built.parameters} label="Copiar parâmetros" />
+                            </div>
+                            <textarea readOnly rows={2} value={built.parameters} style={{ width: "100%" }} />
+                          </label>
+                          <label>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink-secondary)" }}>3. Link completo integrado (URL + Parâmetros juntos)</span>
+                              <Clipboard value={built.full} label="Copiar link completo" />
+                            </div>
+                            <textarea readOnly rows={2} value={built.full} style={{ width: "100%", opacity: 0.9 }} />
+                          </label>
+                        </div>
                         {l.public_key && (
                           <div
                             style={{
@@ -1581,11 +1598,12 @@ export function Dashboard(p: Props) {
                           </div>
                         )}
                         <div className="link-actions">
-                          <Clipboard value={built.full} label="Copiar link" />
+                          <Clipboard value={l.url} label="Copiar URL" />
                           <Clipboard
                             value={built.parameters}
                             label="Copiar parâmetros"
                           />
+                          <Clipboard value={built.full} label="Copiar link" />
                           <button
                             className="button small"
                             disabled={pending}
@@ -2678,17 +2696,61 @@ function LinkForm({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: 8,
+            marginBottom: 4,
           }}
         >
-          <span className="tag" style={{ margin: 0 }}>
-            LINK PRONTO COM RASTREAMENTO
+          <span
+            className="tag"
+            style={{ margin: 0, background: "#0284C7", color: "#FFFFFF" }}
+          >
+            {selectedChannel === "meta"
+              ? "FORMATO OFICIAL META ADS"
+              : "CAMPOS PARA RASTREAMENTO"}
           </span>
-          {preview.full && (
-            <Clipboard value={preview.full} label="Copiar link completo" />
-          )}
+          <span style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
+            Cole cada campo no Gerenciador de Anúncios
+          </span>
         </div>
-        <code>{preview.full || "Informe uma URL válida acima"}</code>
+
+        <div className="utm-split-card">
+          <div className="utm-split-item">
+            <div className="utm-split-header">
+              <span className="utm-split-title">
+                1. Campo &quot;URL do site&quot; na Meta:
+              </span>
+              <Clipboard value={url} label="Copiar URL" />
+            </div>
+            <code>{url || "Informe a URL da página acima"}</code>
+          </div>
+
+          <div className="utm-split-item">
+            <div className="utm-split-header">
+              <span className="utm-split-title">
+                2. Campo &quot;Parâmetros de URL&quot; na Meta:
+              </span>
+              <Clipboard value={preview.parameters} label="Copiar parâmetros" />
+            </div>
+            <code>{preview.parameters || "Nenhum parâmetro gerado"}</code>
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px solid var(--line, #E2E8F0)",
+              paddingTop: 8,
+              marginTop: 4,
+            }}
+          >
+            <div className="utm-split-header" style={{ marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
+                Ou Link completo integrado (para WhatsApp, Bio ou outros canais):
+              </span>
+              <Clipboard value={preview.full} label="Copiar link completo" />
+            </div>
+            <code style={{ fontSize: 11, opacity: 0.85 }}>
+              {preview.full || "Informe uma URL válida"}
+            </code>
+          </div>
+        </div>
       </div>
 
       <details className="utm-advanced-details">
