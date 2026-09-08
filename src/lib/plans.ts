@@ -5,7 +5,6 @@ export const planFeatures = [
   "capi",
   "alerts",
   "mining",
-  "cloner",
   "advancedAlerts",
   "agency",
   "jeen",

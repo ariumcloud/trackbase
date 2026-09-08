@@ -10,9 +10,7 @@ import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  Copy,
   Bot,
-  Zap,
 } from "lucide-react";
 import { FaqAccordion } from "@/components/faq-accordion";
 
@@ -45,7 +43,6 @@ const plans = [
       "Meta Ads e 7 plataformas de checkout",
       "Até 1.000 vendas",
       "Pixel e CAPI server-side deduplicados",
-      "Clonador de funil autônomo com editor de blocos",
       "Diagnóstico de gargalos com cálculo de perda financeira",
       "Assistente Trackbase IA para análise de ROAS e CPA",
       "Upsell, downsell e order bump separados",
@@ -64,7 +61,6 @@ const plans = [
       "Tudo do Plano Básico",
       "Até 5.000 vendas",
       "Até 25 workspaces e múltiplos acessos",
-      "Clonagens ilimitadas e auditoria profunda",
       "Relatórios consolidados para múltiplos sócios",
       "Suporte prioritário e onboarding assistido",
     ],
@@ -81,11 +77,6 @@ const faqs = [
     question: "Quais plataformas de checkout são suportadas?",
     answer:
       "O Trackbase suporta nativamente todas as principais plataformas de direct response do Brasil: Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, além de validação estrita de domínios para Braip, Ticto, Perfect Pay e Greenn. Suas vendas são processadas via webhooks criptografados com separação de produto principal, order bump e upsell.",
-  },
-  {
-    question: "Como funciona o Clonador de Funil autônomo?",
-    answer:
-      "Você insere a URL da página autorizada da sua operação. O Trackbase extrai a estrutura de blocos (Headline, VSL, Benefícios, Depoimentos, Oferta), remove scripts e pixels de terceiros (para evitar vazamento de dados para concorrentes) e injeta o script de tracking do Trackbase. Você pode substituir os links de checkout pelos seus e baixar o HTML 100% autônomo pronto para hospedar onde quiser.",
   },
   {
     question: "O que é o Diagnóstico de Gargalos e Auditoria Financeira?",
@@ -202,7 +193,6 @@ export default function Home() {
         </Link>
         <div className="landing-nav-links">
           <a href="#como-funciona">Como funciona</a>
-          <a href="#clonador">Clonador</a>
           <a href="#diagnostico">Diagnóstico</a>
           <a href="#assistente">Assistente IA</a>
           <a href="#comparativo">Comparativo</a>
@@ -229,12 +219,12 @@ export default function Home() {
             A PLATAFORMA DEFINITIVA DE DIRECT RESPONSE
           </span>
           <h1>
-            Rastreamento, Clonador &amp; Lucro Real
+            Rastreamento &amp; Lucro Real
             <br />
             <em>sem pagar fortunas.</em>
           </h1>
           <p>
-            Trackbase une Meta Ads, CAPI server-side deduplicada, clonador de funis autônomo, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 79/mês</strong>.
+            Trackbase une Meta Ads, CAPI server-side deduplicada, diagnóstico de gargalos com cálculo de perda financeira e assistente IA em uma única central por <strong>R$ 79/mês</strong>.
           </p>
           <div className="landing-actions">
             <Link href="/demo" className="button primary large">
@@ -308,49 +298,6 @@ export default function Home() {
               Deduza investimento de mídia e taxas de processamento automaticamente. Veja seu lucro operacional e margem percentual em tempo real.
             </p>
           </article>
-        </div>
-      </section>
-
-      {/* Clonador de Funil Section */}
-      <section id="clonador" className="landing-section" style={{ background: "#F8FAFC", borderTop: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0" }}>
-        <div className="section-intro">
-          <span className="eyebrow">VELOCIDADE &amp; CONTROLE</span>
-          <h2>Clonador de Funil Autônomo</h2>
-          <p>
-            Modele páginas autorizadas, edite blocos visuais, limpe códigos de concorrentes e gere arquivos HTML 100% autônomos com o tracker Trackbase já injetado.
-          </p>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", maxWidth: "1050px", margin: "0 auto" }}>
-          <div style={{ background: "#FFFFFF", padding: "1.75rem", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
-            <span style={{ display: "inline-flex", padding: "8px", borderRadius: "8px", background: "rgba(91, 52, 234, 0.1)", color: "#5B34EA", marginBottom: "1rem" }}>
-              <Copy size={24} />
-            </span>
-            <h3 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>Extração Estruturada sem Pixels Alheios</h3>
-            <p style={{ color: "#64748B", fontSize: "0.92rem", lineHeight: "1.5" }}>
-              O clonador extrai Hero, VSL, Prova Social, Oferta e FAQ enquanto remove automaticamente pixels de Meta, TikTok e scripts de terceiros do concorrente.
-            </p>
-          </div>
-
-          <div style={{ background: "#FFFFFF", padding: "1.75rem", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
-            <span style={{ display: "inline-flex", padding: "8px", borderRadius: "8px", background: "rgba(16, 185, 129, 0.1)", color: "#10B981", marginBottom: "1rem" }}>
-              <Zap size={24} />
-            </span>
-            <h3 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>Substituição em Massa de Checkouts</h3>
-            <p style={{ color: "#64748B", fontSize: "0.92rem", lineHeight: "1.5" }}>
-              Substitua todos os links de checkout da página pelo seu link de afiliado ou produtor com 1 clique, decorando os botões com as UTMs corretas.
-            </p>
-          </div>
-
-          <div style={{ background: "#FFFFFF", padding: "1.75rem", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
-            <span style={{ display: "inline-flex", padding: "8px", borderRadius: "8px", background: "rgba(91, 52, 234, 0.1)", color: "#5B34EA", marginBottom: "1rem" }}>
-              <ShieldCheck size={24} />
-            </span>
-            <h3 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>HTML Autônomo com Rastreamento</h3>
-            <p style={{ color: "#64748B", fontSize: "0.92rem", lineHeight: "1.5" }}>
-              Baixe um arquivo HTML completo, responsivo e sem dependências externas, pronto para hospedar na Hostinger, Vercel ou VPS própria com seu script Trackbase ativo.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -442,11 +389,6 @@ export default function Home() {
                 <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Mensalidade Acessível</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>R$ 79 / mês</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#EF3340" }}>R$ 197 a R$ 497 / mês</td>
-              </tr>
-              <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
-                <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Clonador de Funil Autônomo Incluso</td>
-                <td style={{ padding: "0.9rem 1.25rem", color: "#10B981" }}>✅ Incluso</td>
-                <td style={{ padding: "0.9rem 1.25rem", color: "#94A3B8" }}>❌ Não possui ou cobra extra</td>
               </tr>
               <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
                 <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Diagnóstico de Gargalos &amp; Perda em R$</td>

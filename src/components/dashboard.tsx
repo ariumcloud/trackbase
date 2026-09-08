@@ -69,14 +69,12 @@ import type {
   WebhookLog,
   DashboardSummary,
   PixelRow,
-  FunnelRow,
   DiagnosticRow,
 } from "@/lib/types";
 import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
 import dynamic from "next/dynamic";
 const AssistenteTrackbase = dynamic(() => import("./assistente").then((m) => m.AssistenteTrackbase), { ssr: false });
-const ClonadorViewLazy = dynamic(() => import("./clonador").then((m) => m.ClonadorView), { ssr: false });
 const DiagnosticoViewLazy = dynamic(() => import("./diagnostico").then((m) => m.DiagnosticoView), { ssr: false });
 import { CampaignsView } from "./campaigns-view";
 import { BottomBar } from "./bottom-bar";
@@ -94,7 +92,6 @@ type Props = {
   entities: Entity[];
   logs: WebhookLog[];
   pixels: PixelRow[];
-  funnels?: FunnelRow[];
   diagnostics?: DiagnosticRow[];
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
@@ -108,7 +105,6 @@ const tabs = [
   { id: "ofertas", name: "Minhas ofertas", icon: Layers },
   { id: "links", name: "Links e UTMs", icon: Link2 },
   { id: "campanhas", name: "Campanhas", icon: BarChart3 },
-  { id: "clonador", name: "Clonador de Funil", icon: Copy },
   { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
   { id: "assistente", name: "Assistente IA", icon: Bot },
@@ -130,10 +126,6 @@ const titles: Record<string, [string, string]> = {
   campanhas: [
     "Encontre o que traz resultado.",
     "Campanhas, conjuntos e anúncios da sua conta Meta.",
-  ],
-  clonador: [
-    "Clonador de Funil.",
-    "Analise páginas autorizadas, edite blocos visuais e injete tracking com UTMs.",
   ],
   diagnostico: [
     "Diagnóstico de Funil.",
@@ -720,7 +712,7 @@ export function Dashboard(p: Props) {
               <OnboardingChecklist
                 offersCount={p.offers.length}
                 hasPaymentGateway={hasPayments}
-                hasTrackerActivity={metrics.pageviews > 0 || ((p.funnels?.length ?? 0) > 0)}
+                hasTrackerActivity={metrics.pageviews > 0}
                 linksCount={p.links.length}
                 hasMetaConnected={p.integrations.some((i) => i.provider === "meta" && i.status === "connected")}
                 salesCount={p.sales.length}
@@ -2089,16 +2081,6 @@ export function Dashboard(p: Props) {
               run={run}
               request={request}
               connect={() => selectTab("integracoes")}
-            />
-          )}
-          {tab === "clonador" && (
-            <ClonadorViewLazy
-              workspace={workspace}
-              funnels={p.funnels || []}
-              offers={p.offers}
-              appUrl={p.appUrl}
-              run={run}
-              pending={pending}
             />
           )}
           {tab === "diagnostico" && (

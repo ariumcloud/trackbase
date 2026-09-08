@@ -14,7 +14,6 @@ import type {
   WebhookLog,
   DashboardSummary,
   PixelRow,
-  FunnelRow,
   DiagnosticRow,
 } from "@/lib/types";
 
@@ -109,7 +108,6 @@ export default async function Page({
     pixels,
     summaryRes,
     alerts,
-    funnelsRes,
     diagnosticsRes,
   ] = w
     ? await Promise.all([
@@ -177,13 +175,6 @@ export default async function Page({
         p.tab === "alertas"
           ? evaluateAlerts(w.id).catch(() => [] as AlertItem[])
           : Promise.resolve([] as AlertItem[]),
-        ["clonador"].includes(activeTab)
-          ? client
-              .from("utm_funnels")
-              .select("id,workspace_id,offer_id,name,source_url,status,version,blocks,pixels,settings,created_at,updated_at")
-              .eq("workspace_id", w.id)
-              .order("created_at", { ascending: false })
-          : empty,
         ["diagnostico", "assistente"].includes(activeTab)
           ? client
               .from("utm_funnel_diagnostics")
@@ -243,7 +234,6 @@ export default async function Page({
       entities={(entities.data ?? []) as Entity[]}
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
-      funnels={(funnelsRes.data ?? []) as FunnelRow[]}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}

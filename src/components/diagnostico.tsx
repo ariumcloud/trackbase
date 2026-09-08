@@ -472,7 +472,7 @@ export function DiagnosticoView({
                   {b.actionTab && (
                     <button
                       className="button small primary"
-                      onClick={() => selectTab(b.actionTab || "clonador")}
+                      onClick={() => selectTab(b.actionTab || "ofertas")}
                     >
                       {b.actionLabel || "Corrigir na Trackbase"} <ArrowRight size={13} />
                     </button>

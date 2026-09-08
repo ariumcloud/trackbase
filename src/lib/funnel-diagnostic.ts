@@ -116,8 +116,8 @@ export function runFunnelDiagnostic(input: FunnelDiagnosticInput): FunnelDiagnos
       hypothesis: "O dado não identifica a causa. Carregamento, redirecionamentos, consentimento ou bloqueadores podem contribuir.",
       recommendation: "Meça carregamento real e valide redirecionamentos antes de alterar a página.",
       estimatedLoss: null,
-      actionLabel: "Ver clonador",
-      actionTab: "clonador",
+      actionLabel: "Ver ofertas",
+      actionTab: "ofertas",
     });
   }
 
@@ -146,8 +146,8 @@ export function runFunnelDiagnostic(input: FunnelDiagnosticInput): FunnelDiagnos
       hypothesis: "Copy, proposta, visibilidade do CTA e instrumentação podem explicar o padrão; o diagnóstico não separa essas causas.",
       recommendation: "Teste uma alteração por vez e confirme primeiro se CTA e checkout estão sendo medidos.",
       estimatedLoss: null,
-      actionLabel: "Abrir clonador",
-      actionTab: "clonador",
+      actionLabel: "Ver ofertas",
+      actionTab: "ofertas",
     });
   }
 

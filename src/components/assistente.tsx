@@ -127,7 +127,6 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
     { label: "🎯 Pausar ou Escalar?", query: "Quais campanhas devo pausar ou escalar com base no CPA e ROAS?" },
     { label: "🔄 Como configurar a CAPI?", query: "Como a CAPI server-side do Trackbase funciona e evita eventos duplicados?" },
     { label: "🛒 Aumentar Ticket com Order Bump", query: "Como estruturar um Order Bump eficiente na minha esteira de produtos?" },
-    { label: "⚡ Como usar o Clonador", query: "Como funciona o Clonador de Funil do Trackbase com injeção de tracking?" },
   ];
 
   const handleCopy = (id: string, text: string) => {

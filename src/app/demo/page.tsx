@@ -17,7 +17,6 @@ import {
   TrendingUp,
   X,
   AlertTriangle,
-  Copy,
   Activity,
 } from "lucide-react";
 import { useState } from "react";
@@ -61,7 +60,6 @@ export default function DemoPage() {
     "Minhas ofertas",
     "Links e UTMs",
     "Campanhas",
-    "Clonador de Funil",
     "Diagnóstico de Funil",
     "Assistente IA",
     "Integrações e Pixels",
@@ -119,8 +117,6 @@ export default function DemoPage() {
                 <Link2 />
               ) : item === "Campanhas" ? (
                 <BarChart3 />
-              ) : item === "Clonador de Funil" ? (
-                <Copy />
               ) : item === "Diagnóstico de Funil" ? (
                 <Activity />
               ) : item === "Integrações e Pixels" ? (
