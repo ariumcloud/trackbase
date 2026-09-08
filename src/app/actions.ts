@@ -1,7 +1,7 @@
 "use server";
 import { requireFeature } from "@/lib/feature-access";
 import { db, admin } from "@/lib/supabase/server";
-import { authorize, digest, rateLimit, encrypt } from "@/lib/security";
+import { authorize, digest, rateLimit, encrypt, decrypt } from "@/lib/security";
 import { listGatewayProducts, type CatalogProvider } from "@/lib/gateway-catalog";
 import { linkSchema, webUrl } from "@/lib/utm";
 import { z } from "zod";
@@ -12,6 +12,13 @@ export type ActionResult = {
   error?: string;
   integrationId?: string;
   offerId?: string;
+  products?: Array<{
+    externalProductId: string;
+    externalOfferId: string | null;
+    name: string;
+    currency: string;
+    price: number | null;
+  }>;
 };
 export async function login(form: FormData): Promise<ActionResult> {
   const email = z.string().email().safeParse(form.get("email")),
@@ -439,6 +446,107 @@ export async function connectImportedGateway(
       return { error: `A ${provider === "cakto" ? "Cakto" : provider} recusou a consulta do produto. Confira as permissões da chave.` };
     }
     return { error: `Não foi possível concluir a etapa “${stage}”. Tente novamente em alguns segundos.` };
+  }
+}
+export async function listSavedGatewayProducts(
+  workspace: string,
+  integration: string,
+): Promise<ActionResult> {
+  try {
+    await requireFeature(workspace, "integrations");
+    const service = admin();
+    const { data: connection, error: connectionError } = await service
+      .from("utm_integrations")
+      .select("provider")
+      .eq("workspace_id", workspace)
+      .eq("id", integration)
+      .single();
+    if (connectionError || !connection) throw connectionError || new Error();
+    const { data: credential, error: credentialError } = await service
+      .from("utm_credentials")
+      .select("api_credentials_ciphertext")
+      .eq("workspace_id", workspace)
+      .eq("integration_id", integration)
+      .single();
+    if (credentialError || !credential?.api_credentials_ciphertext) throw credentialError || new Error();
+    const credentials = JSON.parse(decrypt(credential.api_credentials_ciphertext)) as Record<string, string | undefined>;
+    const products = await listGatewayProducts(connection.provider as CatalogProvider, {
+      clientId: credentials.clientId || "",
+      clientSecret: credentials.clientSecret || "",
+      accountId: credentials.accountId,
+      basicToken: credentials.basicToken,
+    });
+    return { ok: true, products };
+  } catch {
+    return { error: "Não foi possível carregar os produtos desta conexão." };
+  }
+}
+
+export async function connectAdditionalGatewayProduct(
+  workspace: string,
+  integration: string,
+  externalProductId: string,
+): Promise<ActionResult> {
+  try {
+    await requireFeature(workspace, "integrations");
+    const service = admin();
+    const { data: source, error: sourceError } = await service
+      .from("utm_integrations")
+      .select("provider")
+      .eq("workspace_id", workspace)
+      .eq("id", integration)
+      .single();
+    if (sourceError || !source) throw sourceError || new Error();
+    const { data: credential, error: credentialError } = await service
+      .from("utm_credentials")
+      .select("api_credentials_ciphertext")
+      .eq("workspace_id", workspace)
+      .eq("integration_id", integration)
+      .single();
+    if (credentialError || !credential?.api_credentials_ciphertext) throw credentialError || new Error();
+    const credentials = JSON.parse(decrypt(credential.api_credentials_ciphertext)) as Record<string, string | undefined>;
+    const products = await listGatewayProducts(source.provider as CatalogProvider, {
+      clientId: credentials.clientId || "",
+      clientSecret: credentials.clientSecret || "",
+      accountId: credentials.accountId,
+      basicToken: credentials.basicToken,
+    });
+    const product = products.find((item) => item.externalProductId === externalProductId);
+    if (!product) return { error: "O produto selecionado não está mais disponível." };
+    const { data: offer, error: offerError } = await service.from("utm_offers").insert({
+      workspace_id: workspace,
+      name: product.name,
+      landing_url: product.checkoutUrl || "https://cakto.com.br",
+      checkout_url: product.checkoutUrl,
+      currency: product.currency,
+      platform: source.provider,
+      external_product_id: product.externalProductId,
+      external_offer_id: product.externalOfferId,
+    }).select("id").single();
+    if (offerError || !offer) throw offerError || new Error();
+    const { data: created, error: integrationError } = await service.from("utm_integrations").insert({
+      workspace_id: workspace,
+      offer_id: offer.id,
+      provider: source.provider,
+      name: `${source.provider.toUpperCase()} · ${product.name}`,
+      external_product_id: product.externalProductId,
+      external_offer_id: product.externalOfferId,
+      currency: product.currency,
+    }).select("id").single();
+    if (integrationError || !created) {
+      await service.from("utm_offers").delete().eq("id", offer.id).eq("workspace_id", workspace);
+      throw integrationError || new Error();
+    }
+    const { error: newCredentialError } = await service.from("utm_credentials").insert({
+      workspace_id: workspace,
+      integration_id: created.id,
+      api_credentials_ciphertext: credential.api_credentials_ciphertext,
+    });
+    if (newCredentialError) throw newCredentialError;
+    revalidatePath("/painel");
+    return { ok: true, integrationId: created.id, offerId: offer.id };
+  } catch {
+    return { error: "Não foi possível adicionar este produto." };
   }
 }
 

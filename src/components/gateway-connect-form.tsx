@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { connectImportedGateway, saveGatewayWebhookSecret } from "@/app/actions";
+import { useEffect, useState, useTransition } from "react";
+import { connectAdditionalGatewayProduct, connectImportedGateway, listSavedGatewayProducts, saveGatewayWebhookSecret } from "@/app/actions";
 
 type Provider = "hotmart" | "kiwify" | "cakto";
 type Product = {
@@ -27,16 +27,27 @@ const providerDocs: Record<Provider, string> = {
 export function GatewayConnectForm({
   workspace,
   provider,
+  existingIntegrationId,
   onSuccess,
 }: {
   workspace: string;
   provider: Provider;
+  existingIntegrationId?: string;
   onSuccess: () => void;
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [message, setMessage] = useState("");
   const [imported, setImported] = useState<{ integrationId: string; productName: string } | null>(null);
   const [loading, start] = useTransition();
+
+  useEffect(() => {
+    if (!existingIntegrationId) return;
+    start(async () => {
+      const result = await listSavedGatewayProducts(workspace, existingIntegrationId);
+      if (result.error) setMessage(result.error);
+      else setProducts(result.products || []);
+    });
+  }, [existingIntegrationId, workspace]);
 
   if (imported && provider === "cakto") {
     const webhookUrl = `https://www.trackbase.com.br/api/webhooks/cakto/${imported.integrationId}`;
@@ -128,6 +139,34 @@ export function GatewayConnectForm({
       setMessage(result.products?.length ? "Escolha o produto para importar." : "Nenhum produto ativo foi encontrado nessa conta.");
     });
   };
+
+  if (existingIntegrationId) {
+    return (
+      <form className="gateway-next-step" onSubmit={(event) => {
+        event.preventDefault();
+        const productId = String(new FormData(event.currentTarget).get("external_product_id") || "");
+        start(async () => {
+          const result = await connectAdditionalGatewayProduct(workspace, existingIntegrationId, productId);
+          if (result.error) { setMessage(result.error); return; }
+          const product = products.find((item) => item.externalProductId === productId);
+          if (result.integrationId) setImported({ integrationId: result.integrationId, productName: product?.name || "seu produto" });
+        });
+      }}>
+        <span className="gateway-next-step-kicker">CONEXÃO JÁ SALVA</span>
+        <h3>Adicione outro produto da Cakto.</h3>
+        <p>As credenciais já estão protegidas na Trackbase. Escolha apenas o produto que deseja acompanhar.</p>
+        <label>
+          Produto para importar
+          <select name="external_product_id" required disabled={loading}>
+            {products.map((product) => <option key={product.externalProductId} value={product.externalProductId}>{product.name} · {product.currency}</option>)}
+          </select>
+        </label>
+        {!products.length && !message && <p className="form-help">Carregando produtos…</p>}
+        <button className="button primary" disabled={loading || !products.length}>{loading ? "Carregando…" : "Adicionar produto"}</button>
+        {message && <p className="form-message" role="status">{message}</p>}
+      </form>
+    );
+  }
 
   return (
     <form

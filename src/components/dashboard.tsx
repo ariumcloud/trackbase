@@ -1813,7 +1813,8 @@ export function Dashboard(p: Props) {
                           window.location.assign(
                             `/api/google/connect?workspace=${workspace}`,
                           );
-                        } else setModal(i.id);
+                        } else if (i.id === "cakto" && p.integrations.some((connection) => connection.provider === "cakto")) setModal("cakto-add");
+                        else setModal(i.id);
                       }}
                     >
                       {i.id === "cakto" && p.integrations.some((connection) => connection.provider === "cakto")
@@ -2348,7 +2349,9 @@ export function Dashboard(p: Props) {
                   ? "Cadastrar oferta"
                   : modal === "link"
                     ? "Criar link UTM"
-                    : `Conectar ${
+                : modal === "cakto-add"
+                  ? "Adicionar produto da Cakto"
+                  : `Conectar ${
                         modal === "hotmart"
                           ? "Hotmart"
                           : modal === "kiwify"
@@ -2391,10 +2394,11 @@ export function Dashboard(p: Props) {
                   }
                 />
               )
-            ) : ["hotmart", "kiwify", "cakto"].includes(modal) ? (
+            ) : ["hotmart", "kiwify", "cakto"].includes(modal) || modal === "cakto-add" ? (
               <GatewayConnectForm
                 workspace={workspace}
-                provider={modal as "hotmart" | "kiwify" | "cakto"}
+                provider="cakto"
+                existingIntegrationId={modal === "cakto-add" ? p.integrations.find((connection) => connection.provider === "cakto")?.id : undefined}
                 onSuccess={() => {
                   setModal(null);
                   router.refresh();
