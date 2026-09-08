@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { connectAdditionalGatewayProduct, connectImportedGateway, listSavedGatewayProducts, saveGatewayWebhookSecret } from "@/app/actions";
+import {
+  connectAdditionalGatewayProduct,
+  connectImportedGateway,
+  listSavedGatewayProducts,
+  saveGatewayWebhookSecret,
+} from "@/app/actions";
 
 type Provider = "hotmart" | "kiwify" | "cakto";
 type Product = {
@@ -24,15 +29,62 @@ const providerDocs: Record<Provider, string> = {
   cakto: "https://docs.cakto.com.br/introduction",
 };
 
+const providerWebhookConfig: Record<
+  Provider,
+  {
+    dashboardUrl: string;
+    dashboardLabel: string;
+    step1Text: (productName: string) => string;
+    secretLabel: string;
+    secretPlaceholder: string;
+    secretHelp: string;
+    eventsText: string;
+    tokenName: string;
+  }
+> = {
+  cakto: {
+    dashboardUrl: "https://app.cakto.com.br/dashboard/webhooks",
+    dashboardLabel: "Abrir Webhooks na Cakto",
+    step1Text: (productName) => `Crie um webhook com o nome “Trackbase · ${productName}”.`,
+    secretLabel: "Secret do webhook Cakto",
+    secretPlaceholder: "Cole o secret gerado pela Cakto",
+    secretHelp: "Ele confirma que as vendas recebidas são realmente da sua conta.",
+    eventsText: "Compra aprovada, Reembolso e Chargeback",
+    tokenName: "secret",
+  },
+  kiwify: {
+    dashboardUrl: "https://dashboard.kiwify.com.br/webhooks",
+    dashboardLabel: "Abrir Webhooks na Kiwify",
+    step1Text: (productName) => `Crie um webhook com o nome “Trackbase · ${productName}”.`,
+    secretLabel: "Token ou assinatura do webhook Kiwify",
+    secretPlaceholder: "Cole o token de webhook da Kiwify",
+    secretHelp: "Ele valida que os webhooks recebidos são autênticos.",
+    eventsText: "Pedido aprovado, Reembolso e Chargeback",
+    tokenName: "token",
+  },
+  hotmart: {
+    dashboardUrl: "https://app-vlc.hotmart.com/tools/webhook",
+    dashboardLabel: "Abrir Webhooks na Hotmart",
+    step1Text: (productName) => `Em Ferramentas > Webhook, crie uma configuração para “Trackbase · ${productName}”.`,
+    secretLabel: "Hottok ou token do webhook Hotmart",
+    secretPlaceholder: "Cole o Hottok gerado pela Hotmart",
+    secretHelp: "Ele valida que as notificações recebidas pertencem à sua conta.",
+    eventsText: "Compra aprovada, Reembolso e Disputa",
+    tokenName: "Hottok",
+  },
+};
+
 export function GatewayConnectForm({
   workspace,
   provider,
   existingIntegrationId,
+  appUrl = "https://www.trackbase.com.br",
   onSuccess,
 }: {
   workspace: string;
   provider: Provider;
   existingIntegrationId?: string;
+  appUrl?: string;
   onSuccess: () => void;
 }) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -49,22 +101,23 @@ export function GatewayConnectForm({
     });
   }, [existingIntegrationId, workspace]);
 
-  if (imported && provider === "cakto") {
-    const webhookUrl = `https://www.trackbase.com.br/api/webhooks/cakto/${imported.integrationId}`;
+  if (imported) {
+    const cfg = providerWebhookConfig[provider];
+    const webhookUrl = `${appUrl}/api/webhooks/${provider}/${imported.integrationId}`;
     return (
       <div className="gateway-next-step">
         <span className="gateway-next-step-kicker">PRODUTO IMPORTADO</span>
         <h3>Falta só conectar as vendas.</h3>
         <p>
-          A Cakto precisa avisar a Trackbase cada vez que uma venda, reembolso ou chargeback acontecer.
+          A {providerNames[provider]} precisa avisar a Trackbase cada vez que uma venda, reembolso ou chargeback acontecer.
         </p>
 
         <ol className="gateway-webhook-steps">
           <li>
-            <strong>Abra os Webhooks da Cakto.</strong>
-            <span>Crie um webhook com o nome “Trackbase · {imported.productName}”.</span>
-            <a href="https://app.cakto.com.br/dashboard/webhooks" target="_blank" rel="noreferrer">
-              Abrir Webhooks na Cakto <span aria-hidden="true">↗</span>
+            <strong>Abra os Webhooks da {providerNames[provider]}.</strong>
+            <span>{cfg.step1Text(imported.productName)}</span>
+            <a href={cfg.dashboardUrl} target="_blank" rel="noreferrer">
+              {cfg.dashboardLabel} <span aria-hidden="true">↗</span>
             </a>
           </li>
           <li>
@@ -72,16 +125,20 @@ export function GatewayConnectForm({
             <span>Escolha “{imported.productName}” no campo Produtos.</span>
             <div className="gateway-webhook-url">
               <code>{webhookUrl}</code>
-              <button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)}>Copiar URL</button>
+              <button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)}>
+                Copiar URL
+              </button>
             </div>
           </li>
           <li>
             <strong>Marque os eventos.</strong>
-            <span>Selecione: <b>Compra aprovada</b>, <b>Reembolso</b> e <b>Chargeback</b>. Depois salve como ativo.</span>
+            <span>
+              Selecione: <b>{cfg.eventsText}</b>. Depois salve como ativo.
+            </span>
           </li>
           <li>
-            <strong>Cole o secret gerado pela Cakto.</strong>
-            <span>Ele confirma que as vendas recebidas são realmente da sua conta.</span>
+            <strong>Cole o {cfg.tokenName} gerado pela {providerNames[provider]}.</strong>
+            <span>{cfg.secretHelp}</span>
           </li>
         </ol>
 
@@ -101,12 +158,30 @@ export function GatewayConnectForm({
           }}
         >
           <label>
-            Secret do webhook Cakto
-            <input name="secret" type="password" minLength={4} required autoComplete="new-password" disabled={loading} placeholder="Cole o secret gerado pela Cakto" />
+            {cfg.secretLabel}
+            <input
+              name="secret"
+              type="password"
+              minLength={4}
+              required
+              autoComplete="new-password"
+              disabled={loading}
+              placeholder={cfg.secretPlaceholder}
+            />
           </label>
-          <button className="button primary" disabled={loading}>
-            {loading ? "Salvando…" : "Concluir conexão"}
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+            <button className="button primary" disabled={loading} style={{ flex: 1 }}>
+              {loading ? "Salvando…" : "Concluir conexão"}
+            </button>
+            <button
+              className="button secondary"
+              type="button"
+              disabled={loading}
+              onClick={onSuccess}
+            >
+              Configurar depois
+            </button>
+          </div>
         </form>
         {message && <p className="form-message" role="status">{message}</p>}
       </div>
@@ -136,33 +211,54 @@ export function GatewayConnectForm({
         return;
       }
       setProducts(result.products || []);
-      setMessage(result.products?.length ? "Escolha o produto para importar." : "Nenhum produto ativo foi encontrado nessa conta.");
+      setMessage(
+        result.products?.length
+          ? "Escolha o produto para importar."
+          : "Nenhum produto ativo foi encontrado nessa conta.",
+      );
     });
   };
 
   if (existingIntegrationId) {
     return (
-      <form className="gateway-next-step" onSubmit={(event) => {
-        event.preventDefault();
-        const productId = String(new FormData(event.currentTarget).get("external_product_id") || "");
-        start(async () => {
-          const result = await connectAdditionalGatewayProduct(workspace, existingIntegrationId, productId);
-          if (result.error) { setMessage(result.error); return; }
-          const product = products.find((item) => item.externalProductId === productId);
-          if (result.integrationId) setImported({ integrationId: result.integrationId, productName: product?.name || "seu produto" });
-        });
-      }}>
+      <form
+        className="gateway-next-step"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const productId = String(new FormData(event.currentTarget).get("external_product_id") || "");
+          start(async () => {
+            const result = await connectAdditionalGatewayProduct(workspace, existingIntegrationId, productId);
+            if (result.error) {
+              setMessage(result.error);
+              return;
+            }
+            const product = products.find((item) => item.externalProductId === productId);
+            if (result.integrationId) {
+              setImported({
+                integrationId: result.integrationId,
+                productName: product?.name || "seu produto",
+              });
+            }
+          });
+        }}
+      >
         <span className="gateway-next-step-kicker">CONEXÃO JÁ SALVA</span>
-        <h3>Adicione outro produto da Cakto.</h3>
+        <h3>Adicione outro produto da {providerNames[provider]}.</h3>
         <p>As credenciais já estão protegidas na Trackbase. Escolha apenas o produto que deseja acompanhar.</p>
         <label>
           Produto para importar
           <select name="external_product_id" required disabled={loading}>
-            {products.map((product) => <option key={product.externalProductId} value={product.externalProductId}>{product.name} · {product.currency}</option>)}
+            {products.map((product) => (
+              <option key={product.externalProductId} value={product.externalProductId}>
+                {product.name} · {product.currency}
+              </option>
+            ))}
           </select>
         </label>
         {!products.length && !message && <p className="form-help">Carregando produtos…</p>}
-        <button className="button primary" disabled={loading || !products.length}>{loading ? "Carregando…" : "Adicionar produto"}</button>
+        <button className="button primary" disabled={loading || !products.length}>
+          {loading ? "Carregando…" : "Adicionar produto"}
+        </button>
         {message && <p className="form-message" role="status">{message}</p>}
       </form>
     );
@@ -181,10 +277,13 @@ export function GatewayConnectForm({
             setMessage(result.error);
             return;
           }
-          if (provider === "cakto" && result.integrationId) {
+          if (result.integrationId) {
             const selectedProductId = String(new FormData(form).get("external_product_id") || "");
             const product = products.find((item) => item.externalProductId === selectedProductId);
-            setImported({ integrationId: result.integrationId, productName: product?.name || "seu produto" });
+            setImported({
+              integrationId: result.integrationId,
+              productName: product?.name || "seu produto",
+            });
             return;
           }
           onSuccess();
@@ -192,26 +291,53 @@ export function GatewayConnectForm({
       }}
     >
       <input type="hidden" name="provider" value={provider} />
-      <div style={{ background: "#F8F7FF", border: "1px solid #E5DEFF", borderRadius: "0.75rem", padding: "0.85rem 1rem", marginBottom: "1rem" }}>
+      <div
+        style={{
+          background: "#F8F7FF",
+          border: "1px solid #E5DEFF",
+          borderRadius: "0.75rem",
+          padding: "0.85rem 1rem",
+          marginBottom: "1rem",
+        }}
+      >
         <strong>Como conectar sua {providerNames[provider]}</strong>
-        <ol style={{ margin: "0.55rem 0 0 1.15rem", padding: 0, color: "var(--muted, #64748B)", fontSize: "0.82rem", lineHeight: 1.55 }}>
-          {provider === "hotmart" && <>
-            <li>Abra o painel da Hotmart e entre em <b>Ferramentas &gt; Credenciais de API</b>.</li>
-            <li>Crie uma aplicação e copie <b>Client ID</b>, <b>Client Secret</b> e o <b>Token Basic</b>.</li>
-            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Ferramentas &gt; Webhook</b>.</li>
-          </>}
-          {provider === "kiwify" && <>
-            <li>Na Kiwify, abra <b>Configurações &gt; API</b> e crie uma credencial.</li>
-            <li>Copie o <b>Client ID</b>, <b>Client Secret</b> e o <b>Account ID</b> da conta.</li>
-            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Configurações &gt; Webhooks</b>.</li>
-          </>}
-          {provider === "cakto" && <>
-            <li>Na Cakto, abra a área de <b>API / Desenvolvedores</b> e crie uma credencial marcando <b>Produtos</b> e <b>Webhooks</b>.</li>
-            <li>Copie o <b>Client ID</b> e o <b>Client Secret</b>.</li>
-            <li>Depois da conexão, cadastre a URL mostrada na integração em <b>Webhooks</b> e use o mesmo secret neste formulário.</li>
-          </>}
+        <ol
+          style={{
+            margin: "0.55rem 0 0 1.15rem",
+            padding: 0,
+            color: "var(--muted, #64748B)",
+            fontSize: "0.82rem",
+            lineHeight: 1.55,
+          }}
+        >
+          {provider === "hotmart" && (
+            <>
+              <li>Abra o painel da Hotmart e entre em <b>Ferramentas &gt; Credenciais de API</b>.</li>
+              <li>Crie uma aplicação e copie <b>Client ID</b>, <b>Client Secret</b> e o <b>Token Basic</b>.</li>
+              <li>Após buscar os produtos e importar, você receberá o link do Webhook para ativar as vendas.</li>
+            </>
+          )}
+          {provider === "kiwify" && (
+            <>
+              <li>Na Kiwify, abra <b>Configurações &gt; API</b> e crie uma credencial.</li>
+              <li>Copie o <b>Client ID</b>, <b>Client Secret</b> e o <b>Account ID</b> da conta.</li>
+              <li>Após buscar os produtos e importar, você receberá o link do Webhook para ativar as vendas.</li>
+            </>
+          )}
+          {provider === "cakto" && (
+            <>
+              <li>Na Cakto, abra a área de <b>API / Desenvolvedores</b> e crie uma credencial marcando <b>Produtos</b> e <b>Webhooks</b>.</li>
+              <li>Copie o <b>Client ID</b> e o <b>Client Secret</b>.</li>
+              <li>Após buscar os produtos e importar, você receberá o link do Webhook para ativar as vendas.</li>
+            </>
+          )}
         </ol>
-        <a href={providerDocs[provider]} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem" }}>
+        <a
+          href={providerDocs[provider]}
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem" }}
+        >
           Abrir documentação oficial →
         </a>
       </div>
@@ -236,11 +362,21 @@ export function GatewayConnectForm({
         </label>
       )}
       <label>
-        {provider === "hotmart" ? "Hottok do webhook" : provider === "kiwify" ? "Token do webhook" : "Secret do webhook (depois da importação)"}
-        <input name="webhook_secret" type="password" autoComplete="new-password" required={provider !== "cakto"} disabled={loading} />
+        {provider === "hotmart"
+          ? "Hottok (opcional agora)"
+          : provider === "kiwify"
+            ? "Token do webhook (opcional agora)"
+            : "Secret do webhook (opcional agora)"}
+        <input
+          name="webhook_secret"
+          type="password"
+          autoComplete="new-password"
+          disabled={loading}
+          placeholder="Pode deixar vazio e configurar no próximo passo"
+        />
       </label>
       <p className="form-help" style={{ marginTop: "-0.35rem" }}>
-        {provider === "cakto" ? "Na Cakto, deixe vazio agora. Depois de importar o produto, crie o webhook, copie o secret gerado e salve-o na integração." : "Use o mesmo valor configurado no webhook do gateway."}
+        No próximo passo, exibiremos a URL exclusiva do webhook para você cadastrar na {providerNames[provider]} e ativar os eventos.
       </p>
       {products.length > 0 && (
         <label>

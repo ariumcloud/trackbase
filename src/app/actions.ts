@@ -353,9 +353,6 @@ export async function connectImportedGateway(
       external_product_id: z.string().trim().min(1).max(300),
     }).parse(Object.fromEntries(form));
     provider = value.provider;
-    if (value.provider !== "cakto" && (!value.webhook_secret || value.webhook_secret.length < 4)) {
-      return { error: "Informe o segredo do webhook antes de conectar este gateway." };
-    }
 
     const credentials = {
       clientId: value.client_id,
@@ -402,6 +399,7 @@ export async function connectImportedGateway(
         external_product_id: product.externalProductId,
         external_offer_id: product.externalOfferId,
         currency: product.currency,
+        status: value.webhook_secret && value.webhook_secret.length >= 4 ? "connected" : "pending",
       })
       .select("id")
       .single();
@@ -443,7 +441,8 @@ export async function connectImportedGateway(
       return { error: "A credencial segura do servidor não está configurada. Avise o suporte da Trackbase." };
     }
     if (message.includes("token") || message.includes("Credenciais") || message.includes("permissão")) {
-      return { error: `A ${provider === "cakto" ? "Cakto" : provider} recusou a consulta do produto. Confira as permissões da chave.` };
+      const providerLabel = { cakto: "Cakto", kiwify: "Kiwify", hotmart: "Hotmart" }[provider as CatalogProvider] || provider;
+      return { error: `A ${providerLabel} recusou a consulta do produto. Confira as permissões da chave.` };
     }
     return { error: `Não foi possível concluir a etapa “${stage}”. Tente novamente em alguns segundos.` };
   }
@@ -513,10 +512,15 @@ export async function connectAdditionalGatewayProduct(
     });
     const product = products.find((item) => item.externalProductId === externalProductId);
     if (!product) return { error: "O produto selecionado não está mais disponível." };
+    const landingUrl = product.checkoutUrl || ({
+      hotmart: "https://hotmart.com",
+      kiwify: "https://kiwify.com.br",
+      cakto: "https://cakto.com.br",
+    }[source.provider as CatalogProvider] || "https://trackbase.com.br");
     const { data: offer, error: offerError } = await service.from("utm_offers").insert({
       workspace_id: workspace,
       name: product.name,
-      landing_url: product.checkoutUrl || "https://cakto.com.br",
+      landing_url: landingUrl,
       checkout_url: product.checkoutUrl,
       currency: product.currency,
       platform: source.provider,
@@ -532,6 +536,7 @@ export async function connectAdditionalGatewayProduct(
       external_product_id: product.externalProductId,
       external_offer_id: product.externalOfferId,
       currency: product.currency,
+      status: "pending",
     }).select("id").single();
     if (integrationError || !created) {
       await service.from("utm_offers").delete().eq("id", offer.id).eq("workspace_id", workspace);
