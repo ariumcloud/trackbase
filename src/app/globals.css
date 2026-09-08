@@ -1926,10 +1926,18 @@ tr:hover td {
 .offer-activation span { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .offer-activation .button { flex: 0 0 auto; white-space: nowrap; }
 .gateway-connection-details { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 460px; }
+.gateway-connection-details .webhook-url { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; align-items: center; }
+.gateway-connection-details .webhook-url input { width: 100%; min-width: 0; font-size: 12px; }
 .gateway-connection-guide { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--brand-line, #DDD6FE); border-radius: 12px; background: var(--brand-soft, #F5F3FF); }
 .gateway-connection-guide strong { font-size: 14px; color: var(--ink); }
 .gateway-connection-guide > span:not(.gateway-next-step-kicker) { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .gateway-connection-guide a { margin-top: 3px; color: var(--brand-text); font-size: 12px; font-weight: 700; }
+.gateway-saved-state { display: grid; gap: 5px; padding: 14px; border: 1px solid #A7F3D0; border-radius: 12px; background: #ECFDF5; }
+.gateway-saved-state strong { color: #065F46; font-size: 14px; }
+.gateway-saved-state > span:not(.gateway-saved-badge) { color: #047857; font-size: 12px; }
+.gateway-saved-badge { width: fit-content; color: #047857; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+.gateway-saved-actions { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
+.text-button.danger { color: var(--red, #DC2626); }
 .gateway-connection-details .gateway-secret-form { padding-top: 0; }
 @media (max-width: 560px) { .offer-activation { align-items: stretch; flex-direction: column; } .offer-activation .button { width: 100%; justify-content: center; } }
 

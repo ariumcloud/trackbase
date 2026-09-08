@@ -47,6 +47,7 @@ import {
   toggleLink,
   savePaymentIntegration,
   saveGatewayWebhookSecret,
+  removeGatewayWebhookSecret,
   cleanupTests,
   logout,
   savePixel,
@@ -2649,6 +2650,7 @@ function IntegrationCard({
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
   const [businesses, setBusinesses] = useState<Array<{ id: string; name: string }>>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [editingWebhookSecret, setEditingWebhookSecret] = useState(false);
   const statusText: Record<string, string> = {
     connected: "Conta conectada",
     select_account: "OAuth conectado · selecione uma conta de anúncios",
@@ -2793,14 +2795,34 @@ function IntegrationCard({
         </div>
       ) : (
         <div className={`gateway-connection-details ${i.provider === "cakto" ? "is-cakto" : ""}`}>
-          {i.provider === "cakto" && (
+          {i.provider === "cakto" && i.status === "connected" && !editingWebhookSecret ? (
+            <div className="gateway-saved-state">
+              <span className="gateway-saved-badge">WEBHOOK ATIVO</span>
+              <strong>Webhook salvo para {i.name.replace(/^CAKTO\s*·\s*/i, "")}</strong>
+              <span>As vendas deste produto serão recebidas pela Trackbase.</span>
+              <div className="gateway-saved-actions">
+                <button className="button secondary" type="button" onClick={() => setEditingWebhookSecret(true)}>Editar secret</button>
+                <button
+                  className="text-button danger"
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Remover o webhook desta integração? As vendas deixarão de ser recebidas até você configurar novamente.")) {
+                      run(() => removeGatewayWebhookSecret(workspace, i.id));
+                    }
+                  }}
+                >
+                  Remover webhook
+                </button>
+              </div>
+            </div>
+          ) : i.provider === "cakto" ? (
             <div className="gateway-connection-guide">
               <span className="gateway-next-step-kicker">ÚLTIMO PASSO</span>
-              <strong>Ative o recebimento das vendas</strong>
+              <strong>{editingWebhookSecret ? "Atualize o secret do webhook" : "Ative o recebimento das vendas"}</strong>
               <span>Na Cakto, crie um webhook para esta URL, selecione o produto e marque Compra aprovada, Reembolso e Chargeback.</span>
               <a href="https://app.cakto.com.br/dashboard/webhooks" target="_blank" rel="noreferrer">Abrir Webhooks na Cakto ↗</a>
             </div>
-          )}
+          ) : null}
           <div className="webhook-url">
             <input
               aria-label="Endpoint do webhook"
@@ -2812,13 +2834,13 @@ function IntegrationCard({
           <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>
             {i.provider === "hotmart" && "Configure em Ferramentas > Webhook na Hotmart com seu Hottok."}
             {i.provider === "kiwify" && "Configure em Configurações > Webhooks na Kiwify com o token salvo."}
-            {i.provider === "cakto" && "Depois de salvar o webhook na Cakto, cole aqui o secret gerado."}
+            {i.provider === "cakto" && (i.status === "connected" && !editingWebhookSecret ? "URL ativa para este produto." : editingWebhookSecret ? "Cole o novo secret gerado pela Cakto." : "Depois de salvar o webhook na Cakto, cole aqui o secret gerado.")}
             {i.provider === "kirvano" && "Configure em Configurações > Webhooks na Kirvano com seu token."}
             {i.provider === "eduzz" && "Configure em Ferramentas > Webhooks na Eduzz / Órbita."}
             {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
             {i.provider === "wiapy" && "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
           </small>
-          {i.provider === "cakto" && (
+          {i.provider === "cakto" && (i.status !== "connected" || editingWebhookSecret) && (
             <form
               className="gateway-secret-form"
               onSubmit={(event) => {
@@ -2827,12 +2849,13 @@ function IntegrationCard({
                 run(async () => {
                   const result = await saveGatewayWebhookSecret(workspace, i.id, String(secret || ""));
                   if (result.error) throw new Error(result.error);
+                  setEditingWebhookSecret(false);
                 });
                 event.currentTarget.reset();
               }}
             >
               <input name="secret" type="password" minLength={4} required placeholder="Secret gerado pela Cakto" />
-              <button className="button secondary" disabled={pending}>Salvar secret</button>
+              <button className="button secondary" disabled={pending}>{editingWebhookSecret ? "Atualizar secret" : "Salvar secret"}</button>
             </form>
           )}
         </div>

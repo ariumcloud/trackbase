@@ -475,6 +475,32 @@ export async function saveGatewayWebhookSecret(
     return { error: "Não foi possível salvar o secret do webhook." };
   }
 }
+export async function removeGatewayWebhookSecret(
+  workspace: string,
+  integration: string,
+): Promise<ActionResult> {
+  try {
+    await requireFeature(workspace, "integrations");
+    const value = z.object({ integration: z.string().uuid() }).parse({ integration });
+    const service = admin();
+    const { error } = await service
+      .from("utm_credentials")
+      .update({ webhook_hash: null, webhook_secret_ciphertext: null })
+      .eq("workspace_id", workspace)
+      .eq("integration_id", value.integration);
+    if (error) throw error;
+    const { error: integrationError } = await service
+      .from("utm_integrations")
+      .update({ status: "pending" })
+      .eq("workspace_id", workspace)
+      .eq("id", value.integration);
+    if (integrationError) throw integrationError;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível remover o webhook." };
+  }
+}
 export async function cleanupTests(workspace: string): Promise<ActionResult> {
   try {
     await authorize(workspace, true);
