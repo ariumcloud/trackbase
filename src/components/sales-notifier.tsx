@@ -162,7 +162,10 @@ export function SalesNotifier({ workspaceId }: Props) {
         });
 
         if (!res.ok) {
-          throw new Error("Erro ao salvar inscrição no servidor.");
+          const response = await res.json().catch(() => null);
+          throw new Error(
+            response?.error || "Não foi possível salvar a inscrição no servidor.",
+          );
         }
 
         setIsSubscribed(true);

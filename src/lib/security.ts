@@ -61,7 +61,18 @@ export function sameOrigin(request: Request) {
 
   const configuredAppUrl = process.env.APP_URL?.trim();
   const allowedOrigins = new Set<string>();
-  if (configuredAppUrl) allowedOrigins.add(new URL(configuredAppUrl).origin);
+  if (configuredAppUrl) {
+    const configuredUrl = new URL(configuredAppUrl);
+    allowedOrigins.add(configuredUrl.origin);
+
+    // O domínio público pode ser aberto com ou sem www. Ambos pertencem ao
+    // mesmo app, mas ainda mantemos a lista fechada a essas duas origens.
+    const alternateUrl = new URL(configuredUrl.origin);
+    alternateUrl.hostname = configuredUrl.hostname.startsWith("www.")
+      ? configuredUrl.hostname.slice(4)
+      : `www.${configuredUrl.hostname}`;
+    allowedOrigins.add(alternateUrl.origin);
+  }
   // Em produção a origem precisa ser fixa; o Host do request não é confiável.
   if (process.env.NODE_ENV !== "production") {
     allowedOrigins.add(new URL(request.url).origin);
