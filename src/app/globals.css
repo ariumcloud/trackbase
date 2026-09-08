@@ -2457,8 +2457,9 @@ textarea {
     padding-bottom: 74px;
   }
   .topbar {
-    height: 56px;
-    padding: 0 14px;
+    height: calc(56px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 14px 0;
+    box-sizing: border-box;
     position: sticky;
     top: 0;
     z-index: 40;
