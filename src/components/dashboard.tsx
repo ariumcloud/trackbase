@@ -33,10 +33,12 @@ import {
   Sun,
   Moon,
   Radio,
+  BookOpen,
 } from "lucide-react";
 import { UtmifySummary } from "./utmify-summary";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
+import { GuideModal } from "./guide-modal";
 import {
   saveLink,
   toggleLink,
@@ -224,6 +226,7 @@ export function Dashboard(p: Props) {
     [provider, setProvider] = useState("all"),
     [notice, setNotice] = useState(""),
     [showExportMenu, setShowExportMenu] = useState(false),
+    [guideModalOpen, setGuideModalOpen] = useState(false),
     [pending, start] = useTransition();
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -724,6 +727,23 @@ export function Dashboard(p: Props) {
                   </div>
                 )}
               </div>
+              <button
+                type="button"
+                className="button ghost"
+                onClick={() => setGuideModalOpen(true)}
+                title="Guia Passo a Passo Oficial (Todas as Funções)"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  borderColor: "var(--line)",
+                }}
+              >
+                <BookOpen size={16} color="var(--brand-accent)" />
+                <span>Passo a Passo</span>
+              </button>
               {tab === "ofertas" && (
                 <button
                   className="button primary"
@@ -835,6 +855,7 @@ export function Dashboard(p: Props) {
                 hasTrackerActivity={metrics.pageviews > 0}
                 linksCount={p.links.length}
                 hasMetaConnected={p.integrations.some((i) => i.provider === "meta" && i.status === "connected")}
+                hasShieldConfigured={(p.shields?.length ?? 0) > 0}
                 salesCount={p.sales.length}
                 onNavigateTab={selectTab}
               />
@@ -2479,6 +2500,11 @@ export function Dashboard(p: Props) {
         onSelectTab={selectTab}
         onOpenMenu={() => setMobile(true)}
         unreadAlertsCount={p.alerts.filter((a) => !a.read).length}
+      />
+      <GuideModal
+        isOpen={guideModalOpen}
+        onClose={() => setGuideModalOpen(false)}
+        onNavigateTab={selectTab}
       />
     </div>
   );
