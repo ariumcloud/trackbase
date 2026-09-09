@@ -110,7 +110,10 @@ export default async function Page({
   const needsInsights = ["visao", "campanhas", "assistente"].includes(activeTab);
   const needsEntities = ["visao", "campanhas", "assistente"].includes(activeTab);
   const needsLogs = activeTab === "integracoes";
-  const needsPixels = ["integracoes", "campanhas"].includes(activeTab);
+  // The offers tab exposes the universal Meta Pixel installer, so it also
+  // needs the pixel rows available before opening that modal. Without this,
+  // a configured pixel was incorrectly treated as missing until navigation.
+  const needsPixels = ["integracoes", "campanhas", "ofertas"].includes(activeTab);
   const needsSummary = ["visao", "campanhas"].includes(activeTab);
   const needsAlerts = activeTab === "alertas";
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
