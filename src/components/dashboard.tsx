@@ -57,6 +57,7 @@ import { LockedFeatureCard } from "./locked-feature-card";
 import {
   saveLink,
   toggleLink,
+  deleteOffer,
   savePaymentIntegration,
   saveGatewayWebhookSecret,
   removeGatewayWebhookSecret,
@@ -1652,14 +1653,32 @@ export function Dashboard(p: Props) {
                                 </div>
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              className="offer-edit-btn"
-                              onClick={() => setModal(`offer-edit-${o.id}`)}
-                              title="Editar configurações desta oferta"
-                            >
-                              <Pencil size={12} /> Editar
-                            </button>
+                            <div className="offer-actions-group">
+                              <button
+                                type="button"
+                                className="offer-edit-btn"
+                                onClick={() => setModal(`offer-edit-${o.id}`)}
+                                title="Editar configurações desta oferta"
+                              >
+                                <Pencil size={12} /> Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="offer-delete-btn"
+                                disabled={pending}
+                                onClick={() => {
+                                  if (window.confirm(`Tem certeza que deseja excluir a oferta "${o.name}"? Os links associados serão removidos.`)) {
+                                    run(async () => {
+                                      const res = await deleteOffer(workspace, o.id);
+                                      if (res.error) throw new Error(res.error);
+                                    });
+                                  }
+                                }}
+                                title="Excluir esta oferta/produto"
+                              >
+                                <Trash2 size={12} /> Excluir
+                              </button>
+                            </div>
                           </div>
 
                           <div className="offer-destination-box">
@@ -2122,6 +2141,7 @@ export function Dashboard(p: Props) {
                         run={run}
                         request={request}
                         pending={pending}
+                        onOpenAccountModal={(item) => setMetaAccountModalIntegration(item)}
                       />
                     ))}
                   </div>
@@ -3406,9 +3426,11 @@ function MetaAccountModal({
           </div>
           <div style={{ flex: 1 }}>
             <span className="meta-modal-eyebrow">CONEXÃO META ADS</span>
-            <h2>Selecione sua Conta de Anúncios</h2>
+            <h2>{integration.account_id ? "Trocar Conta de Anúncios" : "Selecione sua Conta de Anúncios"}</h2>
             <p>
-              Escolha qual conta do Meta Ads você deseja sincronizar neste workspace:
+              {integration.account_id
+                ? "Selecione outra conta de anúncios associada a este Facebook para alternar o rastreamento:"
+                : "Escolha qual conta do Meta Ads você deseja sincronizar neste workspace:"}
             </p>
           </div>
           <button
@@ -3504,18 +3526,24 @@ function MetaAccountModal({
             <div className="meta-modal-account-list">
               {filteredAccounts.map((a) => {
                 const isSubmitting = submittingAccount === a.id;
+                const isCurrent = a.id === integration.account_id;
                 return (
                   <button
                     key={a.id}
                     type="button"
-                    className={`meta-modal-account-card ${isSubmitting ? "submitting" : ""}`}
-                    disabled={pending || submittingAccount !== null}
+                    className={`meta-modal-account-card ${isSubmitting ? "submitting" : ""} ${isCurrent ? "current" : ""}`}
+                    disabled={pending || submittingAccount !== null || isCurrent}
                     onClick={() => handleSelect(a)}
                   >
                     <div className="meta-modal-account-main">
                       <div className="meta-modal-account-name-row">
                         <strong>{a.name}</strong>
                         <span className="meta-modal-currency-pill">{a.currency}</span>
+                        {isCurrent && (
+                          <span className="meta-modal-current-badge">
+                            <Check size={11} /> CONTA ATUAL
+                          </span>
+                        )}
                       </div>
                       <div className="meta-modal-account-details">
                         <code>{a.id}</code>
@@ -3533,8 +3561,8 @@ function MetaAccountModal({
                       </div>
                     </div>
                     <div className="meta-modal-account-action">
-                      <span className="button primary small">
-                        {isSubmitting ? "Conectando..." : "Conectar conta"}
+                      <span className={`button small ${isCurrent ? "secondary" : "primary"}`}>
+                        {isCurrent ? "Conectada" : isSubmitting ? "Trocando..." : "Selecionar esta conta"}
                       </span>
                     </div>
                   </button>
@@ -3546,7 +3574,7 @@ function MetaAccountModal({
 
         <div className="meta-modal-footer">
           <small>
-            Você pode trocar de conta ou conectar outras a qualquer momento.
+            Você pode alternar entre contas ou conectar outras a qualquer momento.
           </small>
           <button
             type="button"
@@ -3569,6 +3597,7 @@ function IntegrationCard({
   run,
   request,
   pending,
+  onOpenAccountModal,
 }: {
   integration: Integration;
   workspace: string;
@@ -3576,6 +3605,7 @@ function IntegrationCard({
   run: (fn: () => Promise<unknown>) => void;
   request: (path: string, data: unknown) => Promise<unknown>;
   pending: boolean;
+  onOpenAccountModal?: (integration: Integration) => void;
 }) {
   type MetaAccount = {
     id: string;
@@ -3785,20 +3815,33 @@ function IntegrationCard({
                   {i.account_id} · {i.currency || "Moeda indisponível"}
                 </small>
               </div>
-              <button
-                className="button"
-                disabled={pending || i.status === "syncing"}
-                onClick={() =>
-                  run(() =>
-                    request("/api/meta/sync", { workspace, integration: i.id }),
-                  )
-                }
-              >
-                <RefreshCw size={15} />{" "}
-                {i.status === "syncing"
-                  ? "Sincronizando…"
-                  : "Sincronizar 30 dias"}
-              </button>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                {onOpenAccountModal && (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={pending}
+                    onClick={() => onOpenAccountModal(i)}
+                    title="Trocar para outra conta de anúncios do Facebook"
+                  >
+                    <RefreshCw size={13} /> Trocar conta
+                  </button>
+                )}
+                <button
+                  className="button"
+                  disabled={pending || i.status === "syncing"}
+                  onClick={() =>
+                    run(() =>
+                      request("/api/meta/sync", { workspace, integration: i.id }),
+                    )
+                  }
+                >
+                  <RefreshCw size={15} />{" "}
+                  {i.status === "syncing"
+                    ? "Sincronizando…"
+                    : "Sincronizar 30 dias"}
+                </button>
+              </div>
             </>
           )}
         </div>

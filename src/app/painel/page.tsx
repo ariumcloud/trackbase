@@ -134,9 +134,10 @@ export default async function Page({
         client
           .from("utm_offers")
           .select(
-            "id,name,landing_url,currency,public_key,product_type,platform,parent_offer_id,checkout_url,percent_fee,fixed_fee,cost_per_sale",
+            "id,name,landing_url,currency,public_key,product_type,platform,parent_offer_id,checkout_url,percent_fee,fixed_fee,cost_per_sale,active",
           )
           .eq("workspace_id", w.id)
+          .or("active.is.null,active.eq.true")
           .order("created_at", { ascending: false }),
         client
           .from("utm_links")
@@ -177,7 +178,7 @@ export default async function Page({
               .from("utm_ad_entities")
               .select("integration_id,external_id,kind,name,status,budget_minor,budget_currency,budget_type,meta_created_at")
               .eq("workspace_id", w.id)
-              .order("name")
+              .order("external_id", { ascending: false })
               .limit(500)
           : empty,
         needsLogs

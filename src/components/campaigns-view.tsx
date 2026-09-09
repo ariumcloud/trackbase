@@ -333,9 +333,40 @@ export function CampaignsView({
     const rows = [...computedRows];
     if (!sortKey) {
       return rows.sort((a, b) => {
+        // 1. Tentar meta_created_at se existir
         const aTime = a.entity.meta_created_at ? new Date(a.entity.meta_created_at).getTime() : 0;
         const bTime = b.entity.meta_created_at ? new Date(b.entity.meta_created_at).getTime() : 0;
-        return bTime - aTime;
+        if (aTime !== bTime && aTime > 0 && bTime > 0) {
+          return bTime - aTime;
+        }
+
+        // 2. Tentar extrair data do nome da campanha (ex.: "Latam 07/09", "17/08", "31/07")
+        const parseNameDate = (name: string): number => {
+          const match = name.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+          if (match) {
+            const day = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10) - 1;
+            const year = match[3] ? parseInt(match[3].length === 2 ? `20${match[3]}` : match[3], 10) : 2026;
+            return new Date(year, month, day).getTime();
+          }
+          return 0;
+        };
+        const aNameTime = parseNameDate(a.entity.name);
+        const bNameTime = parseNameDate(b.entity.name);
+        if (aNameTime !== bNameTime && aNameTime > 0 && bNameTime > 0) {
+          return bNameTime - aNameTime;
+        }
+
+        // 3. Fallback: IDs numéricos da Meta são atribuídos sequencialmente (maior ID = campanha mais recente)
+        try {
+          const aBig = BigInt(a.entity.external_id);
+          const bBig = BigInt(b.entity.external_id);
+          if (bBig > aBig) return 1;
+          if (bBig < aBig) return -1;
+        } catch {
+          return b.entity.external_id.localeCompare(a.entity.external_id, undefined, { numeric: true });
+        }
+        return 0;
       });
     }
 

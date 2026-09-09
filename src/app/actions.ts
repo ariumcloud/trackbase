@@ -468,30 +468,76 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
 }
 export async function deleteOffer(workspace: string, id: string): Promise<ActionResult> {
   try {
-    await authorize(workspace, true); z.string().uuid().parse(id);
+    await authorize(workspace, true);
+    z.string().uuid().parse(id);
     const service = admin();
-    const { count, error: salesError } = await service.from("utm_sales").select("id", { count: "exact", head: true }).eq("workspace_id", workspace).eq("offer_id", id);
-    if (salesError) throw salesError;
-    if (count) {
-      const { error } = await service.from("utm_offers").update({ active: false }).eq("workspace_id", workspace).eq("id", id);
+
+    // 1. Check if there are sales
+    const { count: salesCount } = await service
+      .from("utm_sales")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspace)
+      .eq("offer_id", id);
+
+    // 2. Clear any parent_offer_id references from child offers (e.g. bumps/upsells)
+    await service
+      .from("utm_offers")
+      .update({ parent_offer_id: null })
+      .eq("workspace_id", workspace)
+      .eq("parent_offer_id", id);
+
+    // 3. Clear any pixel references
+    await service
+      .from("utm_pixels")
+      .update({ offer_id: null })
+      .eq("workspace_id", workspace)
+      .eq("offer_id", id);
+
+    // 4. Remove or decouple integrations linked to this offer
+    const { data: integrations } = await service
+      .from("utm_integrations")
+      .select("id")
+      .eq("workspace_id", workspace)
+      .eq("offer_id", id);
+
+    const ids = (integrations || []).map((item) => item.id);
+    if (ids.length) {
+      await service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await service.from("utm_integrations").delete().eq("workspace_id", workspace).in("id", ids);
+    }
+
+    // 5. Delete links for this offer
+    await service.from("utm_links").delete().eq("workspace_id", workspace).eq("offer_id", id);
+
+    if (salesCount && salesCount > 0) {
+      // If sales exist, soft-delete to preserve attribution data
+      const { error } = await service
+        .from("utm_offers")
+        .update({ active: false })
+        .eq("workspace_id", workspace)
+        .eq("id", id);
       if (error) throw error;
     } else {
-      const { data: integrations, error: readError } = await service.from("utm_integrations").select("id").eq("workspace_id", workspace).eq("offer_id", id);
-      if (readError) throw readError;
-      const ids = (integrations || []).map((item) => item.id);
-      if (ids.length) {
-        const { error: credentialError } = await service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", ids);
-        if (credentialError) throw credentialError;
-        const { error: integrationError } = await service.from("utm_integrations").delete().eq("workspace_id", workspace).in("id", ids);
-        if (integrationError) throw integrationError;
+      // No sales, attempt hard delete, fallback to soft-delete if constrained
+      const { error: deleteError } = await service
+        .from("utm_offers")
+        .delete()
+        .eq("workspace_id", workspace)
+        .eq("id", id);
+      if (deleteError) {
+        await service
+          .from("utm_offers")
+          .update({ active: false })
+          .eq("workspace_id", workspace)
+          .eq("id", id);
       }
-      const { error: linksError } = await service.from("utm_links").delete().eq("workspace_id", workspace).eq("offer_id", id);
-      if (linksError) throw linksError;
-      const { error } = await service.from("utm_offers").delete().eq("workspace_id", workspace).eq("id", id);
-      if (error) throw error;
     }
-    revalidatePath("/painel"); return { ok: true };
-  } catch { return { error: "Não foi possível excluir a oferta." }; }
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteOffer failed:", err);
+    return { error: "Não foi possível excluir o produto." };
+  }
 }
 export async function saveLink(
   workspace: string,
