@@ -1633,52 +1633,52 @@ export function Dashboard(p: Props) {
                       <section className="offer-card" key={o.id}>
                         <div>
                           <div className="offer-card-head">
-                            <div className="offer-card-icon-wrap">
-                              <span className="offer-avatar-badge">
-                                <Package size={20} />
-                              </span>
-                              <div className="offer-title-wrap">
-                                <h2 title={o.name}>{o.name}</h2>
-                                <div className="offer-badges-row">
-                                  {badgeLabel && (
-                                    <span className={`offer-badge ${badgeClass}`}>
-                                      {badgeLabel}
-                                    </span>
-                                  )}
-                                  <span className="offer-badge neutral">{o.currency}</span>
-                                  {o.platform && (
-                                    <span className="offer-badge platform">
-                                      {o.platform}
-                                    </span>
-                                  )}
-                                </div>
+                            <div className="offer-card-topbar">
+                              <div className="offer-badges-row">
+                                <span className="offer-avatar-badge">
+                                  <Package size={16} />
+                                </span>
+                                {badgeLabel && (
+                                  <span className={`offer-badge ${badgeClass}`}>
+                                    {badgeLabel}
+                                  </span>
+                                )}
+                                <span className="offer-badge neutral">{o.currency}</span>
+                                {o.platform && (
+                                  <span className="offer-badge platform">
+                                    {o.platform}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="offer-actions-group">
+                                <button
+                                  type="button"
+                                  className="offer-edit-btn"
+                                  onClick={() => setModal(`offer-edit-${o.id}`)}
+                                  title="Editar configurações desta oferta"
+                                >
+                                  <Pencil size={12} /> Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="offer-delete-btn"
+                                  disabled={pending}
+                                  onClick={() => {
+                                    if (window.confirm(`Tem certeza que deseja excluir a oferta "${o.name}"? Os links associados serão removidos.`)) {
+                                      run(async () => {
+                                        const res = await deleteOffer(workspace, o.id);
+                                        if (res.error) throw new Error(res.error);
+                                      });
+                                    }
+                                  }}
+                                  title="Excluir esta oferta/produto"
+                                >
+                                  <Trash2 size={12} /> Excluir
+                                </button>
                               </div>
                             </div>
-                            <div className="offer-actions-group">
-                              <button
-                                type="button"
-                                className="offer-edit-btn"
-                                onClick={() => setModal(`offer-edit-${o.id}`)}
-                                title="Editar configurações desta oferta"
-                              >
-                                <Pencil size={12} /> Editar
-                              </button>
-                              <button
-                                type="button"
-                                className="offer-delete-btn"
-                                disabled={pending}
-                                onClick={() => {
-                                  if (window.confirm(`Tem certeza que deseja excluir a oferta "${o.name}"? Os links associados serão removidos.`)) {
-                                    run(async () => {
-                                      const res = await deleteOffer(workspace, o.id);
-                                      if (res.error) throw new Error(res.error);
-                                    });
-                                  }
-                                }}
-                                title="Excluir esta oferta/produto"
-                              >
-                                <Trash2 size={12} /> Excluir
-                              </button>
+                            <div className="offer-title-wrap">
+                              <h2 title={o.name}>{o.name}</h2>
                             </div>
                           </div>
 

@@ -2019,8 +2019,14 @@ tr:hover td {
 /* Offer Grid */
 .offer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .offer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Modern Offer Card */
@@ -2029,7 +2035,7 @@ tr:hover td {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 22px;
+  padding: 20px 22px;
   box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
@@ -2063,46 +2069,28 @@ tr:hover td {
 
 .offer-card-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
-.offer-card-icon-wrap {
+.offer-card-topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 0;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .offer-avatar-badge {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   background: linear-gradient(135deg, rgba(91, 52, 234, 0.08), rgba(155, 130, 255, 0.16));
   border: 1px solid rgba(91, 52, 234, 0.15);
   color: var(--brand-accent);
   flex-shrink: 0;
-}
-
-.offer-title-wrap {
-  min-width: 0;
-}
-
-.offer-title-wrap h2 {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--ink);
-  letter-spacing: -0.2px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .offer-badges-row {
@@ -2110,6 +2098,21 @@ tr:hover td {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
+}
+
+.offer-title-wrap {
+  width: 100%;
+}
+
+.offer-title-wrap h2 {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+  word-break: break-word;
 }
 
 .offer-badge {
