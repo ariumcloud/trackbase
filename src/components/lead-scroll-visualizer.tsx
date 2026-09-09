@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Radio,
   Play,
@@ -14,8 +14,15 @@ import {
   Eye,
   Plus,
   Compass,
+  Copy,
+  Check,
+  Code2,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from "lucide-react";
-import type { SaleRow } from "@/lib/types";
+import type { SaleRow, TrackingEvent, Offer } from "@/lib/types";
 
 export interface LeadSession {
   id: string;
@@ -148,15 +155,15 @@ const initialMockLeads: LeadSession[] = [
       {
         time: "02:10",
         type: "ScrollDepth_75",
-        label: "Visualizou Oferta e Tabela de Preço (75%)",
-        detail: "Público ultra qualificado para remarketing no Meta Ads",
+        label: "Viu a Tabela de Preço (75%)",
+        detail: "Parou na oferta de 12x de R$ 29,70",
         color: "#F59E0B",
       },
       {
-        time: "02:30",
+        time: "02:34",
         type: "ViewCTA",
-        label: "Botão de Compra visível no ecrã!",
-        detail: "Lead viu o botão mas não clicou. Gargalo: objeção de garantia ou parcelamento.",
+        label: "Botão de Compra no ecrã (88%)",
+        detail: "Analisou os bônus VIP mas não clicou no botão",
         color: "#8B5CF6",
       },
     ],
@@ -164,29 +171,29 @@ const initialMockLeads: LeadSession[] = [
   {
     id: "lead_8489",
     leadNumber: 8489,
-    name: "Juliana F.",
+    name: "Gabriel R.",
     location: "Belo Horizonte, MG",
     device: "iPhone 14 · iOS 17",
-    source: "Instagram Reels",
-    campaign: "reels_historia_dor · Ad 02",
+    source: "TikTok Ads",
+    campaign: "spark_ads_autoridade",
     relativeTime: "Há 14 min",
-    maxScroll: 95,
-    timeSpentSeconds: 198,
+    maxScroll: 92,
+    timeSpentSeconds: 190,
     status: "checkout_clicked",
-    statusLabel: "Clicou no Checkout (95%)",
+    statusLabel: "Abandono de Checkout (92%)",
     statusColor: "#EF4444",
     events: [
       {
         time: "00:00",
         type: "PageView",
         label: "Lead acessou a página de vendas",
-        detail: "UTM: source=instagram, campaign=reels_historia_dor",
+        detail: "Origem: TikTok Ads via Spark Ads",
         color: "#3B82F6",
       },
       {
         time: "00:20",
         type: "ScrollDepth_25",
-        label: "Rolou até 25% da página",
+        label: "Passou da dobra 1 (25%)",
         detail: "Dobra inicial ultrapassada",
         color: "#10B981",
       },
@@ -291,27 +298,264 @@ const initialMockLeads: LeadSession[] = [
   },
 ];
 
-export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
+export function LeadScrollVisualizer({
+  sales = [],
+  events = [],
+  offers = [],
+  appUrl = "https://trackbase.com.br",
+  workspaceId: _workspaceId,
+}: {
+  sales?: SaleRow[];
+  events?: TrackingEvent[];
+  offers?: Offer[];
+  appUrl?: string;
+  workspaceId?: string;
+}) {
   const phoneScrollRef = useRef<HTMLDivElement>(null);
-  const [leads, setLeads] = useState<LeadSession[]>(initialMockLeads);
-  const [selectedLeadId, setSelectedLeadId] = useState<string>(initialMockLeads[0].id);
+
+  // Estados de Configuração e Oferta
+  const [selectedOfferId, setSelectedOfferId] = useState<string>("all");
+  const [copiedScript, setCopiedScript] = useState<boolean>(false);
+  const [showInstallHelp, setShowInstallHelp] = useState<boolean>(false);
+  const [dataSourceMode, setDataSourceMode] = useState<"real" | "demo">("real");
+
+  // Estados de Visualização de Leads
+  const [demoLeads, setDemoLeads] = useState<LeadSession[]>(initialMockLeads);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>("");
   const [filterType, setFilterType] = useState<"all" | "purchased" | "hot" | "cta" | "cold">("all");
   const [isReplaying, setIsReplaying] = useState<boolean>(false);
   const [currentScrollPct, setCurrentScrollPct] = useState<number>(0);
 
-  const selectedLead = leads.find((l) => l.id === selectedLeadId) || leads[0];
+  // Oferta ativa selecionada para gerar o script
+  const activeOffer = useMemo(() => {
+    if (selectedOfferId !== "all") {
+      return offers.find((o) => o.id === selectedOfferId) || null;
+    }
+    return offers.find((o) => o.public_key) || offers[0] || null;
+  }, [offers, selectedOfferId]);
 
-  // Se houver vendas reais no workspace, mescla os compradores reais
-  useEffect(() => {
-    if (!sales || sales.length === 0) return;
-    const realBuyerLeads: LeadSession[] = sales.slice(0, 3).map((s, idx) => {
-      const buyerName = s.attribution?.buyer_name || s.attribution?.name || "Comprador Verificado";
+  const trackerKey = activeOffer?.public_key || (offers.length > 0 && offers[0].public_key) || "SUA_CHAVE_DE_OFERTA";
+  const scriptSnippet = `<script src="${appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`;
+
+  const handleCopyScript = () => {
+    try {
+      navigator.clipboard.writeText(scriptSnippet);
+      setCopiedScript(true);
+      setTimeout(() => setCopiedScript(false), 2200);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Parser de Sessões Reais a partir de 'events' e 'sales'
+  const realSessions = useMemo<LeadSession[]>(() => {
+    if ((!events || events.length === 0) && (!sales || sales.length === 0)) {
+      return [];
+    }
+
+    // Filtra eventos pela oferta selecionada se não for "all"
+    const filteredEvents = (selectedOfferId && selectedOfferId !== "all")
+      ? (events || []).filter((e) => e.offer_id === selectedOfferId || (e.attribution && e.attribution.offer_id === selectedOfferId))
+      : (events || []);
+
+    const sessionMap = new Map<string, TrackingEvent[]>();
+    for (const ev of filteredEvents) {
+      const sid = ev.session_id || `ev_${ev.id}`;
+      if (!sessionMap.has(sid)) {
+        sessionMap.set(sid, []);
+      }
+      sessionMap.get(sid)!.push(ev);
+    }
+
+    const result: LeadSession[] = [];
+    let leadSeq = 1000;
+
+    sessionMap.forEach((sessionEvents, sid) => {
+      // Ordena eventos cronologicamente
+      sessionEvents.sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+
+      const firstEv = sessionEvents[0];
+      const lastEv = sessionEvents[sessionEvents.length - 1];
+      const attr = firstEv.attribution || lastEv.attribution || {};
+
+      const startMs = new Date(firstEv.created_at).getTime();
+      const endMs = new Date(lastEv.created_at).getTime();
+      const timeSpent = Math.max(12, Math.min(3600, Math.round((endMs - startMs) / 1000)));
+
+      let maxScroll = 15;
+      let hasViewCTA = false;
+      let hasCheckout = false;
+
+      sessionEvents.forEach((e) => {
+        const type = (e.event_type || "").toLowerCase();
+        const action = (e.attribution?.action || "").toLowerCase();
+        const depth = parseInt(e.attribution?.scroll_depth || "0", 10);
+
+        if (depth > 0) maxScroll = Math.max(maxScroll, depth);
+        if (type.includes("scroll_90") || action.includes("90")) maxScroll = Math.max(maxScroll, 90);
+        else if (type.includes("scroll_75") || action.includes("75")) maxScroll = Math.max(maxScroll, 75);
+        else if (type.includes("scroll_50") || action.includes("50")) maxScroll = Math.max(maxScroll, 50);
+        else if (type.includes("scroll_25") || action.includes("25")) maxScroll = Math.max(maxScroll, 25);
+
+        if (type === "cta_view" || action === "cta_view" || e.attribution?.cta_view) {
+          hasViewCTA = true;
+          maxScroll = Math.max(maxScroll, 85);
+        }
+        if (type === "checkout" || action === "checkout") {
+          hasCheckout = true;
+          maxScroll = Math.max(maxScroll, 90);
+        }
+      });
+
+      // Cruza com vendas reais pelo session_id ou fbp
+      const matchingSale = (sales || []).find((s) => {
+        if (s.attribution?.session_id && s.attribution.session_id === sid) return true;
+        if (s.attribution?.fbp && attr?.fbp && s.attribution.fbp === attr.fbp) return true;
+        return false;
+      });
+
+      const isPurchased = !!matchingSale;
+      if (isPurchased) maxScroll = 100;
+
+      let status: LeadSession["status"] = "bounced";
+      let statusLabel = `Saiu em ${maxScroll}%`;
+      let statusColor = "#94A3B8";
+
+      if (isPurchased) {
+        status = "purchased";
+        const amt = matchingSale?.gross_amount || matchingSale?.amount || 0;
+        statusLabel = `Comprou R$ ${amt.toFixed(2)}`;
+        statusColor = "#10B981";
+      } else if (hasCheckout) {
+        status = "checkout_clicked";
+        statusLabel = "Clicou no Checkout";
+        statusColor = "#EF4444";
+      } else if (hasViewCTA || maxScroll >= 85) {
+        status = "cta_viewed";
+        statusLabel = `Viu Oferta & Preço (${maxScroll}%)`;
+        statusColor = "#8B5CF6";
+      } else if (maxScroll >= 50) {
+        status = "offer_viewed";
+        statusLabel = `Engajado (${maxScroll}%)`;
+        statusColor = "#3B82F6";
+      } else {
+        status = "bounced";
+        statusLabel = `Rejeição Rápida (${maxScroll}%)`;
+        statusColor = "#94A3B8";
+      }
+
+      const src = attr.utm_source || "Direto / Orgânico";
+      const camp = attr.utm_campaign || "Sem campanha";
+      const buyerName = matchingSale?.attribution?.buyer_name || matchingSale?.attribution?.name || "Visitante Real";
+
+      const diffSec = Math.max(0, Math.round((Date.now() - new Date(firstEv.created_at).getTime()) / 1000));
+      let relTime = "Há instantes";
+      if (diffSec < 60) relTime = "Há poucos seg";
+      else if (diffSec < 3600) relTime = `Há ${Math.floor(diffSec / 60)} min`;
+      else if (diffSec < 86400) relTime = `Há ${Math.floor(diffSec / 3600)}h`;
+      else relTime = `Há ${Math.floor(diffSec / 86400)}d`;
+
+      // Linha do tempo dos eventos
+      const sessionStartTime = new Date(firstEv.created_at).getTime();
+      const timelineEvents = sessionEvents.map((ev) => {
+        const evOffsetSec = Math.max(0, Math.round((new Date(ev.created_at).getTime() - sessionStartTime) / 1000));
+        const m = Math.floor(evOffsetSec / 60);
+        const s = evOffsetSec % 60;
+        const timeStr = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+
+        const t = (ev.event_type || "").toLowerCase();
+        const a = (ev.attribution?.action || "").toLowerCase();
+        const d = ev.attribution?.scroll_depth;
+
+        let type = "PageView";
+        let label = "Lead acessou a página";
+        let detail = `URL: ${ev.url || "Página de Vendas"} · Origem: ${src}`;
+        let color = "#3B82F6";
+
+        if (t === "checkout" || a === "checkout") {
+          type = "InitiateCheckout";
+          label = "Lead clicou no Botão de Compra!";
+          detail = "Redirecionando para o checkout com parâmetros UTM e SCK";
+          color = "#EF4444";
+        } else if (t === "cta_view" || a === "cta_view") {
+          type = "ViewCTA";
+          label = "Botão de Compra visível no ecrã";
+          detail = "Oferta e ancoragem apresentadas para o visitante";
+          color = "#8B5CF6";
+        } else if (d === "90" || t.includes("90") || a.includes("90")) {
+          type = "ScrollDepth_90";
+          label = "Rolagem profunda (90%)";
+          detail = "Visitante analisando garantia e detalhes finais";
+          color = "#8B5CF6";
+        } else if (d === "75" || t.includes("75") || a.includes("75")) {
+          type = "ScrollDepth_75";
+          label = "Chegou na Seção de Oferta (75%)";
+          detail = "Visualizou a ancoragem de preço e bônus";
+          color = "#F59E0B";
+        } else if (d === "50" || t.includes("50") || a.includes("50")) {
+          type = "ScrollDepth_50";
+          label = "Consumiu metade da página (50%)";
+          detail = "Alto engajamento com a VSL e mecanismo único";
+          color = "#10B981";
+        } else if (d === "25" || t.includes("25") || a.includes("25")) {
+          type = "ScrollDepth_25";
+          label = "Passou da primeira dobra (25%)";
+          detail = "Iniciou consumo da página";
+          color = "#10B981";
+        }
+
+        return {
+          time: timeStr,
+          type,
+          label,
+          detail,
+          color,
+        };
+      });
+
+      if (isPurchased) {
+        timelineEvents.push({
+          time: "Final",
+          type: "Purchase",
+          label: `Compra aprovada na ${(matchingSale?.provider || "Plataforma").toUpperCase()}!`,
+          detail: `Valor de R$ ${(matchingSale?.gross_amount || matchingSale?.amount || 0).toFixed(2)}`,
+          color: "#10B981",
+        });
+      }
+
+      result.push({
+        id: `session_${sid}`,
+        leadNumber: ++leadSeq,
+        name: buyerName,
+        location: attr.location || "Brasil",
+        device: attr.device || "Mobile",
+        source: src,
+        campaign: camp,
+        relativeTime: relTime,
+        maxScroll,
+        timeSpentSeconds: timeSpent,
+        status,
+        statusLabel,
+        statusColor,
+        amount: matchingSale?.gross_amount || matchingSale?.amount,
+        events: timelineEvents,
+      });
+    });
+
+    // Adiciona compradores reais do webhook que possam não ter sessão de evento
+    (sales || []).forEach((s, idx) => {
+      const saleId = `sale_${s.id}`;
+      if (result.some((r) => r.id === `session_${s.attribution?.session_id}` || r.id === saleId)) return;
+      const buyerName = s.attribution?.buyer_name || s.attribution?.name || `Comprador #${idx + 1}`;
       const src = s.attribution?.utm_source || s.provider || "Tráfego Pago";
       const camp = s.attribution?.utm_campaign || "Campanha Principal";
-      const num = 9000 + idx;
-      return {
-        id: `real_${s.id}`,
-        leadNumber: num,
+      const amt = s.gross_amount || s.amount || 0;
+
+      result.unshift({
+        id: saleId,
+        leadNumber: 9000 + idx,
         name: buyerName,
         location: "Brasil",
         device: "Dispositivo do Comprador",
@@ -321,9 +565,9 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
         maxScroll: 100,
         timeSpentSeconds: 180,
         status: "purchased",
-        statusLabel: `Comprou R$ ${(s.gross_amount || s.amount || 0).toFixed(2)}`,
+        statusLabel: `Comprou R$ ${amt.toFixed(2)}`,
         statusColor: "#10B981",
-        amount: s.gross_amount || s.amount || 0,
+        amount: amt,
         events: [
           {
             time: "00:00",
@@ -333,50 +577,69 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
             color: "#3B82F6",
           },
           {
-            time: "00:28",
+            time: "00:25",
             type: "ScrollDepth_25",
-            label: "Passou da dobra 1",
+            label: "Passou da dobra 1 (25%)",
             detail: "Iniciou consumo do conteúdo",
             color: "#10B981",
           },
           {
             time: "01:30",
             type: "ScrollDepth_50",
-            label: "Metade da página alcançada",
-            detail: "Interesse validado",
+            label: "Metade da página alcançada (50%)",
+            detail: "Interesse validado na VSL",
             color: "#10B981",
           },
           {
             time: "02:20",
             type: "ScrollDepth_75",
-            label: "Visualizou Oferta & Preço",
-            detail: "Lead quente",
+            label: "Visualizou Oferta & Preço (75%)",
+            detail: "Lead quente na tabela de ancoragem",
             color: "#F59E0B",
           },
           {
             time: "02:45",
             type: "ViewCTA",
-            label: "Botão de compra no visor",
-            detail: "Visualizou o checkout",
+            label: "Botão de Compra no Visor (90%)",
+            detail: "Visualizou o botão de checkout",
             color: "#8B5CF6",
           },
           {
             time: "03:00",
             type: "Purchase",
             label: `Compra aprovada na ${s.provider.toUpperCase()}!`,
-            detail: `Valor: R$ ${(s.gross_amount || s.amount || 0).toFixed(2)}`,
+            detail: `Valor de R$ ${amt.toFixed(2)}`,
             color: "#10B981",
           },
         ],
-      };
+      });
     });
 
-    setLeads((prev) => {
-      const existingRealIds = new Set(prev.filter((p) => p.id.startsWith("real_")).map((p) => p.id));
-      const toAdd = realBuyerLeads.filter((r) => !existingRealIds.has(r.id));
-      return [...toAdd, ...prev];
-    });
-  }, [sales]);
+    return result;
+  }, [events, sales, selectedOfferId]);
+
+  // Define se usa dados reais ou demonstração
+  const hasRealData = realSessions.length > 0;
+  
+  // Atualiza modo automaticamente quando houver dados reais pela primeira vez
+  useEffect(() => {
+    if (hasRealData && dataSourceMode !== "real") {
+      setDataSourceMode("real");
+    }
+  }, [hasRealData, dataSourceMode]);
+
+  const activeLeads = dataSourceMode === "real" && hasRealData ? realSessions : demoLeads;
+
+  // Garante seleção válida de lead
+  useEffect(() => {
+    if (!selectedLeadId || !activeLeads.some((l) => l.id === selectedLeadId)) {
+      if (activeLeads.length > 0) {
+        setSelectedLeadId(activeLeads[0].id);
+      }
+    }
+  }, [activeLeads, selectedLeadId]);
+
+  const selectedLead = activeLeads.find((l) => l.id === selectedLeadId) || activeLeads[0] || null;
 
   // Atualiza a posição do celular ao trocar de lead selecionado
   useEffect(() => {
@@ -385,7 +648,6 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
     const el = phoneScrollRef.current;
     if (!el) return;
 
-    // Calcula o scroll até o ponto máximo daquele lead
     const maxScrollHeight = el.scrollHeight - el.clientHeight;
     const targetScrollTop = (selectedLead.maxScroll / 100) * maxScrollHeight;
     el.scrollTo({ top: targetScrollTop, behavior: "smooth" });
@@ -395,7 +657,7 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
   // Modo Replay da Sessão (animação passo a passo do lead descendo a página)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isReplaying) {
+    if (isReplaying && selectedLead) {
       const el = phoneScrollRef.current;
       if (el) {
         el.scrollTo({ top: 0, behavior: "auto" });
@@ -426,7 +688,6 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
     return () => clearInterval(interval);
   }, [isReplaying, selectedLead]);
 
-  // Manual scroll handler
   const handlePhoneScroll = () => {
     const el = phoneScrollRef.current;
     if (!el) return;
@@ -436,7 +697,6 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
     setCurrentScrollPct(pct);
   };
 
-  // Simular a chegada de um Novo Lead em Tempo Real
   const handleAddLiveLead = () => {
     const randomNum = Math.floor(8492 + Math.random() * 500);
     const cities = ["Florianópolis, SC", "Goiânia, GO", "Salvador, BA", "Recife, PE", "Brasília, DF"];
@@ -530,12 +790,12 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
       ],
     };
 
-    setLeads((prev) => [newLead, ...prev]);
+    setDemoLeads((prev) => [newLead, ...prev]);
     setSelectedLeadId(newLead.id);
+    setDataSourceMode("demo");
   };
 
-  // Filtro dos leads na barra
-  const filteredLeads = leads.filter((l) => {
+  const filteredLeads = activeLeads.filter((l) => {
     if (filterType === "purchased") return l.status === "purchased";
     if (filterType === "hot") return l.maxScroll >= 75;
     if (filterType === "cta") return l.status === "cta_viewed" || l.status === "checkout_clicked";
@@ -550,66 +810,294 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Top Banner do Radar de Leads */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {/* 1. CARD PRINCIPAL: SCRIPT DE RASTREAMENTO DO RADAR DE LEADS */}
       <div
         className="panel"
         style={{
-          background: "linear-gradient(135deg, rgba(91, 52, 234, 0.08) 0%, rgba(56, 189, 248, 0.05) 100%)",
-          border: "1px solid rgba(91, 52, 234, 0.2)",
+          background: "linear-gradient(135deg, rgba(91, 52, 234, 0.07) 0%, rgba(16, 185, 129, 0.05) 100%)",
+          border: "1px solid rgba(91, 52, 234, 0.25)",
           padding: "1.25rem 1.5rem",
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
+          flexDirection: "column",
           gap: "1rem",
         }}
       >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-            <span
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "0.35rem" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "3px 10px",
+                  borderRadius: "14px",
+                  background: hasRealData ? "rgba(16, 185, 129, 0.15)" : "rgba(91, 52, 234, 0.15)",
+                  color: hasRealData ? "#10B981" : "#5B34EA",
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.03em",
+                }}
+              >
+                <Radio size={12} className={hasRealData ? "spin" : ""} />
+                {hasRealData ? "RADAR ATIVO · DADOS EM TEMPO REAL" : "RADAR DE LEADS · SCRIPT DE TELEMETRIA"}
+              </span>
+
+              {/* Toggle Real vs Demonstração */}
+              <div style={{ display: "inline-flex", background: "var(--surface)", borderRadius: "8px", border: "1px solid var(--line)", padding: "2px" }}>
+                <button
+                  type="button"
+                  onClick={() => setDataSourceMode("real")}
+                  style={{
+                    padding: "3px 9px",
+                    borderRadius: "6px",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    border: "none",
+                    background: dataSourceMode === "real" ? "#10B981" : "transparent",
+                    color: dataSourceMode === "real" ? "#FFF" : "var(--muted)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    transition: "all 0.15s",
+                  }}
+                  title={hasRealData ? "Exibir sessões reais capturadas" : "Nenhum evento registrado ainda"}
+                >
+                  ● Ao Vivo {hasRealData ? `(${realSessions.length})` : "(0)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDataSourceMode("demo")}
+                  style={{
+                    padding: "3px 9px",
+                    borderRadius: "6px",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    border: "none",
+                    background: dataSourceMode === "demo" ? "#5B34EA" : "transparent",
+                    color: dataSourceMode === "demo" ? "#FFF" : "var(--muted)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  Modo Demonstração
+                </button>
+              </div>
+            </div>
+
+            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--ink)" }}>
+              Script de Rastreamento do Radar de Leads
+            </h2>
+            <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.84rem", maxWidth: "700px" }}>
+              Cole o script abaixo na sua página de vendas / VSL. Ele rastreia cada visitante individualmente, captura profundidade de rolagem (25%, 50%, 75%, 90%), tempo na página, cliques de checkout e deduplica conversões na Meta Ads.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={() => setShowInstallHelp(!showInstallHelp)}
+              style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.78rem" }}
+            >
+              <HelpCircle size={14} /> Como instalar? {showInstallHelp ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+
+            <button
+              type="button"
+              className="button ghost small"
+              onClick={handleAddLiveLead}
+              style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.78rem" }}
+              title="Adiciona um lead simulado ao radar"
+            >
+              <Plus size={14} /> Simular Novo Lead
+            </button>
+          </div>
+        </div>
+
+        {/* Linha do Seletor de Ofertas e Caixa do Script com Botão Copiar */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: offers.length > 1 ? "240px 1fr" : "1fr",
+            gap: "0.75rem",
+            alignItems: "center",
+          }}
+        >
+          {offers.length > 1 && (
+            <div>
+              <label style={{ display: "block", fontSize: "0.74rem", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                🏷️ Selecionar Oferta / Funil:
+              </label>
+              <select
+                value={selectedOfferId}
+                onChange={(e) => setSelectedOfferId(e.target.value)}
+                style={{
+                  width: "100%",
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "8px",
+                  padding: "8px 10px",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="all">Todas as Ofertas ({offers.length})</option>
+                {offers.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name} {o.public_key ? `(${o.public_key.slice(0, 6)}...)` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Codebox do Script */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+              borderRadius: "8px",
+              padding: "6px 12px",
+              gap: "8px",
+              overflow: "hidden",
+            }}
+          >
+            <Code2 size={16} color="#5B34EA" style={{ flexShrink: 0 }} />
+            <div
+              style={{
+                flex: 1,
+                fontFamily: "monospace",
+                fontSize: "0.8rem",
+                color: "var(--ink)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                userSelect: "all",
+              }}
+              title={scriptSnippet}
+            >
+              {scriptSnippet}
+            </div>
+
+            <button
+              type="button"
+              className={copiedScript ? "button small success" : "button small primary"}
+              onClick={handleCopyScript}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "6px",
-                padding: "3px 8px",
-                borderRadius: "12px",
-                background: "rgba(16, 185, 129, 0.15)",
-                color: "#10B981",
-                fontSize: "0.75rem",
+                gap: "5px",
+                flexShrink: 0,
+                fontSize: "0.78rem",
                 fontWeight: 700,
+                padding: "6px 14px",
               }}
             >
-              <Radio size={12} className="spin" /> RADAR DE LEADS EM TEMPO REAL
-            </span>
-            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--ink)" }}>
-              Radar de Leads · Sessões Individuais do Funil
-            </h2>
+              {copiedScript ? (
+                <>
+                  <Check size={14} /> Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy size={14} /> Copiar Script
+                </>
+              )}
+            </button>
           </div>
-          <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
-            Selecione qualquer lead abaixo para ver o percurso exato dele no celular, onde ele parou de ler, tempo na tela e eventos acionados.
-          </p>
         </div>
 
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <button
-            className="button primary"
-            onClick={handleAddLiveLead}
-            style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 650 }}
+        {/* Guia Rápido de Instalação (Expandível) */}
+        {showInstallHelp && (
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+              borderRadius: "10px",
+              padding: "1rem",
+              fontSize: "0.8rem",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "1rem",
+            }}
           >
-            <Plus size={15} /> 📡 Simular Novo Lead Chegando
-          </button>
+            <div>
+              <strong style={{ color: "var(--ink)", display: "block", marginBottom: "4px" }}>
+                WordPress / Elementor:
+              </strong>
+              <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.4 }}>
+                Arraste um widget <strong>HTML</strong> para o rodapé da página ou use o plugin <em>WPCode / Insert Headers and Footers</em> e cole no Footer.
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: "var(--ink)", display: "block", marginBottom: "4px" }}>
+                Kiwify / Hotmart / Cakto (Páginas Próprias):
+              </strong>
+              <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.4 }}>
+                Cole antes do fechamento da tag <code>&lt;/body&gt;</code> ou na tag <code>&lt;head&gt;</code> do HTML da sua página de vendas.
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: "var(--ink)", display: "block", marginBottom: "4px" }}>
+                Webflow, Framer, Wix ou HTML:
+              </strong>
+              <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.4 }}>
+                Abra as configurações da página &gt; Custom Code e cole em <strong>Footer Code</strong> (antes de &lt;/body&gt;).
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Benefícios Rápidos */}
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", fontSize: "0.74rem", color: "var(--muted)" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <CheckCircle2 size={13} color="#10B981" /> 0 impacto no carregamento (&lt; 4KB)
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <CheckCircle2 size={13} color="#10B981" /> Deduplicação nativa na Meta CAPI (Event ID)
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <CheckCircle2 size={13} color="#10B981" /> Injeção automática de UTMs e SCK no Checkout
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <CheckCircle2 size={13} color="#10B981" /> Rastreia Rolagem 25%, 50%, 75%, 90% e Checkout
+          </span>
         </div>
       </div>
 
-      {/* SELETOR DE LEADS DO FUNIL (Sessões Individuais) */}
+      {/* 2. SELETOR DE LEADS DO FUNIL (Sessões Individuais) */}
       <div className="panel" style={{ padding: "1.25rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Compass size={18} color="#5B34EA" />
             <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-              Leads e Sessões Recentes no Funil ({leads.length})
+              {dataSourceMode === "real" && hasRealData
+                ? `Visitantes Reais no Funil (${activeLeads.length})`
+                : `Leads e Sessões de Exemplo (${activeLeads.length})`}
             </h3>
+            {dataSourceMode === "demo" && (
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  padding: "2px 7px",
+                  borderRadius: "10px",
+                  background: "rgba(91, 52, 234, 0.1)",
+                  color: "#5B34EA",
+                  fontWeight: 700,
+                }}
+              >
+                Demonstração
+              </span>
+            )}
           </div>
 
           {/* Filtros Rápidos */}
@@ -644,119 +1132,158 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
           </div>
         </div>
 
-        {/* Cards de Sessões Individuais (Grid com Scroll Horizontal Suave) */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: "0.75rem",
-            maxHeight: "180px",
-            overflowY: "auto",
-            paddingRight: "4px",
-          }}
-        >
-          {filteredLeads.map((lead) => {
-            const isSelected = lead.id === selectedLeadId;
-            return (
-              <div
-                key={lead.id}
-                onClick={() => setSelectedLeadId(lead.id)}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: "10px",
-                  border: isSelected ? "2px solid #5B34EA" : "1px solid var(--line)",
-                  background: isSelected ? "rgba(91, 52, 234, 0.06)" : "var(--surface-subtle)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "4px",
-                }}
+        {/* Estado vazio quando não houver leads no filtro */}
+        {filteredLeads.length === 0 ? (
+          <div
+            style={{
+              padding: "2rem 1rem",
+              textAlign: "center",
+              background: "var(--surface-subtle)",
+              borderRadius: "10px",
+              border: "1px dashed var(--line)",
+            }}
+          >
+            <Info size={24} color="var(--muted)" style={{ margin: "0 auto 8px" }} />
+            <p style={{ margin: "0 0 8px", fontSize: "0.85rem", color: "var(--ink)", fontWeight: 600 }}>
+              {dataSourceMode === "real" && !hasRealData
+                ? "Aguardando primeiros visitantes com o tracker.js instalado..."
+                : "Nenhum lead encontrado com o filtro selecionado."}
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: "8px" }}>
+              {dataSourceMode === "real" && !hasRealData && (
+                <button
+                  type="button"
+                  className="button primary small"
+                  onClick={() => setDataSourceMode("demo")}
+                >
+                  Ver Modo Demonstração
+                </button>
+              )}
+              <button
+                type="button"
+                className="button ghost small"
+                onClick={() => setFilterType("all")}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <strong style={{ fontSize: "0.82rem", color: "var(--ink)" }}>
-                    Lead #{lead.leadNumber} · {lead.name}
-                  </strong>
-                  <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{lead.relativeTime}</span>
-                </div>
+                Limpar Filtros
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Cards de Sessões Individuais (Grid com Scroll Horizontal Suave) */
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: "0.75rem",
+              maxHeight: "180px",
+              overflowY: "auto",
+              paddingRight: "4px",
+            }}
+          >
+            {filteredLeads.map((lead) => {
+              const isSelected = selectedLead && lead.id === selectedLead.id;
+              return (
+                <div
+                  key={lead.id}
+                  onClick={() => setSelectedLeadId(lead.id)}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    border: isSelected ? "2px solid #5B34EA" : "1px solid var(--line)",
+                    background: isSelected ? "rgba(91, 52, 234, 0.06)" : "var(--surface-subtle)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong style={{ fontSize: "0.82rem", color: "var(--ink)" }}>
+                      Lead #{lead.leadNumber} · {lead.name}
+                    </strong>
+                    <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{lead.relativeTime}</span>
+                  </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--muted)" }}>
-                  <MapPin size={11} />
-                  <span>{lead.location}</span>
-                  <span>·</span>
-                  <span>{lead.source}</span>
-                </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--muted)" }}>
+                    <MapPin size={11} />
+                    <span>{lead.location}</span>
+                    <span>·</span>
+                    <span>{lead.source}</span>
+                  </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
-                  <span
-                    style={{
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      background: `${lead.statusColor}18`,
-                      color: lead.statusColor,
-                    }}
-                  >
-                    {lead.statusLabel}
-                  </span>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink)" }}>
-                    {lead.maxScroll}% rolado
-                  </span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        background: `${lead.statusColor}18`,
+                        color: lead.statusColor,
+                      }}
+                    >
+                      {lead.statusLabel}
+                    </span>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink)" }}>
+                      {lead.maxScroll}% rolado
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Grid Principal Lado a Lado: Celular do Lead vs Telemetria da Sessão */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "360px 1fr",
-          gap: "1.75rem",
-          alignItems: "start",
-        }}
-        className="lead-visualizer-grid"
-      >
-        {/* COLUNA ESQUERDA: Celular Mockup com o percurso do Lead Selecionado */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-          {/* Card Resumo do Lead Selecionado */}
-          <div
-            style={{
-              width: "340px",
-              padding: "10px 14px",
-              background: "var(--surface)",
-              border: "1px solid var(--line)",
-              borderRadius: "12px",
-              fontSize: "0.78rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 700, color: "var(--ink)" }}>
-                Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
+      {selectedLead ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "360px 1fr",
+            gap: "1.75rem",
+            alignItems: "start",
+          }}
+          className="lead-visualizer-grid"
+        >
+          {/* COLUNA ESQUERDA: Celular Mockup com o percurso do Lead Selecionado */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+            {/* Card Resumo do Lead Selecionado */}
+            <div
+              style={{
+                width: "340px",
+                padding: "10px 14px",
+                background: "var(--surface)",
+                border: "1px solid var(--line)",
+                borderRadius: "12px",
+                fontSize: "0.78rem",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, color: "var(--ink)" }}>
+                  Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
+                </div>
+                <div style={{ color: "var(--muted)", fontSize: "0.72rem" }}>
+                  {selectedLead.device} · {selectedLead.location}
+                </div>
               </div>
-              <div style={{ color: "var(--muted)", fontSize: "0.72rem" }}>
-                {selectedLead.device} · {selectedLead.location}
-              </div>
+
+              <button
+                className="button secondary small"
+                onClick={() => setIsReplaying(!isReplaying)}
+                title="Ver replay da rolagem do lead"
+                style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", padding: "4px 8px" }}
+              >
+                {isReplaying ? <Pause size={12} /> : <Play size={12} />}
+                <span>{isReplaying ? "Pausar" : "Replay"}</span>
+              </button>
             </div>
 
-            <button
-              className="button secondary small"
-              onClick={() => setIsReplaying(!isReplaying)}
-              title="Ver replay da rolagem do lead"
-              style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", padding: "4px 8px" }}
-            >
-              {isReplaying ? <Pause size={12} /> : <Play size={12} />}
-              <span>{isReplaying ? "Pausar" : "Replay"}</span>
-            </button>
-          </div>
-
-          {/* Smartphone Frame */}
+            {/* Smartphone Frame */}
           <div
             style={{
               width: "340px",
@@ -1054,183 +1581,184 @@ export function LeadScrollVisualizer({ sales = [] }: { sales?: SaleRow[] }) {
           </div>
         </div>
 
-        {/* COLUNA DIREITA: Telemetria e Diagnóstico Específico da Sessão do Lead */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Painel 1: Perfil e Telemetria do Lead */}
-          <div className="panel" style={{ padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Activity size={18} color="#5B34EA" />
-                  <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
-                    Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
-                  </h3>
+          {/* COLUNA DIREITA: Telemetria e Diagnóstico Específico da Sessão do Lead */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {/* Painel 1: Perfil e Telemetria do Lead */}
+            <div className="panel" style={{ padding: "1.25rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Activity size={18} color="#5B34EA" />
+                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
+                      Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                    {selectedLead.location} · {selectedLead.source} · {selectedLead.campaign}
+                  </span>
                 </div>
-                <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-                  {selectedLead.location} · {selectedLead.source} · {selectedLead.campaign}
-                </span>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Clock size={15} color="var(--muted)" />
+                  <span style={{ fontSize: "0.82rem", color: "var(--ink)", fontWeight: 600 }}>
+                    Tempo na tela: <strong>{formatSecs(selectedLead.timeSpentSeconds)}</strong>
+                  </span>
+                </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Clock size={15} color="var(--muted)" />
-                <span style={{ fontSize: "0.82rem", color: "var(--ink)", fontWeight: 600 }}>
-                  Tempo na tela: <strong>{formatSecs(selectedLead.timeSpentSeconds)}</strong>
-                </span>
+              {/* Medidor de Rolagem Alcançado */}
+              <div style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
+                  <span style={{ fontWeight: 600, color: "var(--ink)" }}>Profundidade Máxima Alcançada pelo Lead</span>
+                  <strong style={{ color: selectedLead.statusColor, fontSize: "1.15rem" }}>
+                    {selectedLead.maxScroll}% da página
+                  </strong>
+                </div>
+                <div style={{ width: "100%", height: "10px", background: "var(--line)", borderRadius: "6px", overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${selectedLead.maxScroll}%`,
+                      background: selectedLead.statusColor,
+                      transition: "width 0.2s ease",
+                    }}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Medidor de Rolagem Alcançado */}
-            <div style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
-                <span style={{ fontWeight: 600, color: "var(--ink)" }}>Profundidade Máxima Alcançada pelo Lead</span>
-                <strong style={{ color: selectedLead.statusColor, fontSize: "1.15rem" }}>
-                  {selectedLead.maxScroll}% da página
+              {/* Diagnóstico do Comportamento deste Lead */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 12px",
+                  background: "var(--surface-subtle)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--line)",
+                  fontSize: "0.82rem",
+                }}
+              >
+                <Eye size={16} color="#5B34EA" />
+                <span style={{ color: "var(--muted)" }}>Diagnóstico da sessão:</span>
+                <strong style={{ color: "var(--ink)" }}>
+                  {selectedLead.status === "purchased"
+                    ? "Lead converteu com sucesso e realizou o pagamento total!"
+                    : selectedLead.status === "checkout_clicked"
+                    ? "Lead clicou no botão de compra mas abandonou na página do checkout."
+                    : selectedLead.status === "cta_viewed"
+                    ? "Visualizou o botão de compra e a tabela de preços, mas não clicou (Objeção de preço)."
+                    : selectedLead.status === "offer_viewed"
+                    ? "Chegou até a metade da VSL e abandonou antes de ver o preço."
+                    : "Saiu nos primeiros segundos da página (rejeição de headline/promessa)."}
                 </strong>
               </div>
-              <div style={{ width: "100%", height: "10px", background: "var(--line)", borderRadius: "6px", overflow: "hidden" }}>
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${selectedLead.maxScroll}%`,
-                    background: selectedLead.statusColor,
-                    transition: "width 0.2s ease",
-                  }}
-                />
+            </div>
+
+            {/* Painel 2: Marcos Acionados pelo Lead */}
+            <div className="panel" style={{ padding: "1.25rem" }}>
+              <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
+                Marcos Atingidos por este Lead
+              </h3>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "0.75rem",
+                }}
+              >
+                {[
+                  { label: "0% · PageView", active: true, desc: "Entrou na página" },
+                  { label: "25% · Dobra 1", active: selectedLead.maxScroll >= 25, desc: "Passou da introdução" },
+                  { label: "50% · Meio/VSL", active: selectedLead.maxScroll >= 50, desc: "Engajado no conteúdo" },
+                  { label: "75% · Oferta", active: selectedLead.maxScroll >= 75, desc: "Viu a ancoragem" },
+                  { label: "90% · CTA Visível", active: selectedLead.maxScroll >= 85, desc: "Botão no ecrã" },
+                  { label: "Checkout/Compra", active: selectedLead.status === "purchased" || selectedLead.status === "checkout_clicked", desc: "Ação de conversão" },
+                ].map((m, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "10px",
+                      borderRadius: "8px",
+                      background: m.active ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
+                      border: `1px solid ${m.active ? "#10B981" : "var(--line)"}`,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: m.active ? "#10B981" : "var(--muted)" }}>
+                        {m.label}
+                      </span>
+                      {m.active && <CheckCircle2 size={14} color="#10B981" />}
+                    </div>
+                    <small style={{ color: "var(--muted)", fontSize: "0.72rem", display: "block", marginTop: "2px" }}>
+                      {m.desc}
+                    </small>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Diagnóstico do Comportamento deste Lead */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 12px",
-                background: "var(--surface-subtle)",
-                borderRadius: "8px",
-                border: "1px solid var(--line)",
-                fontSize: "0.82rem",
-              }}
-            >
-              <Eye size={16} color="#5B34EA" />
-              <span style={{ color: "var(--muted)" }}>Diagnóstico da sessão:</span>
-              <strong style={{ color: "var(--ink)" }}>
-                {selectedLead.status === "purchased"
-                  ? "Lead converteu com sucesso e realizou o pagamento total!"
-                  : selectedLead.status === "checkout_clicked"
-                  ? "Lead clicou no botão de compra mas abandonou na página do checkout."
-                  : selectedLead.status === "cta_viewed"
-                  ? "Visualizou o botão de compra e a tabela de preços, mas não clicou (Objeção de preço)."
-                  : selectedLead.status === "offer_viewed"
-                  ? "Chegou até a metade da VSL e abandonou antes de ver o preço."
-                  : "Saiu nos primeiros segundos da página (rejeição de headline/promessa)."}
-              </strong>
-            </div>
-          </div>
+            {/* Painel 3: Trilha de Eventos desta Sessão Específica */}
+            <div className="panel" style={{ padding: "1.25rem" }}>
+              <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
+                Linha do Tempo da Sessão (Feed do Lead #{selectedLead.leadNumber})
+              </h3>
 
-          {/* Painel 2: Marcos Acionados pelo Lead */}
-          <div className="panel" style={{ padding: "1.25rem" }}>
-            <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-              Marcos Atingidos por este Lead
-            </h3>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                gap: "0.75rem",
-              }}
-            >
-              {[
-                { label: "0% · PageView", active: true, desc: "Entrou na página" },
-                { label: "25% · Dobra 1", active: selectedLead.maxScroll >= 25, desc: "Passou da introdução" },
-                { label: "50% · Meio/VSL", active: selectedLead.maxScroll >= 50, desc: "Engajado no conteúdo" },
-                { label: "75% · Oferta", active: selectedLead.maxScroll >= 75, desc: "Viu a ancoragem" },
-                { label: "90% · CTA Visível", active: selectedLead.maxScroll >= 85, desc: "Botão no ecrã" },
-                { label: "Checkout/Compra", active: selectedLead.status === "purchased" || selectedLead.status === "checkout_clicked", desc: "Ação de conversão" },
-              ].map((m, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: "10px",
-                    borderRadius: "8px",
-                    background: m.active ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
-                    border: `1px solid ${m.active ? "#10B981" : "var(--line)"}`,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: m.active ? "#10B981" : "var(--muted)" }}>
-                      {m.label}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  maxHeight: "220px",
+                  overflowY: "auto",
+                }}
+              >
+                {selectedLead.events.map((ev, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      background: "var(--surface)",
+                      borderLeft: `3px solid ${ev.color}`,
+                      fontSize: "0.8rem",
+                      border: "1px solid var(--line)",
+                    }}
+                  >
+                    <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--muted)", flexShrink: 0 }}>
+                      [{ev.time}]
                     </span>
-                    {m.active && <CheckCircle2 size={14} color="#10B981" />}
-                  </div>
-                  <small style={{ color: "var(--muted)", fontSize: "0.72rem", display: "block", marginTop: "2px" }}>
-                    {m.desc}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Painel 3: Trilha de Eventos desta Sessão Específica */}
-          <div className="panel" style={{ padding: "1.25rem" }}>
-            <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-              Linha do Tempo da Sessão (Feed do Lead #{selectedLead.leadNumber})
-            </h3>
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                maxHeight: "220px",
-                overflowY: "auto",
-              }}
-            >
-              {selectedLead.events.map((ev, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                    padding: "6px 10px",
-                    borderRadius: "6px",
-                    background: "var(--surface)",
-                    borderLeft: `3px solid ${ev.color}`,
-                    fontSize: "0.8rem",
-                    border: "1px solid var(--line)",
-                  }}
-                >
-                  <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--muted)", flexShrink: 0 }}>
-                    [{ev.time}]
-                  </span>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span
-                        style={{
-                          fontSize: "0.68rem",
-                          fontWeight: 700,
-                          padding: "1px 6px",
-                          borderRadius: "4px",
-                          background: `${ev.color}15`,
-                          color: ev.color,
-                        }}
-                      >
-                        {ev.type}
-                      </span>
-                      <strong style={{ color: "var(--ink)" }}>{ev.label}</strong>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            fontWeight: 700,
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                            background: `${ev.color}15`,
+                            color: ev.color,
+                          }}
+                        >
+                          {ev.type}
+                        </span>
+                        <strong style={{ color: "var(--ink)" }}>{ev.label}</strong>
+                      </div>
+                      <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--muted)" }}>
+                        {ev.detail}
+                      </p>
                     </div>
-                    <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--muted)" }}>
-                      {ev.detail}
-                    </p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

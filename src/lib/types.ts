@@ -126,6 +126,17 @@ export type WebhookLog = {
   received_at: string;
   is_test: boolean;
 };
+export type TrackingEvent = {
+  id: string;
+  workspace_id: string;
+  offer_id: string;
+  link_id: string | null;
+  event_type: string;
+  session_id: string;
+  url: string;
+  attribution: Record<string, string>;
+  created_at: string;
+};
 export type FunnelRow = {
   id: string;
   workspace_id: string;

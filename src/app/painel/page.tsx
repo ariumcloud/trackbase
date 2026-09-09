@@ -18,6 +18,7 @@ import type {
   DiagnosticRow,
   ShieldRow,
   ShieldLogRow,
+  TrackingEvent,
 } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -114,6 +115,7 @@ export default async function Page({
   const needsAlerts = activeTab === "alertas";
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
   const needsShield = activeTab === "shield";
+  const needsEvents = ["radar", "simulador", "visao"].includes(activeTab);
 
   const [
     offers,
@@ -129,6 +131,7 @@ export default async function Page({
     diagnosticsRes,
     shields,
     shieldLogs,
+    events,
   ] = w
     ? await Promise.all([
         client
@@ -233,6 +236,14 @@ export default async function Page({
               .order("created_at", { ascending: false })
               .limit(100)
           : empty,
+        needsEvents
+          ? client
+              .from("utm_events")
+              .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+              .limit(300)
+          : empty,
       ])
     : [
         { data: [], error: null },
@@ -245,6 +256,7 @@ export default async function Page({
         { data: [], error: null },
         { data: null, error: null },
         [] as AlertItem[],
+        { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
@@ -291,6 +303,7 @@ export default async function Page({
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       shields={(shields.data ?? []) as ShieldRow[]}
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
+      events={(events.data ?? []) as TrackingEvent[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
         initialTab={p.tab}

@@ -87,6 +87,7 @@ import type {
   DiagnosticRow,
   ShieldRow,
   ShieldLogRow,
+  TrackingEvent,
 } from "@/lib/types";
 import dynamic from "next/dynamic";
 import { GraficoDiario } from "./grafico-diario";
@@ -146,6 +147,7 @@ type Props = {
   error?: string;
   shields?: ShieldRow[];
   shieldLogs?: ShieldLogRow[];
+  events?: TrackingEvent[];
 };
 const tabs = [
   { id: "visao", name: "Visão geral", icon: LayoutDashboard },
@@ -2475,7 +2477,13 @@ export function Dashboard(p: Props) {
             (!hasRadarAccess ? (
               <LockedFeatureCard feature="radar" />
             ) : (
-              <LeadScrollVisualizer sales={p.sales} />
+              <LeadScrollVisualizer
+                sales={p.sales}
+                events={p.events}
+                offers={p.offers}
+                appUrl={p.appUrl}
+                workspaceId={workspace}
+              />
             ))}
           {tab === "assistente" && (
             <AssistenteTrackbase

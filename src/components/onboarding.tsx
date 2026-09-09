@@ -51,6 +51,9 @@ export function OnboardingChecklist({
         localStorage.getItem("trackbase_onboarding_hidden") ||
         localStorage.getItem("kirofy_onboarding_hidden");
       if (saved === "true") setDismissed(true);
+
+      const savedCollapsed = localStorage.getItem("trackbase_onboarding_collapsed");
+      if (savedCollapsed === "true") setCollapsed(true);
     } catch {
       // ignore
     }
@@ -60,6 +63,16 @@ export function OnboardingChecklist({
     setDismissed(true);
     try {
       localStorage.setItem("trackbase_onboarding_hidden", "true");
+    } catch {
+      // ignore
+    }
+  };
+
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem("trackbase_onboarding_collapsed", String(next));
     } catch {
       // ignore
     }
@@ -262,7 +275,7 @@ export function OnboardingChecklist({
               <button
                 type="button"
                 className="button small ghost"
-                onClick={() => setCollapsed(!collapsed)}
+                onClick={toggleCollapse}
                 style={{ padding: "0.3rem 0.6rem" }}
               >
                 {collapsed ? (
