@@ -38,6 +38,16 @@ export async function POST(request: Request) {
     if (!(await rateLimit(`push:${user.id}`, 10))) {
       return NextResponse.json({ error: "Muitas tentativas." }, { status: 429 });
     }
+
+    const userAgent = request.headers.get("user-agent") || "";
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent);
+    if (!isMobile) {
+      return NextResponse.json(
+        { error: "As notificações de venda com som devem ser ativadas exclusivamente no seu celular (iPhone ou Android)." },
+        { status: 400 },
+      );
+    }
+
     const json = await body(request, 8192);
     const parsed = subscribeSchema.safeParse(json);
 
@@ -63,23 +73,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upsert push subscription based on (workspace_id, endpoint)
-    const { error: upsertError } = await service
+    // Blindagem de aparelho: remove inscrições anteriores deste usuário no workspace
+    // para assegurar que apenas o aparelho mais recente receba as notificações (1 por usuário)
+    await service
       .from("utm_push_subscriptions")
-      .upsert(
-        {
-          workspace_id,
-          user_id: user.id,
-          endpoint: subscription.endpoint,
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "workspace_id,endpoint" },
-      );
+      .delete()
+      .eq("workspace_id", workspace_id)
+      .eq("user_id", user.id);
 
-    if (upsertError) {
-      console.error("Erro ao salvar push subscription:", upsertError);
+    const { error: insertError } = await service
+      .from("utm_push_subscriptions")
+      .insert({
+        workspace_id,
+        user_id: user.id,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      console.error("Erro ao salvar push subscription:", insertError);
       return NextResponse.json(
         { error: "Falha ao salvar inscrição." },
         { status: 500 },

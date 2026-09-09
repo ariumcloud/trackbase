@@ -76,6 +76,22 @@ export function SalesNotifier({ workspaceId }: Props) {
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
+      // No desktop PC, não registra inscrições de push (notificações são exclusivas para smartphone)
+      if (!isMobileEnvironment()) {
+        navigator.serviceWorker.getRegistration().then(async (reg) => {
+          const sub = await reg?.pushManager.getSubscription();
+          if (sub) {
+            await sub.unsubscribe().catch(() => {});
+            await fetch("/api/push/subscribe", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ endpoint: sub.endpoint }),
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+        return;
+      }
+
       navigator.serviceWorker
         .register("/sw.js")
         .then(async (registration) => {
@@ -155,6 +171,14 @@ export function SalesNotifier({ workspaceId }: Props) {
   const toggleSubscription = async () => {
     if (!workspaceId) return;
     setLoading(true);
+
+    if (!isMobileEnvironment()) {
+      alert(
+        "📱 As notificações de venda com o som da máquina registradora são exclusivas para Celular!\n\nAbra o Trackbase no seu iPhone (Safari > Adicionar à Tela de Início) ou celular Android e toque em 'Ativar Vendas' lá para o aparelho tocar a cada venda aprovada."
+      );
+      setLoading(false);
+      return;
+    }
 
     if (!("Notification" in window) || !("PushManager" in window)) {
       alert(
@@ -290,6 +314,15 @@ export function SalesNotifier({ workspaceId }: Props) {
         </div>,
         document.body
       )}
+
+      {/* Elemento de áudio nativo no DOM para máxima compatibilidade com iOS Safari e Android */}
+      <audio
+        id="cash-machine-player"
+        src="/cash-machine.mp3"
+        preload="auto"
+        playsInline
+        style={{ display: "none" }}
+      />
     </>
   );
 }

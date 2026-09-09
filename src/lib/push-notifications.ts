@@ -37,11 +37,12 @@ export async function notifySalePush(
   try {
     const service = admin();
 
-    // Query all active push subscriptions for this workspace
+    // Query all active push subscriptions for this workspace (ordered by updated_at desc)
     const { data: subs, error } = await service
       .from("utm_push_subscriptions")
-      .select("id, endpoint, p256dh, auth")
-      .eq("workspace_id", workspaceId);
+      .select("id, user_id, endpoint, p256dh, auth, updated_at")
+      .eq("workspace_id", workspaceId)
+      .order("updated_at", { ascending: false });
 
     if (!isVapidConfigured) {
       console.warn("VAPID is not configured.");
@@ -56,6 +57,25 @@ export async function notifySalePush(
     if (!subs || subs.length === 0) {
       return { ok: false, count: 0, reason: "no_subscribers" };
     }
+
+    // Blindagem de aparelho: mantém estritamente 1 único aparelho ativo (o mais recente) por usuário
+    // e purga automaticamente inscrições antigas, duplicadas ou de navegadores de desktop
+    const latestByUser = new Map<string, (typeof subs)[0]>();
+    const staleIds: string[] = [];
+
+    for (const sub of subs) {
+      if (!latestByUser.has(sub.user_id)) {
+        latestByUser.set(sub.user_id, sub);
+      } else {
+        staleIds.push(sub.id);
+      }
+    }
+
+    if (staleIds.length > 0) {
+      await service.from("utm_push_subscriptions").delete().in("id", staleIds);
+    }
+
+    const activeSubs = Array.from(latestByUser.values());
 
     // Fetch workspace push settings (if customized)
     const { data: ws } = await service
@@ -116,7 +136,7 @@ export async function notifySalePush(
     let failedCount = 0;
 
     await Promise.all(
-      subs.map(async (sub) => {
+      activeSubs.map(async (sub) => {
         try {
           await webpush.sendNotification(
             {
@@ -157,9 +177,9 @@ export async function notifySalePush(
     }
 
     if (sentCount === 0 && failedCount > 0) {
-      return { ok: false, count: 0, total: subs.length, reason: "push_delivery_failed" };
+      return { ok: false, count: 0, total: activeSubs.length, reason: "push_delivery_failed" };
     }
-    return { ok: true, count: sentCount, total: subs.length };
+    return { ok: true, count: sentCount, total: activeSubs.length };
   } catch (err) {
     console.error("notifySalePush error:", err);
     return { ok: false, count: 0, reason: String(err) };

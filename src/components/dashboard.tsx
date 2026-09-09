@@ -3338,7 +3338,10 @@ function PushSettingsCard({
       }
       setStatusFeedback({
         type: "success",
-        message: `Notificação enviada com sucesso para ${res.count ?? 1} aparelho(s)! Verifique sua tela.`,
+        message:
+          res.count === 1
+            ? "Notificação enviada com sucesso para o seu celular! Verifique a tela do seu aparelho."
+            : `Notificação enviada com sucesso para ${res.count ?? 1} aparelho(s)! Verifique sua tela.`,
       });
       setTimeout(() => setStatusFeedback(null), 5000);
     });
