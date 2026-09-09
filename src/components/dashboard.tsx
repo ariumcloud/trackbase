@@ -37,7 +37,13 @@ import {
   BookOpen,
 } from "lucide-react";
 import { UtmifySummary } from "./utmify-summary";
-import { ActionForm, OfferForm, WorkspaceDeleteForm, WorkspaceForm, WorkspaceRenameForm } from "./forms";
+import {
+  ActionForm,
+  OfferForm,
+  WorkspaceDeleteForm,
+  WorkspaceForm,
+  WorkspaceRenameForm,
+} from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
 import { GuideModal } from "./guide-modal";
 import { LockedFeatureCard } from "./locked-feature-card";
@@ -76,14 +82,41 @@ import type {
 import dynamic from "next/dynamic";
 import { GraficoDiario } from "./grafico-diario";
 import { OnboardingChecklist } from "./onboarding";
-const AssistenteTrackbase = dynamic(() => import("./assistente").then((m) => m.AssistenteTrackbase), { ssr: false });
-const DiagnosticoViewLazy = dynamic(() => import("./diagnostico").then((m) => m.DiagnosticoView), { ssr: false });
-const ShieldView = dynamic(() => import("./shield-view").then((m) => m.ShieldView), { ssr: false });
-const CampaignsView = dynamic(() => import("./campaigns-view").then((m) => m.CampaignsView), { ssr: false });
-const LeadScrollVisualizer = dynamic(() => import("./lead-scroll-visualizer").then((m) => m.LeadScrollVisualizer), { ssr: false });
+const AssistenteTrackbase = dynamic(
+  () => import("./assistente").then((m) => m.AssistenteTrackbase),
+  { ssr: false },
+);
+const DiagnosticoViewLazy = dynamic(
+  () => import("./diagnostico").then((m) => m.DiagnosticoView),
+  { ssr: false },
+);
+const ShieldView = dynamic(
+  () => import("./shield-view").then((m) => m.ShieldView),
+  { ssr: false },
+);
+const CampaignsView = dynamic(
+  () => import("./campaigns-view").then((m) => m.CampaignsView),
+  { ssr: false },
+);
+const LeadScrollVisualizer = dynamic(
+  () => import("./lead-scroll-visualizer").then((m) => m.LeadScrollVisualizer),
+  { ssr: false },
+);
 import { BottomBar } from "./bottom-bar";
+const MiningView = dynamic(
+  () => import("./mining-view").then((m) => m.MiningView),
+  { ssr: false },
+);
+const ExtensionSettings = dynamic(
+  () => import("./mining-view").then((m) => m.ExtensionSettings),
+  { ssr: false },
+);
 import { SalesNotifier } from "./sales-notifier";
-import { exportSalesCsv, exportCampaignsCsv, exportLinksCsv } from "@/lib/export-csv";
+import {
+  exportSalesCsv,
+  exportCampaignsCsv,
+  exportLinksCsv,
+} from "@/lib/export-csv";
 type Props = {
   isAdmin?: boolean;
   setup?: boolean;
@@ -109,6 +142,7 @@ type Props = {
   shieldLogs?: ShieldLogRow[];
 };
 const tabs = [
+  { id: "mineracao", name: "Biblioteca de ofertas", icon: BookOpen },
   { id: "visao", name: "Visão geral", icon: LayoutDashboard },
   { id: "ofertas", name: "Minhas ofertas", icon: Layers },
   { id: "links", name: "Links e UTMs", icon: Link2 },
@@ -121,6 +155,10 @@ const tabs = [
   { id: "alertas", name: "Alertas", icon: Bell },
 ];
 const titles: Record<string, [string, string]> = {
+  mineracao: [
+    "Biblioteca de ofertas",
+    "Salve criativos e acompanhe as ofertas escolhidas no workspace.",
+  ],
   visao: [
     "Sua operação, sem achismo.",
     "Do clique à venda. Tudo o que importa, em um só lugar.",
@@ -240,7 +278,8 @@ export function Dashboard(p: Props) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("trackbase_theme") as "light" | "dark" | null;
+      const saved = localStorage.getItem("trackbase_theme") as
+        "light" | "dark" | null;
       const initial = saved === "dark" ? "dark" : "light";
       setTheme(initial);
       document.documentElement.setAttribute("data-theme", initial);
@@ -272,6 +311,7 @@ export function Dashboard(p: Props) {
   const hasShieldAccess = canUse(currentPlan, "shield");
   const hasRadarAccess = canUse(currentPlan, "radar");
   const hasDiagnosticoAccess = canUse(currentPlan, "diagnostico");
+  const hasMiningAccess = canUse(currentPlan, "mining");
 
   let since: string;
   let until: string;
@@ -483,7 +523,12 @@ export function Dashboard(p: Props) {
       body: JSON.stringify(data),
     });
     const r = await response.json();
-    if (!response.ok) throw new Error(typeof r.error === "string" ? r.error : r.error?.message || "Não foi possível concluir.");
+    if (!response.ok)
+      throw new Error(
+        typeof r.error === "string"
+          ? r.error
+          : r.error?.message || "Não foi possível concluir.",
+      );
     return r;
   };
   const run = (fn: () => Promise<unknown>) =>
@@ -511,7 +556,11 @@ export function Dashboard(p: Props) {
       )}
       <aside className={`sidebar ${mobile ? "open" : ""}`}>
         <div className="sidebar-header">
-          <Link href="/painel" className="brand" onClick={() => setMobile(false)}>
+          <Link
+            href="/painel"
+            className="brand"
+            onClick={() => setMobile(false)}
+          >
             <Image
               src="/Logo Roxa SVG - 1024x1024.svg"
               alt="Trackbase Logo"
@@ -561,13 +610,25 @@ export function Dashboard(p: Props) {
         )}
         {workspace && (
           <div className="workspace-quick-actions">
-            <button type="button" className="workspace-action" onClick={() => create("workspace")}>
+            <button
+              type="button"
+              className="workspace-action"
+              onClick={() => create("workspace")}
+            >
               <Plus size={14} /> Criar
             </button>
-            <button type="button" className="workspace-action" onClick={() => setModal("workspace-rename")}>
+            <button
+              type="button"
+              className="workspace-action"
+              onClick={() => setModal("workspace-rename")}
+            >
               <Pencil size={14} /> Editar
             </button>
-            <button type="button" className="workspace-action danger" onClick={() => setModal("workspace-delete")}>
+            <button
+              type="button"
+              className="workspace-action danger"
+              onClick={() => setModal("workspace-delete")}
+            >
               <Trash2 size={14} /> Excluir
             </button>
           </div>
@@ -582,7 +643,7 @@ export function Dashboard(p: Props) {
             >
               <t.icon size={19} />
               {t.name}
-              {isFreePlan && ["shield", "diagnostico", "radar"].includes(t.id) && (
+              {!hasMiningAccess && t.id === "mineracao" && (
                 <span
                   style={{
                     marginLeft: "auto",
@@ -595,9 +656,26 @@ export function Dashboard(p: Props) {
                     letterSpacing: "0.02em",
                   }}
                 >
-                  PRO
+                  BÁSICO+
                 </span>
               )}
+              {isFreePlan &&
+                ["shield", "diagnostico", "radar"].includes(t.id) && (
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: "0.68rem",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      background: "rgba(91, 52, 234, 0.12)",
+                      color: "var(--brand-accent, #5B34EA)",
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    PRO
+                  </span>
+                )}
               {t.id === "links" && p.links.length > 0 && (
                 <span className="nav-count">{p.links.length}</span>
               )}
@@ -666,20 +744,30 @@ export function Dashboard(p: Props) {
             <Menu size={21} />
           </button>
           <div className="breadcrumb">
-            <span className="breadcrumb-prefix">Workspace</span> <span className="breadcrumb-sep">/</span>{" "}
+            <span className="breadcrumb-prefix">Workspace</span>{" "}
+            <span className="breadcrumb-sep">/</span>{" "}
             <strong>{tabs.find((t) => t.id === tab)?.name}</strong>
           </div>
           <div className="topbar-right">
             {p.isAdmin && (
-              <Link href="/admin" className="button small admin-btn-topbar" title="Painel de Administração">
-                <ShieldCheck size={16} /> <span className="admin-btn-label">Admin</span>
+              <Link
+                href="/admin"
+                className="button small admin-btn-topbar"
+                title="Painel de Administração"
+              >
+                <ShieldCheck size={16} />{" "}
+                <span className="admin-btn-label">Admin</span>
               </Link>
             )}
             <button
               type="button"
               className="theme-toggle-btn"
               onClick={toggleTheme}
-              title={theme === "dark" ? "Alternar para modo claro" : "Alternar para modo escuro"}
+              title={
+                theme === "dark"
+                  ? "Alternar para modo claro"
+                  : "Alternar para modo escuro"
+              }
               aria-label="Alternar tema claro/escuro"
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -692,7 +780,10 @@ export function Dashboard(p: Props) {
             <span className="top-avatar">U</span>
           </div>
         </header>
-        <main id="dashboard-content" className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""}`}>
+        <main
+          id="dashboard-content"
+          className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""}`}
+        >
           <div className="page-heading">
             <div>
               <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>
@@ -700,12 +791,19 @@ export function Dashboard(p: Props) {
               <p>{titles[tab][1]}</p>
             </div>
             <div className="page-heading-actions">
-              <div className="export-menu-wrap" style={{ position: "relative" }}>
+              <div
+                className="export-menu-wrap"
+                style={{ position: "relative" }}
+              >
                 <button
                   type="button"
                   className="button ghost"
                   onClick={() => setShowExportMenu(!showExportMenu)}
-                  style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                  }}
                 >
                   <Download size={15} /> Exportar CSV
                 </button>
@@ -826,9 +924,14 @@ export function Dashboard(p: Props) {
                 <button
                   className="button primary"
                   onClick={() => {
-                    const addBtn = document.querySelector('[data-shield-add]') as HTMLButtonElement | null;
+                    const addBtn = document.querySelector(
+                      "[data-shield-add]",
+                    ) as HTMLButtonElement | null;
                     if (addBtn) addBtn.click();
-                    else setNotice("Clique em 'Configurar Novo Domínio' na seção do Shield.");
+                    else
+                      setNotice(
+                        "Clique em 'Configurar Novo Domínio' na seção do Shield.",
+                      );
                   }}
                 >
                   <Plus size={17} />
@@ -839,8 +942,11 @@ export function Dashboard(p: Props) {
                 <button
                   className="button primary"
                   onClick={() => {
-                    const gatewaySection = document.getElementById("gateway-select-section");
-                    if (gatewaySection) gatewaySection.scrollIntoView({ behavior: "smooth" });
+                    const gatewaySection = document.getElementById(
+                      "gateway-select-section",
+                    );
+                    if (gatewaySection)
+                      gatewaySection.scrollIntoView({ behavior: "smooth" });
                     else setModal("hotmart");
                   }}
                 >
@@ -908,13 +1014,37 @@ export function Dashboard(p: Props) {
               <WorkspaceForm />
             </section>
           )}
+          {tab === "mineracao" &&
+            (p.workspace ? (
+              hasMiningAccess ? (
+                <MiningView key={p.workspace.id} workspace={p.workspace.id} />
+              ) : (
+                <section className="locked-feature-card">
+                  <h2>Biblioteca de ofertas</h2>
+                  <p>
+                    Salve e acompanhe anúncios da Biblioteca da Meta no Plano
+                    Básico ou superior.
+                  </p>
+                </section>
+              )
+            ) : (
+              <p>Selecione ou crie um workspace para começar.</p>
+            ))}
+          {tab === "integracoes" && p.workspace && hasMiningAccess && (
+            <ExtensionSettings
+              key={p.workspace.id}
+              workspace={p.workspace.id}
+            />
+          )}
           {tab === "visao" && (
             <>
               <OnboardingChecklist
                 hasPaymentGateway={hasPayments}
                 hasTrackerActivity={metrics.pageviews > 0}
                 linksCount={p.links.length}
-                hasMetaConnected={p.integrations.some((i) => i.provider === "meta" && i.status === "connected")}
+                hasMetaConnected={p.integrations.some(
+                  (i) => i.provider === "meta" && i.status === "connected",
+                )}
                 hasShieldConfigured={(p.shields?.length ?? 0) > 0}
                 salesCount={p.sales.length}
                 onNavigateTab={selectTab}
@@ -1455,7 +1585,14 @@ export function Dashboard(p: Props) {
                       <span className="empty-icon">
                         <Layers size={23} />
                       </span>
-                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginBottom: "0.4rem" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "0.35rem",
+                          flexWrap: "wrap",
+                          marginBottom: "0.4rem",
+                        }}
+                      >
                         <span className="chip">{o.currency}</span>
                         {o.product_type && (
                           <span className="chip">
@@ -1477,7 +1614,10 @@ export function Dashboard(p: Props) {
                           </span>
                         )}
                         {o.platform && (
-                          <span className="chip" style={{ textTransform: "capitalize" }}>
+                          <span
+                            className="chip"
+                            style={{ textTransform: "capitalize" }}
+                          >
                             {o.platform}
                           </span>
                         )}
@@ -1485,15 +1625,33 @@ export function Dashboard(p: Props) {
                       <h2>{o.name}</h2>
                       <p className="url-text">{o.landing_url}</p>
                       {o.checkout_url && (
-                        <p className="url-text" style={{ fontSize: "0.75rem", opacity: 0.8 }}>
+                        <p
+                          className="url-text"
+                          style={{ fontSize: "0.75rem", opacity: 0.8 }}
+                        >
                           Checkout: {o.checkout_url}
                         </p>
                       )}
-                      {(Number(o.percent_fee) > 0 || Number(o.fixed_fee) > 0 || Number(o.cost_per_sale) > 0) && (
-                        <p style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)", margin: "0.25rem 0" }}>
-                          Taxas: {Number(o.percent_fee) > 0 ? `${o.percent_fee}% ` : ""}
-                          {Number(o.fixed_fee) > 0 ? `+ ${money(o.fixed_fee ?? null)} fixa ` : ""}
-                          {Number(o.cost_per_sale) > 0 ? `· Custo: ${money(o.cost_per_sale ?? null)}` : ""}
+                      {(Number(o.percent_fee) > 0 ||
+                        Number(o.fixed_fee) > 0 ||
+                        Number(o.cost_per_sale) > 0) && (
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "var(--muted, #64748B)",
+                            margin: "0.25rem 0",
+                          }}
+                        >
+                          Taxas:{" "}
+                          {Number(o.percent_fee) > 0
+                            ? `${o.percent_fee}% `
+                            : ""}
+                          {Number(o.fixed_fee) > 0
+                            ? `+ ${money(o.fixed_fee ?? null)} fixa `
+                            : ""}
+                          {Number(o.cost_per_sale) > 0
+                            ? `· Custo: ${money(o.cost_per_sale ?? null)}`
+                            : ""}
                         </p>
                       )}
                       {o.public_key && (
@@ -1539,13 +1697,25 @@ export function Dashboard(p: Props) {
                           </code>
                         </div>
                       )}
-                      {p.integrations.some((integration) => integration.offer_id === o.id && integration.provider === "cakto" && integration.status !== "connected") && (
+                      {p.integrations.some(
+                        (integration) =>
+                          integration.offer_id === o.id &&
+                          integration.provider === "cakto" &&
+                          integration.status !== "connected",
+                      ) && (
                         <div className="offer-activation">
                           <div>
                             <strong>Falta ativar as vendas</strong>
-                            <span>Configure o webhook da Cakto para receber compras, reembolsos e chargebacks.</span>
+                            <span>
+                              Configure o webhook da Cakto para receber compras,
+                              reembolsos e chargebacks.
+                            </span>
                           </div>
-                          <button className="button secondary" type="button" onClick={() => selectTab("integracoes")}>
+                          <button
+                            className="button secondary"
+                            type="button"
+                            onClick={() => selectTab("integracoes")}
+                          >
                             Configurar webhook
                           </button>
                         </div>
@@ -1608,30 +1778,107 @@ export function Dashboard(p: Props) {
                             {l.active ? "Ativo" : "Inativo"}
                           </span>
                         </div>
-                        <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--ink-secondary)" }}>
-                          Oferta: <strong>{p.offers.find((o) => o.id === l.offer_id)?.name}</strong>
+                        <p
+                          style={{
+                            margin: "0 0 10px",
+                            fontSize: "13px",
+                            color: "var(--ink-secondary)",
+                          }}
+                        >
+                          Oferta:{" "}
+                          <strong>
+                            {p.offers.find((o) => o.id === l.offer_id)?.name}
+                          </strong>
                         </p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 10,
+                          }}
+                        >
                           <label>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                              <span style={{ fontSize: "12px", fontWeight: 700 }}>1. URL do site (Página de destino limpa para a Meta)</span>
-                              <Clipboard value={l.url} label="Copiar URL do site" />
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: 4,
+                              }}
+                            >
+                              <span
+                                style={{ fontSize: "12px", fontWeight: 700 }}
+                              >
+                                1. URL do site (Página de destino limpa para a
+                                Meta)
+                              </span>
+                              <Clipboard
+                                value={l.url}
+                                label="Copiar URL do site"
+                              />
                             </div>
-                            <input readOnly value={l.url} style={{ width: "100%" }} />
+                            <input
+                              readOnly
+                              value={l.url}
+                              style={{ width: "100%" }}
+                            />
                           </label>
                           <label>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                              <span style={{ fontSize: "12px", fontWeight: 700 }}>2. Parâmetros de URL (Campo da Meta Ads)</span>
-                              <Clipboard value={built.parameters} label="Copiar parâmetros" />
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: 4,
+                              }}
+                            >
+                              <span
+                                style={{ fontSize: "12px", fontWeight: 700 }}
+                              >
+                                2. Parâmetros de URL (Campo da Meta Ads)
+                              </span>
+                              <Clipboard
+                                value={built.parameters}
+                                label="Copiar parâmetros"
+                              />
                             </div>
-                            <textarea readOnly rows={2} value={built.parameters} style={{ width: "100%" }} />
+                            <textarea
+                              readOnly
+                              rows={2}
+                              value={built.parameters}
+                              style={{ width: "100%" }}
+                            />
                           </label>
                           <label>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink-secondary)" }}>3. Link completo integrado (URL + Parâmetros juntos)</span>
-                              <Clipboard value={built.full} label="Copiar link completo" />
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: 4,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: "var(--ink-secondary)",
+                                }}
+                              >
+                                3. Link completo integrado (URL + Parâmetros
+                                juntos)
+                              </span>
+                              <Clipboard
+                                value={built.full}
+                                label="Copiar link completo"
+                              />
                             </div>
-                            <textarea readOnly rows={2} value={built.full} style={{ width: "100%", opacity: 0.9 }} />
+                            <textarea
+                              readOnly
+                              rows={2}
+                              value={built.full}
+                              style={{ width: "100%", opacity: 0.9 }}
+                            />
                           </label>
                         </div>
                         {l.public_key && (
@@ -1856,26 +2103,43 @@ export function Dashboard(p: Props) {
                           window.location.assign(
                             `/api/google/connect?workspace=${workspace}`,
                           );
-                        } else if (["cakto", "kiwify", "hotmart"].includes(i.id) && p.integrations.some((connection) => connection.provider === i.id)) {
+                        } else if (
+                          ["cakto", "kiwify", "hotmart"].includes(i.id) &&
+                          p.integrations.some(
+                            (connection) => connection.provider === i.id,
+                          )
+                        ) {
                           setModal(`${i.id}-add`);
                         } else setModal(i.id);
                       }}
                     >
-                      {["cakto", "kiwify", "hotmart"].includes(i.id) && p.integrations.some((connection) => connection.provider === i.id)
+                      {["cakto", "kiwify", "hotmart"].includes(i.id) &&
+                      p.integrations.some(
+                        (connection) => connection.provider === i.id,
+                      )
                         ? "Adicionar outro produto"
-                        : `Conectar ${i.name}`} <ArrowUpRight size={15} />
+                        : `Conectar ${i.name}`}{" "}
+                      <ArrowUpRight size={15} />
                     </button>
                   </section>
                 ))}
               </div>
               {p.integrations.length > 0 && (
-                <section className="connected-integrations-section" aria-labelledby="connected-integrations-title">
+                <section
+                  className="connected-integrations-section"
+                  aria-labelledby="connected-integrations-title"
+                >
                   <div className="connected-integrations-heading">
                     <div>
                       <span className="eyebrow">SUAS CONEXÕES</span>
-                      <h2 id="connected-integrations-title">Contas e gateways conectados</h2>
+                      <h2 id="connected-integrations-title">
+                        Contas e gateways conectados
+                      </h2>
                     </div>
-                    <span className="chip">{p.integrations.length} ativo{p.integrations.length === 1 ? "" : "s"}</span>
+                    <span className="chip">
+                      {p.integrations.length} ativo
+                      {p.integrations.length === 1 ? "" : "s"}
+                    </span>
                   </div>
                   <div className="connected-integrations-grid">
                     {p.integrations.map((i) => (
@@ -1975,9 +2239,13 @@ export function Dashboard(p: Props) {
               <section className="panel" style={{ marginTop: "1.5rem" }}>
                 <div className="panel-heading">
                   <div>
-                    <h2>Envio Automático de Vendas para o Facebook (Pixel &amp; API)</h2>
+                    <h2>
+                      Envio Automático de Vendas para o Facebook (Pixel &amp;
+                      API)
+                    </h2>
                     <p>
-                      Envia as compras aprovadas direto via servidor para o Facebook Ads, imune ao iOS 14+ e bloqueadores de anúncios
+                      Envia as compras aprovadas direto via servidor para o
+                      Facebook Ads, imune ao iOS 14+ e bloqueadores de anúncios
                     </p>
                   </div>
                 </div>
@@ -2019,7 +2287,8 @@ export function Dashboard(p: Props) {
                         </select>
                       </label>
                       <label>
-                        Token de Acesso da Meta (Gerado no Gerenciador de Eventos)
+                        Token de Acesso da Meta (Gerado no Gerenciador de
+                        Eventos)
                         <input
                           name="capi_token"
                           type="password"
@@ -2029,14 +2298,17 @@ export function Dashboard(p: Props) {
                         />
                       </label>
                       <label>
-                        Código de Teste da Meta (Opcional - para testar eventos ao vivo)
+                        Código de Teste da Meta (Opcional - para testar eventos
+                        ao vivo)
                         <input
                           name="test_event_code"
                           placeholder="Ex: TEST12345"
                         />
                       </label>
                       <p className="form-help">
-                        🔒 Suas credenciais são criptografadas com segurança máxima e usadas exclusivamente para alimentar o algoritmo do Facebook com vendas reais.
+                        🔒 Suas credenciais são criptografadas com segurança
+                        máxima e usadas exclusivamente para alimentar o
+                        algoritmo do Facebook com vendas reais.
                       </p>
                     </ActionForm>
                   </div>
@@ -2132,7 +2404,11 @@ export function Dashboard(p: Props) {
                 pending={pending}
                 run={run}
               />
-              <AccountPrivacyCard pending={pending} run={run} request={request} />
+              <AccountPrivacyCard
+                pending={pending}
+                run={run}
+                request={request}
+              />
             </>
           )}
           {tab === "campanhas" && (
@@ -2153,8 +2429,8 @@ export function Dashboard(p: Props) {
               connect={() => selectTab("integracoes")}
             />
           )}
-          {tab === "diagnostico" && (
-            !hasDiagnosticoAccess ? (
+          {tab === "diagnostico" &&
+            (!hasDiagnosticoAccess ? (
               <LockedFeatureCard feature="diagnostico" />
             ) : (
               <DiagnosticoViewLazy
@@ -2166,15 +2442,13 @@ export function Dashboard(p: Props) {
                 currency={currency}
                 selectTab={selectTab}
               />
-            )
-          )}
-          {(tab === "radar" || tab === "simulador") && (
-            !hasRadarAccess ? (
+            ))}
+          {(tab === "radar" || tab === "simulador") &&
+            (!hasRadarAccess ? (
               <LockedFeatureCard feature="radar" />
             ) : (
               <LeadScrollVisualizer sales={p.sales} />
-            )
-          )}
+            ))}
           {tab === "assistente" && (
             <AssistenteTrackbase
               workspace={workspace}
@@ -2189,218 +2463,219 @@ export function Dashboard(p: Props) {
           )}
           {tab === "alertas" && (
             <>
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Alertas Inteligentes</h2>
-                  <p>
-                    Detecção de anomalias com volume mínimo de amostra e sem
-                    falsos positivos
-                  </p>
+              <section className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Alertas Inteligentes</h2>
+                    <p>
+                      Detecção de anomalias com volume mínimo de amostra e sem
+                      falsos positivos
+                    </p>
+                  </div>
+                  <span className="chip">
+                    {p.alerts.filter((a) => !a.read).length} não lidos
+                  </span>
                 </div>
-                <span className="chip">
-                  {p.alerts.filter((a) => !a.read).length} não lidos
-                </span>
-              </div>
 
-              {p.alerts.length ? (
-                <div
-                  style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}
-                >
-                  {p.alerts.map((al) => {
-                    const isCrit = al.severity === "critical";
-                    const isWarn =
-                      al.severity === "high" || al.severity === "medium";
-                    const borderColor = isCrit
-                      ? "var(--red-border, #FECACA)"
-                      : isWarn
-                        ? "var(--yellow-border, #FDE68A)"
-                        : "var(--brand-border, #DDD6FE)";
-                    const bgBadge = isCrit
-                      ? "var(--red-soft, #FEF2F2)"
-                      : isWarn
-                        ? "var(--yellow-soft, #FEF3C7)"
-                        : "var(--brand-soft, #F3F0FF)";
-                    const textBadge = isCrit
-                      ? "var(--red-text, #B91C1C)"
-                      : isWarn
-                        ? "var(--yellow-text, #B45309)"
-                        : "var(--brand-text, #3B1E78)";
+                {p.alerts.length ? (
+                  <div
+                    style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}
+                  >
+                    {p.alerts.map((al) => {
+                      const isCrit = al.severity === "critical";
+                      const isWarn =
+                        al.severity === "high" || al.severity === "medium";
+                      const borderColor = isCrit
+                        ? "var(--red-border, #FECACA)"
+                        : isWarn
+                          ? "var(--yellow-border, #FDE68A)"
+                          : "var(--brand-border, #DDD6FE)";
+                      const bgBadge = isCrit
+                        ? "var(--red-soft, #FEF2F2)"
+                        : isWarn
+                          ? "var(--yellow-soft, #FEF3C7)"
+                          : "var(--brand-soft, #F3F0FF)";
+                      const textBadge = isCrit
+                        ? "var(--red-text, #B91C1C)"
+                        : isWarn
+                          ? "var(--yellow-text, #B45309)"
+                          : "var(--brand-text, #3B1E78)";
 
-                    return (
-                      <article
-                        key={al.id}
-                        style={{
-                          padding: "1rem 1.25rem",
-                          borderRadius: "10px",
-                          background: al.read
-                            ? "var(--surface-subtle, #F9FAFB)"
-                            : "var(--surface, #FFFFFF)",
-                          border: `1px solid ${borderColor}`,
-                          boxShadow: "var(--shadow-sm)",
-                          opacity: al.read ? 0.75 : 1,
-                        }}
-                      >
-                        <div
+                      return (
+                        <article
+                          key={al.id}
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            gap: "1rem",
+                            padding: "1rem 1.25rem",
+                            borderRadius: "10px",
+                            background: al.read
+                              ? "var(--surface-subtle, #F9FAFB)"
+                              : "var(--surface, #FFFFFF)",
+                            border: `1px solid ${borderColor}`,
+                            boxShadow: "var(--shadow-sm)",
+                            opacity: al.read ? 0.75 : 1,
                           }}
                         >
                           <div
                             style={{
                               display: "flex",
-                              gap: "0.75rem",
+                              justifyContent: "space-between",
                               alignItems: "flex-start",
+                              gap: "1rem",
                             }}
                           >
-                            <AlertTriangle
-                              size={20}
+                            <div
                               style={{
-                                color: isCrit
-                                  ? "var(--red, #EF3340)"
-                                  : isWarn
-                                    ? "var(--yellow, #F59E0B)"
-                                    : "var(--brand-accent, #5B34EA)",
-                                marginTop: "2px",
-                                flexShrink: 0,
+                                display: "flex",
+                                gap: "0.75rem",
+                                alignItems: "flex-start",
                               }}
-                            />
-                            <div>
-                              <div
+                            >
+                              <AlertTriangle
+                                size={20}
                                 style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "0.5rem",
+                                  color: isCrit
+                                    ? "var(--red, #EF3340)"
+                                    : isWarn
+                                      ? "var(--yellow, #F59E0B)"
+                                      : "var(--brand-accent, #5B34EA)",
+                                  marginTop: "2px",
+                                  flexShrink: 0,
                                 }}
-                              >
-                                <strong
+                              />
+                              <div>
+                                <div
                                   style={{
-                                    fontSize: "1rem",
-                                    color: "var(--ink, #0F172A)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.5rem",
                                   }}
                                 >
-                                  {al.title}
-                                </strong>
-                                <span
-                                  style={{
-                                    fontSize: "0.7rem",
-                                    padding: "2px 6px",
-                                    borderRadius: "4px",
-                                    background: bgBadge,
-                                    color: textBadge,
-                                    fontWeight: 700,
-                                    textTransform: "uppercase",
-                                    border: `1px solid ${borderColor}`,
-                                  }}
-                                >
-                                  {al.severity}
-                                </span>
-                                {al.read && (
+                                  <strong
+                                    style={{
+                                      fontSize: "1rem",
+                                      color: "var(--ink, #0F172A)",
+                                    }}
+                                  >
+                                    {al.title}
+                                  </strong>
                                   <span
                                     style={{
-                                      fontSize: "0.75rem",
-                                      color: "var(--muted, #64748B)",
+                                      fontSize: "0.7rem",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      background: bgBadge,
+                                      color: textBadge,
+                                      fontWeight: 700,
+                                      textTransform: "uppercase",
+                                      border: `1px solid ${borderColor}`,
                                     }}
                                   >
-                                    (Lido)
+                                    {al.severity}
                                   </span>
-                                )}
+                                  {al.read && (
+                                    <span
+                                      style={{
+                                        fontSize: "0.75rem",
+                                        color: "var(--muted, #64748B)",
+                                      }}
+                                    >
+                                      (Lido)
+                                    </span>
+                                  )}
+                                </div>
+                                <p
+                                  style={{
+                                    margin: "0.35rem 0",
+                                    color: "var(--ink-secondary, #334155)",
+                                    fontSize: "0.9rem",
+                                  }}
+                                >
+                                  {al.message}
+                                </p>
+                                {al.evidence &&
+                                  Object.keys(al.evidence).length > 0 && (
+                                    <div
+                                      style={{
+                                        marginTop: "0.5rem",
+                                        padding: "0.5rem 0.75rem",
+                                        background:
+                                          "var(--surface-muted, #F3F4F6)",
+                                        border:
+                                          "1px solid var(--line, #E5E7EB)",
+                                        borderRadius: "6px",
+                                        fontSize: "0.8rem",
+                                        fontFamily: "monospace",
+                                        color: "var(--ink-secondary, #334155)",
+                                      }}
+                                    >
+                                      {Object.entries(al.evidence).map(
+                                        ([k, v]) => (
+                                          <span
+                                            key={k}
+                                            style={{ marginRight: "1rem" }}
+                                          >
+                                            {k}: <strong>{String(v)}</strong>
+                                          </span>
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+                                <small
+                                  style={{
+                                    color: "var(--muted, #64748B)",
+                                    display: "block",
+                                    marginTop: "0.4rem",
+                                  }}
+                                >
+                                  Registrado em:{" "}
+                                  {new Date(al.created_at).toLocaleString(
+                                    "pt-BR",
+                                    { timeZone: timezone },
+                                  )}
+                                </small>
                               </div>
-                              <p
-                                style={{
-                                  margin: "0.35rem 0",
-                                  color: "var(--ink-secondary, #334155)",
-                                  fontSize: "0.9rem",
-                                }}
-                              >
-                                {al.message}
-                              </p>
-                              {al.evidence &&
-                                Object.keys(al.evidence).length > 0 && (
-                                  <div
-                                    style={{
-                                      marginTop: "0.5rem",
-                                      padding: "0.5rem 0.75rem",
-                                      background:
-                                        "var(--surface-muted, #F3F4F6)",
-                                      border: "1px solid var(--line, #E5E7EB)",
-                                      borderRadius: "6px",
-                                      fontSize: "0.8rem",
-                                      fontFamily: "monospace",
-                                      color: "var(--ink-secondary, #334155)",
-                                    }}
-                                  >
-                                    {Object.entries(al.evidence).map(
-                                      ([k, v]) => (
-                                        <span
-                                          key={k}
-                                          style={{ marginRight: "1rem" }}
-                                        >
-                                          {k}: <strong>{String(v)}</strong>
-                                        </span>
-                                      ),
-                                    )}
-                                  </div>
-                                )}
-                              <small
-                                style={{
-                                  color: "var(--muted, #64748B)",
-                                  display: "block",
-                                  marginTop: "0.4rem",
-                                }}
-                              >
-                                Registrado em:{" "}
-                                {new Date(al.created_at).toLocaleString(
-                                  "pt-BR",
-                                  { timeZone: timezone },
-                                )}
-                              </small>
                             </div>
-                          </div>
 
-                          {!al.read && (
-                            <button
-                              className="button small"
-                              disabled={pending}
-                              onClick={() =>
-                                run(async () => {
-                                  const r = await markAlertRead(
-                                    workspace,
-                                    al.id,
-                                  );
-                                  if (r.error) throw new Error(r.error);
-                                })
-                              }
-                            >
-                              Marcar como lido
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Empty
-                  icon={Bell}
-                  title="Operação saudável"
-                  description="Nenhuma anomalia crítica ou aviso pendente. Suas taxas e integrações estão dentro do esperado."
-                />
-              )}
-            </section>
-            <PushSettingsCard
-              workspace={workspace}
-              pushSettings={p.workspace?.push_settings}
-              pending={pending}
-              run={run}
-            />
-          </>
+                            {!al.read && (
+                              <button
+                                className="button small"
+                                disabled={pending}
+                                onClick={() =>
+                                  run(async () => {
+                                    const r = await markAlertRead(
+                                      workspace,
+                                      al.id,
+                                    );
+                                    if (r.error) throw new Error(r.error);
+                                  })
+                                }
+                              >
+                                Marcar como lido
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Empty
+                    icon={Bell}
+                    title="Operação saudável"
+                    description="Nenhuma anomalia crítica ou aviso pendente. Suas taxas e integrações estão dentro do esperado."
+                  />
+                )}
+              </section>
+              <PushSettingsCard
+                workspace={workspace}
+                pushSettings={p.workspace?.push_settings}
+                pending={pending}
+                run={run}
+              />
+            </>
           )}
-          {tab === "shield" && (
-            !hasShieldAccess ? (
+          {tab === "shield" &&
+            (!hasShieldAccess ? (
               <LockedFeatureCard feature="shield" />
             ) : (
               <ShieldView
@@ -2410,8 +2685,7 @@ export function Dashboard(p: Props) {
                 logs={p.shieldLogs ?? []}
                 appUrl={p.appUrl}
               />
-            )
-          )}
+            ))}
         </main>
       </div>
       {modal && (
@@ -2438,46 +2712,53 @@ export function Dashboard(p: Props) {
                   ? "Excluir workspace"
                   : modal === "workspace-rename"
                     ? "Renomear workspace"
-                : modal === "offer"
-                  ? "Cadastrar oferta"
-                  : modal === "link"
-                    ? "Criar link UTM"
-                : modal === "cakto-add"
-                  ? "Adicionar produto da Cakto"
-                  : modal === "kiwify-add"
-                    ? "Adicionar produto da Kiwify"
-                    : modal === "hotmart-add"
-                      ? "Adicionar produto da Hotmart"
-                  : `Conectar ${
-                        modal === "hotmart"
-                          ? "Hotmart"
-                          : modal === "kiwify"
-                            ? "Kiwify"
-                            : modal === "cakto"
-                              ? "Cakto"
-                              : modal === "kirvano"
-                                ? "Kirvano"
-                                : modal === "eduzz"
-                                  ? "Eduzz"
-                                  : modal === "monetizze"
-                                    ? "Monetizze"
-                                    : modal === "wiapy"
-                                        ? "Wiapy"
-                                        : modal === "lowfy"
-                                          ? "Lowfy"
-                                          : modal === "greenn"
-                                            ? "Greenn"
-                                            : modal === "stripe"
-                                              ? "Stripe"
-                                              : modal
-                      }`}
+                    : modal === "offer"
+                      ? "Cadastrar oferta"
+                      : modal === "link"
+                        ? "Criar link UTM"
+                        : modal === "cakto-add"
+                          ? "Adicionar produto da Cakto"
+                          : modal === "kiwify-add"
+                            ? "Adicionar produto da Kiwify"
+                            : modal === "hotmart-add"
+                              ? "Adicionar produto da Hotmart"
+                              : `Conectar ${
+                                  modal === "hotmart"
+                                    ? "Hotmart"
+                                    : modal === "kiwify"
+                                      ? "Kiwify"
+                                      : modal === "cakto"
+                                        ? "Cakto"
+                                        : modal === "kirvano"
+                                          ? "Kirvano"
+                                          : modal === "eduzz"
+                                            ? "Eduzz"
+                                            : modal === "monetizze"
+                                              ? "Monetizze"
+                                              : modal === "wiapy"
+                                                ? "Wiapy"
+                                                : modal === "lowfy"
+                                                  ? "Lowfy"
+                                                  : modal === "greenn"
+                                                    ? "Greenn"
+                                                    : modal === "stripe"
+                                                      ? "Stripe"
+                                                      : modal
+                                }`}
             </h2>
             {modal === "workspace" ? (
               <WorkspaceForm />
             ) : modal === "workspace-rename" && p.workspace ? (
-              <WorkspaceRenameForm workspace={workspace} name={p.workspace.name} defaultCurrency={p.workspace.default_currency} />
+              <WorkspaceRenameForm
+                workspace={workspace}
+                name={p.workspace.name}
+                defaultCurrency={p.workspace.default_currency}
+              />
             ) : modal === "workspace-delete" && p.workspace ? (
-              <WorkspaceDeleteForm workspace={workspace} name={p.workspace.name} />
+              <WorkspaceDeleteForm
+                workspace={workspace}
+                name={p.workspace.name}
+              />
             ) : modal === "offer" ? (
               <OfferForm workspace={workspace} offers={p.offers} />
             ) : modal === "link" ? (
@@ -2501,15 +2782,40 @@ export function Dashboard(p: Props) {
                   }
                 />
               )
-            ) : ["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn"].includes(modal.replace("-add", "")) ? (
+            ) : [
+                "hotmart",
+                "kiwify",
+                "cakto",
+                "kirvano",
+                "eduzz",
+                "monetizze",
+                "wiapy",
+                "lowfy",
+                "greenn",
+              ].includes(modal.replace("-add", "")) ? (
               <GatewayConnectForm
                 workspace={workspace}
-                provider={modal.replace("-add", "") as "cakto" | "kiwify" | "hotmart" | "kirvano" | "eduzz" | "monetizze" | "wiapy" | "lowfy" | "greenn"}
-                offers={p.offers.map((offer) => ({ id: offer.id, name: offer.name }))}
+                provider={
+                  modal.replace("-add", "") as
+                    | "cakto"
+                    | "kiwify"
+                    | "hotmart"
+                    | "kirvano"
+                    | "eduzz"
+                    | "monetizze"
+                    | "wiapy"
+                    | "lowfy"
+                    | "greenn"
+                }
+                offers={p.offers.map((offer) => ({
+                  id: offer.id,
+                  name: offer.name,
+                }))}
                 existingIntegrationId={
                   modal.endsWith("-add")
                     ? p.integrations.find(
-                        (connection) => connection.provider === modal.replace("-add", ""),
+                        (connection) =>
+                          connection.provider === modal.replace("-add", ""),
                       )?.id
                     : undefined
                 }
@@ -2610,7 +2916,8 @@ export function Dashboard(p: Props) {
                     "Na Greenn (Ferramentas > Webhooks), insira a URL da Trackbase e seu token de validação."}
                   {modal === "stripe" &&
                     "No Stripe Dashboard (Developers > Webhooks), adicione a URL e copie o Signing Secret (whsec_...) ou token de segurança."}
-                  O token será armazenado como hash seguro para autenticar cada webhook.
+                  O token será armazenado como hash seguro para autenticar cada
+                  webhook.
                 </p>
               </ActionForm>
             )}
@@ -2761,7 +3068,8 @@ function LinkForm({
           1. Escolha a Plataforma (1 clique)
         </label>
         <p style={{ margin: 0, fontSize: 12, color: "var(--ink-secondary)" }}>
-          Os parâmetros oficiais são configurados automaticamente sem complicação.
+          Os parâmetros oficiais são configurados automaticamente sem
+          complicação.
         </p>
         <div className="utm-preset-grid">
           {UTM_CHANNEL_PRESETS.map((p) => {
@@ -2890,7 +3198,8 @@ function LinkForm({
           >
             <div className="utm-split-header" style={{ marginBottom: 4 }}>
               <span style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
-                Ou Link completo integrado (para WhatsApp, Bio ou outros canais):
+                Ou Link completo integrado (para WhatsApp, Bio ou outros
+                canais):
               </span>
               <Clipboard value={preview.full} label="Copiar link completo" />
             </div>
@@ -2910,7 +3219,8 @@ function LinkForm({
             margin: "8px 0 12px",
           }}
         >
-          Campos preenchidos automaticamente. Modifique apenas se quiser usar parâmetros personalizados.
+          Campos preenchidos automaticamente. Modifique apenas se quiser usar
+          parâmetros personalizados.
         </p>
         <div className="fields-grid">
           {Object.entries(names).map(([key, labelText]) => (
@@ -2990,7 +3300,9 @@ function IntegrationCard({
     }>;
   };
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
-  const [businesses, setBusinesses] = useState<Array<{ id: string; name: string }>>([]);
+  const [businesses, setBusinesses] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [editingWebhookSecret, setEditingWebhookSecret] = useState(false);
   const statusText: Record<string, string> = {
@@ -3005,8 +3317,8 @@ function IntegrationCard({
       <div>
         <h3>{i.name}</h3>
         <p>
-          {statusText[i.status] || "Aguardando configuração"}{" "}
-          · {i.currency || "Moeda pendente"}
+          {statusText[i.status] || "Aguardando configuração"} ·{" "}
+          {i.currency || "Moeda pendente"}
         </p>
         {i.last_synced_at && (
           <small>
@@ -3028,7 +3340,13 @@ function IntegrationCard({
                         `/api/meta/accounts?workspace=${workspace}&integration=${i.id}`,
                       ),
                       data = await r.json();
-                    if (!r.ok) throw new Error(typeof data.error === "string" ? data.error : data.error?.message || "Não foi possível listar contas.");
+                    if (!r.ok)
+                      throw new Error(
+                        typeof data.error === "string"
+                          ? data.error
+                          : data.error?.message ||
+                              "Não foi possível listar contas.",
+                      );
                     setAccounts(data.accounts);
                     setBusinesses(data.businesses || []);
                     setAccountsLoaded(true);
@@ -3039,7 +3357,9 @@ function IntegrationCard({
               </button>
               {accountsLoaded && businesses.length > 0 && (
                 <div className="meta-business-summary">
-                  <span><Building2 size={15} /> Business Managers com acesso</span>
+                  <span>
+                    <Building2 size={15} /> Business Managers com acesso
+                  </span>
                   <div>
                     {businesses.map((business) => (
                       <span className="meta-business-chip" key={business.id}>
@@ -3050,11 +3370,18 @@ function IntegrationCard({
                 </div>
               )}
               {accounts.length > 0 && (
-                <div className="meta-account-picker" aria-label="Contas Meta disponíveis">
+                <div
+                  className="meta-account-picker"
+                  aria-label="Contas Meta disponíveis"
+                >
                   <div className="meta-account-picker-heading">
                     <div>
                       <strong>Escolha a conta para sincronizar</strong>
-                      <small>{accounts.length} conta{accounts.length === 1 ? "" : "s"} encontrada{accounts.length === 1 ? "" : "s"}</small>
+                      <small>
+                        {accounts.length} conta
+                        {accounts.length === 1 ? "" : "s"} encontrada
+                        {accounts.length === 1 ? "" : "s"}
+                      </small>
                     </div>
                   </div>
                   <div className="meta-account-list">
@@ -3072,7 +3399,9 @@ function IntegrationCard({
                           )
                         }
                       >
-                        <span className="meta-account-card-label">CONTA DE ANÚNCIOS</span>
+                        <span className="meta-account-card-label">
+                          CONTA DE ANÚNCIOS
+                        </span>
                         <strong>{a.name}</strong>
                         <span className="meta-account-meta">
                           <code>{a.id}</code>
@@ -3081,7 +3410,9 @@ function IntegrationCard({
                         </span>
                         <span className="meta-account-sources">
                           {a.origins.map((origin, index) => (
-                            <span key={`${origin.type}-${origin.businessId || index}`}>
+                            <span
+                              key={`${origin.type}-${origin.businessId || index}`}
+                            >
                               {origin.type === "direct"
                                 ? "Acesso direto"
                                 : origin.businessName || "Business Manager"}
@@ -3110,11 +3441,23 @@ function IntegrationCard({
                     type="button"
                     disabled={pending}
                     onClick={() => {
-                      if (!window.confirm("Desconectar esta conta Meta? O token e os dados sincronizados desta conta serão removidos. As outras integrações não serão afetadas.")) return;
+                      if (
+                        !window.confirm(
+                          "Desconectar esta conta Meta? O token e os dados sincronizados desta conta serão removidos. As outras integrações não serão afetadas.",
+                        )
+                      )
+                        return;
                       run(async () => {
-                        const response = await fetch(`/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(i.id)}`, { method: "DELETE" });
+                        const response = await fetch(
+                          `/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(i.id)}`,
+                          { method: "DELETE" },
+                        );
                         const data = await response.json().catch(() => null);
-                        if (!response.ok) throw new Error(data?.error || "Não foi possível desconectar a conta Meta.");
+                        if (!response.ok)
+                          throw new Error(
+                            data?.error ||
+                              "Não foi possível desconectar a conta Meta.",
+                          );
                       });
                     }}
                     title="Desconectar esta conta Meta"
@@ -3123,7 +3466,9 @@ function IntegrationCard({
                   </button>
                 </div>
                 <strong>{i.name}</strong>
-                <small>{i.account_id} · {i.currency || "Moeda indisponível"}</small>
+                <small>
+                  {i.account_id} · {i.currency || "Moeda indisponível"}
+                </small>
               </div>
               <button
                 className="button"
@@ -3134,7 +3479,10 @@ function IntegrationCard({
                   )
                 }
               >
-                <RefreshCw size={15} /> {i.status === "syncing" ? "Sincronizando…" : "Sincronizar 30 dias"}
+                <RefreshCw size={15} />{" "}
+                {i.status === "syncing"
+                  ? "Sincronizando…"
+                  : "Sincronizar 30 dias"}
               </button>
             </>
           )}
@@ -3155,20 +3503,49 @@ function IntegrationCard({
         </div>
       ) : (
         <div className="gateway-connection-details">
-          {["cakto", "kiwify", "hotmart", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn"].includes(i.provider) && i.status === "connected" && !editingWebhookSecret ? (
+          {[
+            "cakto",
+            "kiwify",
+            "hotmart",
+            "kirvano",
+            "eduzz",
+            "monetizze",
+            "wiapy",
+            "lowfy",
+            "greenn",
+          ].includes(i.provider) &&
+          i.status === "connected" &&
+          !editingWebhookSecret ? (
             <div className="gateway-saved-state">
               <span className="gateway-saved-badge">WEBHOOK ATIVO</span>
-              <strong>Webhook salvo para {i.name.replace(/^[A-Z]+\s*·\s*/i, "")}</strong>
-              <span>As vendas deste produto serão recebidas pela Trackbase.</span>
+              <strong>
+                Webhook salvo para {i.name.replace(/^[A-Z]+\s*·\s*/i, "")}
+              </strong>
+              <span>
+                As vendas deste produto serão recebidas pela Trackbase.
+              </span>
               <div className="gateway-saved-actions">
-                <button className="button secondary" type="button" onClick={() => setEditingWebhookSecret(true)}>
-                  Editar {i.provider === "hotmart" ? "Hottok" : i.provider === "kiwify" ? "token" : "secret"}
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => setEditingWebhookSecret(true)}
+                >
+                  Editar{" "}
+                  {i.provider === "hotmart"
+                    ? "Hottok"
+                    : i.provider === "kiwify"
+                      ? "token"
+                      : "secret"}
                 </button>
                 <button
                   className="text-button danger"
                   type="button"
                   onClick={() => {
-                    if (window.confirm("Remover o webhook desta integração? As vendas deixarão de ser recebidas até você configurar novamente.")) {
+                    if (
+                      window.confirm(
+                        "Remover o webhook desta integração? As vendas deixarão de ser recebidas até você configurar novamente.",
+                      )
+                    ) {
                       run(() => removeGatewayWebhookSecret(workspace, i.id));
                     }
                   }}
@@ -3186,9 +3563,12 @@ function IntegrationCard({
                   : "Ative o recebimento das vendas"}
               </strong>
               <span>
-                {i.provider === "cakto" && "Na Cakto, crie um webhook para esta URL, selecione o produto e marque Compra aprovada, Reembolso e Chargeback."}
-                {i.provider === "kiwify" && "Na Kiwify, crie um webhook para esta URL, selecione o produto e marque Pedido aprovado, Reembolso e Chargeback."}
-                {i.provider === "hotmart" && "Na Hotmart, acesse Ferramentas > Webhook, crie um webhook para esta URL e marque Compra aprovada, Reembolso e Disputa."}
+                {i.provider === "cakto" &&
+                  "Na Cakto, crie um webhook para esta URL, selecione o produto e marque Compra aprovada, Reembolso e Chargeback."}
+                {i.provider === "kiwify" &&
+                  "Na Kiwify, crie um webhook para esta URL, selecione o produto e marque Pedido aprovado, Reembolso e Chargeback."}
+                {i.provider === "hotmart" &&
+                  "Na Hotmart, acesse Ferramentas > Webhook, crie um webhook para esta URL e marque Compra aprovada, Reembolso e Disputa."}
               </span>
               <a
                 href={
@@ -3201,7 +3581,13 @@ function IntegrationCard({
                 target="_blank"
                 rel="noreferrer"
               >
-                Abrir Webhooks na {i.provider === "cakto" ? "Cakto" : i.provider === "kiwify" ? "Kiwify" : "Hotmart"} ↗
+                Abrir Webhooks na{" "}
+                {i.provider === "cakto"
+                  ? "Cakto"
+                  : i.provider === "kiwify"
+                    ? "Kiwify"
+                    : "Hotmart"}{" "}
+                ↗
               </a>
             </div>
           ) : null}
@@ -3213,50 +3599,93 @@ function IntegrationCard({
             />
             <Clipboard value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`} />
           </div>
-          <small style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}>
-            {i.provider === "hotmart" && (i.status === "connected" && !editingWebhookSecret ? "URL ativa para este produto." : editingWebhookSecret ? "Cole o novo Hottok / token gerado pela Hotmart." : "Depois de salvar o webhook na Hotmart, cole aqui o Hottok.")}
-            {i.provider === "kiwify" && (i.status === "connected" && !editingWebhookSecret ? "URL ativa para este produto." : editingWebhookSecret ? "Cole o novo token / assinatura gerado pela Kiwify." : "Depois de salvar o webhook na Kiwify, cole aqui o token gerado.")}
-            {i.provider === "cakto" && (i.status === "connected" && !editingWebhookSecret ? "URL ativa para este produto." : editingWebhookSecret ? "Cole o novo secret gerado pela Cakto." : "Depois de salvar o webhook na Cakto, cole aqui o secret gerado.")}
-            {i.provider === "kirvano" && "Configure em Configurações > Webhooks na Kirvano com seu token."}
-            {i.provider === "eduzz" && "Configure em Ferramentas > Webhooks na Eduzz / Órbita."}
-            {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
-            {i.provider === "wiapy" && "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
-            {i.provider === "lowfy" && "Configure na área de Webhooks da Lowfy com o token cadastrado."}
-            {i.provider === "greenn" && "Configure em Ferramentas > Webhooks na Greenn com seu token de autenticação."}
-            {i.provider === "stripe" && "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
+          <small
+            style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}
+          >
+            {i.provider === "hotmart" &&
+              (i.status === "connected" && !editingWebhookSecret
+                ? "URL ativa para este produto."
+                : editingWebhookSecret
+                  ? "Cole o novo Hottok / token gerado pela Hotmart."
+                  : "Depois de salvar o webhook na Hotmart, cole aqui o Hottok.")}
+            {i.provider === "kiwify" &&
+              (i.status === "connected" && !editingWebhookSecret
+                ? "URL ativa para este produto."
+                : editingWebhookSecret
+                  ? "Cole o novo token / assinatura gerado pela Kiwify."
+                  : "Depois de salvar o webhook na Kiwify, cole aqui o token gerado.")}
+            {i.provider === "cakto" &&
+              (i.status === "connected" && !editingWebhookSecret
+                ? "URL ativa para este produto."
+                : editingWebhookSecret
+                  ? "Cole o novo secret gerado pela Cakto."
+                  : "Depois de salvar o webhook na Cakto, cole aqui o secret gerado.")}
+            {i.provider === "kirvano" &&
+              "Configure em Configurações > Webhooks na Kirvano com seu token."}
+            {i.provider === "eduzz" &&
+              "Configure em Ferramentas > Webhooks na Eduzz / Órbita."}
+            {i.provider === "monetizze" &&
+              "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
+            {i.provider === "wiapy" &&
+              "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
+            {i.provider === "lowfy" &&
+              "Configure na área de Webhooks da Lowfy com o token cadastrado."}
+            {i.provider === "greenn" &&
+              "Configure em Ferramentas > Webhooks na Greenn com seu token de autenticação."}
+            {i.provider === "stripe" &&
+              "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
           </small>
-          {["cakto", "kiwify", "hotmart", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn"].includes(i.provider) && (i.status !== "connected" || editingWebhookSecret) && (
-            <form
-              className="gateway-secret-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const secret = new FormData(event.currentTarget).get("secret");
-                run(async () => {
-                  const result = await saveGatewayWebhookSecret(workspace, i.id, String(secret || ""));
-                  if (result.error) throw new Error(result.error);
-                  setEditingWebhookSecret(false);
-                });
-                event.currentTarget.reset();
-              }}
-            >
-              <input
-                name="secret"
-                type="password"
-                minLength={4}
-                required
-                placeholder={
-                  i.provider === "cakto"
-                    ? "Secret gerado pela Cakto"
-                    : i.provider === "kiwify"
-                      ? "Token / assinatura da Kiwify"
-                    : i.provider === "hotmart" ? "Hottok / token da Hotmart" : "Token/secret do webhook"
-                }
-              />
-              <button className="button secondary" disabled={pending}>
-                {editingWebhookSecret ? "Atualizar" : "Salvar e ativar"}
-              </button>
-            </form>
-          )}
+          {[
+            "cakto",
+            "kiwify",
+            "hotmart",
+            "kirvano",
+            "eduzz",
+            "monetizze",
+            "wiapy",
+            "lowfy",
+            "greenn",
+          ].includes(i.provider) &&
+            (i.status !== "connected" || editingWebhookSecret) && (
+              <form
+                className="gateway-secret-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const secret = new FormData(event.currentTarget).get(
+                    "secret",
+                  );
+                  run(async () => {
+                    const result = await saveGatewayWebhookSecret(
+                      workspace,
+                      i.id,
+                      String(secret || ""),
+                    );
+                    if (result.error) throw new Error(result.error);
+                    setEditingWebhookSecret(false);
+                  });
+                  event.currentTarget.reset();
+                }}
+              >
+                <input
+                  name="secret"
+                  type="password"
+                  minLength={4}
+                  required
+                  placeholder={
+                    i.provider === "cakto"
+                      ? "Secret gerado pela Cakto"
+                      : i.provider === "kiwify"
+                        ? "Token / assinatura da Kiwify"
+                        : i.provider === "hotmart"
+                          ? "Hottok / token da Hotmart"
+                          : "Token/secret do webhook"
+                  }
+                />
+                <button className="button secondary" disabled={pending}>
+                  {editingWebhookSecret ? "Atualizar" : "Salvar e ativar"}
+                </button>
+              </form>
+            )}
         </div>
       )}
     </section>
@@ -3280,7 +3709,9 @@ function AccountPrivacyCard({
         <div>
           <span className="eyebrow">PRIVACIDADE</span>
           <h2>Seus dados e conta</h2>
-          <p>Baixe seus dados sem incluir tokens, segredos ou inscrições de push.</p>
+          <p>
+            Baixe seus dados sem incluir tokens, segredos ou inscrições de push.
+          </p>
         </div>
       </div>
       <div style={{ display: "grid", gap: "1rem" }}>
@@ -3292,9 +3723,12 @@ function AccountPrivacyCard({
           <Download size={16} /> Exportar meus dados
         </button>
         <div style={{ borderTop: "1px solid var(--line)", paddingTop: "1rem" }}>
-          <strong style={{ color: "var(--red, #DC2626)" }}>Excluir conta e dados</strong>
+          <strong style={{ color: "var(--red, #DC2626)" }}>
+            Excluir conta e dados
+          </strong>
           <p className="form-help">
-            Esta ação remove seus workspaces próprios e dados relacionados. Não pode ser desfeita.
+            Esta ação remove seus workspaces próprios e dados relacionados. Não
+            pode ser desfeita.
           </p>
           <label>
             Digite EXCLUIR MINHA CONTA para confirmar
@@ -3343,9 +3777,12 @@ function PushSettingsCard({
     pushSettings?.title_template || "💰 Venda Realizada: {valor}!",
   );
   const [body, setBody] = useState(
-    pushSettings?.body_template || "Opa, caiu mais uma! {produto} via {provedor}.",
+    pushSettings?.body_template ||
+      "Opa, caiu mais uma! {produto} via {provedor}.",
   );
-  const [showBuyer, setShowBuyer] = useState(pushSettings?.show_buyer !== false);
+  const [showBuyer, setShowBuyer] = useState(
+    pushSettings?.show_buyer !== false,
+  );
   const [statusFeedback, setStatusFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -3434,7 +3871,9 @@ function PushSettingsCard({
             </span>
           </div>
           <p>
-            Personalize a mensagem visual da venda. Com o painel aberto, o Trackbase tenta tocar o som personalizado; em segundo plano, o iOS controla o som da notificação.
+            Personalize a mensagem visual da venda. Com o painel aberto, o
+            Trackbase tenta tocar o som personalizado; em segundo plano, o iOS
+            controla o som da notificação.
           </p>
         </div>
       </div>
@@ -3442,14 +3881,23 @@ function PushSettingsCard({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
           gap: "1.5rem",
           marginTop: "1rem",
           width: "100%",
           maxWidth: "100%",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: 0, width: "100%" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            minWidth: 0,
+            width: "100%",
+          }}
+        >
           <div>
             <label
               style={{
@@ -3476,11 +3924,23 @@ function PushSettingsCard({
                 fontSize: "0.9rem",
               }}
             />
-            <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.4rem",
+                marginTop: "0.4rem",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 type="button"
                 className="text-button"
-                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.4rem",
+                  background: "var(--surface-subtle, #F3F4F6)",
+                  borderRadius: "4px",
+                }}
                 onClick={() => setTitle("💰 Venda Realizada: {valor}!")}
               >
                 Padrão
@@ -3488,7 +3948,12 @@ function PushSettingsCard({
               <button
                 type="button"
                 className="text-button"
-                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.4rem",
+                  background: "var(--surface-subtle, #F3F4F6)",
+                  borderRadius: "4px",
+                }}
                 onClick={() => setTitle("🚀 Pingou com força: {valor}!")}
               >
                 &quot;🚀 Pingou com força&quot;
@@ -3496,7 +3961,12 @@ function PushSettingsCard({
               <button
                 type="button"
                 className="text-button"
-                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.4rem",
+                  background: "var(--surface-subtle, #F3F4F6)",
+                  borderRadius: "4px",
+                }}
                 onClick={() => setTitle("💸 Mais uma no bolso: {valor}!")}
               >
                 &quot;💸 Mais uma no bolso&quot;
@@ -3531,28 +4001,60 @@ function PushSettingsCard({
                 resize: "vertical",
               }}
             />
-            <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.4rem",
+                marginTop: "0.4rem",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 type="button"
                 className="text-button"
-                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
-                onClick={() => setBody("Opa, caiu mais uma! {produto} via {provedor}.")}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.4rem",
+                  background: "var(--surface-subtle, #F3F4F6)",
+                  borderRadius: "4px",
+                }}
+                onClick={() =>
+                  setBody("Opa, caiu mais uma! {produto} via {provedor}.")
+                }
               >
                 &quot;Opa, caiu mais uma!&quot;
               </button>
               <button
                 type="button"
                 className="text-button"
-                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
-                onClick={() => setBody("Pingou legal! {comprador} acabou de levar {produto}.")}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.4rem",
+                  background: "var(--surface-subtle, #F3F4F6)",
+                  borderRadius: "4px",
+                }}
+                onClick={() =>
+                  setBody(
+                    "Pingou legal! {comprador} acabou de levar {produto}.",
+                  )
+                }
               >
                 &quot;Pingou legal! &#123;comprador&#125;...&quot;
               </button>
               <button
                 type="button"
                 className="text-button"
-                style={{ fontSize: "0.75rem", padding: "0.2rem 0.4rem", background: "var(--surface-subtle, #F3F4F6)", borderRadius: "4px" }}
-                onClick={() => setBody("Venda aprovada no checkout! {produto} via {provedor}.")}
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "0.2rem 0.4rem",
+                  background: "var(--surface-subtle, #F3F4F6)",
+                  borderRadius: "4px",
+                }}
+                onClick={() =>
+                  setBody(
+                    "Venda aprovada no checkout! {produto} via {provedor}.",
+                  )
+                }
               >
                 &quot;Venda aprovada no checkout!&quot;
               </button>
@@ -3569,7 +4071,11 @@ function PushSettingsCard({
             />
             <label
               htmlFor="show-buyer-opt"
-              style={{ fontSize: "0.85rem", color: "var(--text-strong, #1E1744)", cursor: "pointer" }}
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--text-strong, #1E1744)",
+                cursor: "pointer",
+              }}
             >
               Incluir nome do comprador nas variáveis
             </label>
@@ -3585,26 +4091,49 @@ function PushSettingsCard({
               color: "var(--muted, #64748B)",
             }}
           >
-            <strong style={{ display: "block", color: "var(--text-strong, #1E1744)", marginBottom: "0.35rem" }}>
+            <strong
+              style={{
+                display: "block",
+                color: "var(--text-strong, #1E1744)",
+                marginBottom: "0.35rem",
+              }}
+            >
               Tags dinâmicas disponíveis:
             </strong>
-            <ul style={{ margin: 0, paddingLeft: "1.2rem", display: "grid", gap: "0.2rem" }}>
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: "1.2rem",
+                display: "grid",
+                gap: "0.2rem",
+              }}
+            >
               <li>
-                <code>{"{valor}"}</code>: Valor formatado da venda (Ex: R$ 197,00)
+                <code>{"{valor}"}</code>: Valor formatado da venda (Ex: R$
+                197,00)
               </li>
               <li>
                 <code>{"{produto}"}</code>: Nome do produto ou oferta
               </li>
               <li>
-                <code>{"{provedor}"}</code>: Gateway (Ex: HOTMART, KIWIFY, CAKTO)
+                <code>{"{provedor}"}</code>: Gateway (Ex: HOTMART, KIWIFY,
+                CAKTO)
               </li>
               <li>
-                <code>{"{comprador}"}</code>: Primeiro nome do comprador (se disponível)
+                <code>{"{comprador}"}</code>: Primeiro nome do comprador (se
+                disponível)
               </li>
             </ul>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
             <button
               type="button"
               className="button primary"
@@ -3628,9 +4157,7 @@ function PushSettingsCard({
                     ? "rgba(16, 185, 129, 0.1)"
                     : "rgba(239, 68, 68, 0.1)",
                 color:
-                  statusFeedback.type === "success"
-                    ? "#065F46"
-                    : "#991B1B",
+                  statusFeedback.type === "success" ? "#065F46" : "#991B1B",
                 border: `1px solid ${
                   statusFeedback.type === "success"
                     ? "rgba(16, 185, 129, 0.3)"
@@ -3645,9 +4172,32 @@ function PushSettingsCard({
         </div>
 
         {/* Live Mobile Push Preview */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 0, width: "100%", maxWidth: "100%" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--muted, #64748B)" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            minWidth: 0,
+            width: "100%",
+            maxWidth: "100%",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                color: "var(--muted, #64748B)",
+              }}
+            >
               Pré-visualização no celular:
             </span>
             <div style={{ display: "flex", gap: "0.4rem" }}>
@@ -3655,7 +4205,12 @@ function PushSettingsCard({
                 type="button"
                 className="button small secondary"
                 onClick={playSound}
-                style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontSize: "0.75rem",
+                }}
                 title="Testar som no navegador"
               >
                 <Volume2 size={13} />
@@ -3666,7 +4221,14 @@ function PushSettingsCard({
                 className="button small"
                 disabled={pending}
                 onClick={handleTestPush}
-                style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", background: "var(--brand-accent, #5B34EA)", color: "#FFF" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontSize: "0.75rem",
+                  background: "var(--brand-accent, #5B34EA)",
+                  color: "#FFF",
+                }}
                 title="Enviar notificação push real para o aparelho agora"
               >
                 <Bell size={13} />
@@ -3697,7 +4259,9 @@ function PushSettingsCard({
                 fontSize: "0.75rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
+              >
                 <span
                   style={{
                     width: "18px",
@@ -3718,7 +4282,13 @@ function PushSettingsCard({
               <span>agora</span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.25rem",
+              }}
+            >
               <div
                 style={{
                   fontWeight: 700,
@@ -3752,10 +4322,15 @@ function PushSettingsCard({
                 color: "rgba(255, 255, 255, 0.6)",
               }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                <Volume2 size={12} color="#10B981" /> Som de caixa registradora ativo
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+              >
+                <Volume2 size={12} color="#10B981" /> Som de caixa registradora
+                ativo
               </span>
-              <span style={{ color: "#5B34EA", fontWeight: 600 }}>Tocar para abrir</span>
+              <span style={{ color: "#5B34EA", fontWeight: 600 }}>
+                Tocar para abrir
+              </span>
             </div>
           </div>
         </div>
@@ -3763,4 +4338,3 @@ function PushSettingsCard({
     </section>
   );
 }
-

@@ -14,7 +14,7 @@ test("planos oficiais e compatibilidade histórica não liberam plano desconheci
   assert.equal(normalizePlan("classe_media"), "vorcaro");
   assert.equal(canUse("forged", "capi"), false);
   assert.equal(canUse("devedor", "mining"), false);
-  assert.equal(canUse("liso", "mining"), false);
+  assert.equal(canUse("liso", "mining"), true);
   assert.equal(canUse("vorcaro", "mining"), true);
 });
 test("identidade ignora IDs de entrega e separa provedor e teste", () => {

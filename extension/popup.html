@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Trackbase</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1>Trackbase</h1>
+    <p>Biblioteca de ofertas</p>
+    <label
+      >Endereço do Trackbase<input
+        id="origin"
+        type="url"
+        value="https://trackbase.com.br"
+    /></label>
+    <button id="start">Iniciar vínculo / adicionar workspace</button>
+    <label
+      >Código para aprovar no painel<textarea
+        id="challenge"
+        readonly
+        rows="3"
+      ></textarea>
+    </label>
+    <p>
+      Entre pelo login normal. No painel, escolha o workspace e aprove o código
+      acima. Depois volte aqui.
+    </p>
+    <button id="complete">Concluir vínculo aprovado</button>
+    <label
+      >Workspace de destino<select id="workspace">
+        <option value="">Sem autorização</option>
+      </select></label
+    >
+    <p id="expiry"></p>
+    <button id="disconnect">Esquecer vínculos neste navegador</button>
+    <p>
+      A autorização dura 24 horas e é apagada ao fechar o navegador. Para
+      revogar no servidor, use as integrações do Trackbase.
+    </p>
+    <p id="message" role="status" aria-live="polite"></p>
+    <script src="popup.js"></script>
+  </body>
+</html>

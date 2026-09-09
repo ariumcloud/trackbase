@@ -25,7 +25,11 @@ export const plans = {
     offers: 1,
     links: 10,
     meta: 1,
-    features: ["dashboard", "tracking", "integrations"] as readonly PlanFeature[],
+    features: [
+      "dashboard",
+      "tracking",
+      "integrations",
+    ] as readonly PlanFeature[],
   },
   liso: {
     name: "Plano Básico",
@@ -41,6 +45,7 @@ export const plans = {
       "integrations",
       "capi",
       "alerts",
+      "mining",
       "radar",
       "diagnostico",
     ] as readonly PlanFeature[],

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Trackbase — Biblioteca de ofertas",
+  "version": "1.0.0",
+  "description": "Salve anúncios visíveis da Biblioteca da Meta no workspace autorizado do Trackbase.",
+  "permissions": ["storage"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Trackbase" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.facebook.com/ads/library/*",
+        "https://facebook.com/ads/library/*"
+      ],
+      "js": ["parser.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  }
+}

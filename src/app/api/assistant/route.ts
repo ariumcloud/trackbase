@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assistantResponse, responseText } from "@/lib/assistant-transport";
 import { z } from "zod";
 import { serializeAssistantContext } from "@/lib/assistant-context";
 import { authorize, body, rateLimit } from "@/lib/security";
@@ -37,21 +38,11 @@ export async function POST(request: Request) {
     const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
     let response: Response;
     try {
-      response = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: process.env.OPENAI_MODEL || "gpt-5-mini",
+      response = await assistantResponse({
           instructions: SYSTEM,
           input: `Dados agregados e minimizados do workspace (JSON):\n${contextJson}\n\nPergunta do usuário:\n${query}`,
           max_output_tokens: 900,
-          store: false,
-        }),
-      });
+      }, controller.signal);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return unavailable("O Assistente demorou mais que o esperado. Tente novamente.", 504);
@@ -66,7 +57,7 @@ export async function POST(request: Request) {
     if (!response.ok) return unavailable("Não foi possível consultar o Assistente agora.", 502);
 
     const data = await response.json() as { output_text?: unknown };
-    const text = typeof data.output_text === "string" ? data.output_text : "Não consegui gerar uma resposta agora.";
+    const text = responseText(data) || "Não consegui gerar uma resposta agora.";
     return NextResponse.json({ text });
   } catch (error) {
     if (error instanceof z.ZodError) return unavailable("Solicitação inválida.", 400);

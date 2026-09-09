@@ -1,0 +1,43 @@
+body {
+  font:
+    14px system-ui,
+    sans-serif;
+  width: 340px;
+  padding: 16px;
+  color: #172321;
+  background: #f8faf9;
+}
+h1 {
+  margin: 0;
+}
+label {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+}
+input,
+select,
+textarea,
+button {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d8e1dc;
+  border-radius: 8px;
+}
+button {
+  background: #127b54;
+  color: white;
+  cursor: pointer;
+  margin: 4px 0;
+}
+button:disabled {
+  opacity: 0.5;
+}
+p {
+  line-height: 1.45;
+}
+#message {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

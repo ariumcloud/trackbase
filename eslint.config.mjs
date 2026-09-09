@@ -5,6 +5,7 @@ const config = [
   {
     ignores: [
       ".next/**",
+      ".next-*/**",
       ".next-verify",
       ".next-verify/**",
       "**/.next-verify/**",

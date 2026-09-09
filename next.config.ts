@@ -26,6 +26,7 @@ const config: NextConfig = {
               "script-src 'self' 'unsafe-inline' https://connect.facebook.net",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
+              "media-src 'self' https:",
               "font-src 'self' data:",
               "connect-src 'self' https://www.facebook.com https://graph.facebook.com",
               "frame-ancestors 'none'",
