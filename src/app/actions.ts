@@ -506,7 +506,7 @@ export async function savePaymentIntegration(
       throw secretError;
     }
     revalidatePath("/painel");
-    return { ok: true };
+    return { ok: true, integrationId: data.id };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("Limite de integrações")) {

@@ -32,6 +32,9 @@ const providerNames: Record<Provider, string> = {
 };
 
 const manualProviders: Partial<Record<Provider, { credential: string; where: string; events: string; product: string }>> = {
+  hotmart: { credential: "Hottok de verificação", where: "Ferramentas > Webhook > Autenticação", events: "Compra aprovada, completa, reembolso e cancelamento", product: "ID do produto ou nome na Hotmart" },
+  kiwify: { credential: "token ou assinatura de webhook", where: "Configurações > Webhooks", events: "Pedido aprovado, reembolso e chargeback", product: "ID do produto Kiwify" },
+  cakto: { credential: "secret do webhook", where: "Webhooks", events: "Compra aprovada, reembolso e chargeback", product: "ID do produto Cakto" },
   kirvano: { credential: "token/secret de validação", where: "Configurações > Webhooks", events: "Venda aprovada, reembolso, chargeback e cancelamento", product: "ID do produto Kirvano" },
   eduzz: { credential: "chave de segurança do webhook", where: "Órbita / Ferramentas > Webhooks", events: "Pagamento aprovado, reembolso, chargeback e cancelamento", product: "Código do produto Eduzz" },
   monetizze: { credential: "Chave Única do postback", where: "Ferramentas > Postback", events: "Finalizada, devolvida, bloqueada/chargeback e cancelada", product: "Código do produto Monetizze" },
@@ -109,7 +112,11 @@ export function GatewayConnectForm({
   const [products, setProducts] = useState<Product[]>([]);
   const [message, setMessage] = useState("");
   const [imported, setImported] = useState<{ integrationId: string; productName: string } | null>(null);
+  const [generatedWebhookUrl, setGeneratedWebhookUrl] = useState<string | null>(null);
+  const [connectMode, setConnectMode] = useState<"webhook" | "api">("webhook");
   const [loading, start] = useTransition();
+
+  const isCatalog = ["hotmart", "kiwify", "cakto"].includes(provider);
 
   useEffect(() => {
     if (!existingIntegrationId) return;
@@ -120,8 +127,31 @@ export function GatewayConnectForm({
     });
   }, [existingIntegrationId, workspace]);
 
+  if (generatedWebhookUrl) {
+    return (
+      <div className="gateway-next-step">
+        <span className="gateway-next-step-kicker">INTEGRAÇÃO CONFIGURADA</span>
+        <h3>Tudo pronto! Ative o Webhook na {providerNames[provider]}.</h3>
+        <p>
+          Copie a URL abaixo e cole no campo <strong>URL para envio de dados</strong> na {providerNames[provider]}:
+        </p>
+        <div className="gateway-webhook-url">
+          <code>{generatedWebhookUrl}</code>
+          <button type="button" onClick={() => navigator.clipboard.writeText(generatedWebhookUrl)}>
+            Copiar URL
+          </button>
+        </div>
+        <div style={{ marginTop: "1.25rem" }}>
+          <button className="button primary" type="button" onClick={onSuccess}>
+            Concluir e fechar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const manual = manualProviders[provider];
-  if (manual) {
+  if (manual && (!isCatalog || connectMode === "webhook")) {
     return (
       <form onSubmit={(event) => {
         event.preventDefault();
@@ -129,23 +159,46 @@ export function GatewayConnectForm({
         start(async () => {
           const result = await savePaymentIntegration(workspace, new FormData(event.currentTarget));
           if (result.error) return setMessage(result.error);
+          if (result.integrationId) {
+            setGeneratedWebhookUrl(`${appUrl}/api/webhooks/${provider}/${result.integrationId}`);
+            return;
+          }
           onSuccess();
         });
       }}>
         <input type="hidden" name="provider" value={provider} />
+        {isCatalog && (
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+            <button
+              type="button"
+              className={`button ${connectMode === "webhook" ? "primary" : "secondary"}`}
+              onClick={() => setConnectMode("webhook")}
+              style={{ fontSize: "0.82rem", padding: "0.4rem 0.75rem" }}
+            >
+              ⚡ Webhook Direto (Recomendado)
+            </button>
+            <button
+              type="button"
+              className={`button ${connectMode === "api" ? "primary" : "secondary"}`}
+              onClick={() => setConnectMode("api")}
+              style={{ fontSize: "0.82rem", padding: "0.4rem 0.75rem" }}
+            >
+              🔑 API Developers
+            </button>
+          </div>
+        )}
         <span className="gateway-next-step-kicker">CONFIGURAÇÃO GUIADA</span>
         <h3>Conecte {providerNames[provider]} por webhook.</h3>
         <ol className="gateway-webhook-steps">
-          <li><strong>Abra {manual.where}.</strong><span>Crie um novo endpoint e escolha o produto correto.</span></li>
-          <li><strong>Depois de salvar, copie a URL exibida no card da integração.</strong><span>Cole-a no provedor e marque: {manual.events}.</span></li>
-          <li><strong>Copie somente o {manual.credential}.</strong><span>Ele será armazenado cifrado e validado a cada evento.</span></li>
-          <li><strong>Teste.</strong><span>Envie uma venda de teste; depois valide reembolso e chargeback/cancelamento quando o provedor oferecer esses eventos.</span></li>
+          <li><strong>Abra {manual.where}.</strong><span>Crie um novo webhook ou use o já existente.</span></li>
+          <li><strong>Copie o {manual.credential}.</strong><span>Cole abaixo para autenticar suas notificações com segurança.</span></li>
+          <li><strong>Gere a sua URL exclusiva.</strong><span>Ao salvar, o Trackbase fornecerá a URL exata para colar na {providerNames[provider]}.</span></li>
         </ol>
         <label>Oferta no Trackbase<select name="offer_id" required disabled={loading}>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
-        <label>{manual.product}<input name="external_product_id" required disabled={loading} /></label>
+        <label>{manual.product}<input name="external_product_id" placeholder="Ex.: 3848123 ou nome do produto" required disabled={loading} /></label>
         <input type="hidden" name="external_offer_id" value="" />
         <label>Moeda padrão<select name="currency" defaultValue="BRL" disabled={loading}><option>BRL</option><option>USD</option><option>EUR</option><option>MXN</option></select></label>
-        <label>{manual.credential}<input name="secret" type="password" minLength={4} required autoComplete="new-password" disabled={loading} /></label>
+        <label>{manual.credential}<input name="secret" type="password" minLength={4} required autoComplete="new-password" placeholder="Cole aqui seu Hottok / token" disabled={loading} /></label>
         <button className="button primary" disabled={loading}>{loading ? "Salvando…" : "Salvar e gerar URL do webhook"}</button>
         {message && <p className="form-message" role="status">{message}</p>}
       </form>
