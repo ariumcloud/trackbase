@@ -205,11 +205,17 @@ export function GatewayConnectForm({
 
   useEffect(() => {
     if (!existingIntegrationId) return;
-    start(async () => {
-      const result = await listSavedGatewayProducts(workspace, existingIntegrationId);
-      if (result.error) setMessage(result.error);
-      else setProducts(result.products || []);
-    });
+    let cancelled = false;
+    listSavedGatewayProducts(workspace, existingIntegrationId)
+      .then((result) => {
+        if (!cancelled && result.products && result.products.length > 0) {
+          setProducts(result.products);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [existingIntegrationId, workspace]);
 
   if (generatedWebhookUrl) {
@@ -351,33 +357,104 @@ export function GatewayConnectForm({
         </label>
 
         {selectedOfferId === "new" && (
-          <label>
-            Nome do produto / oferta
+          <div style={{ marginTop: "0.85rem" }}>
+            <label
+              htmlFor="gateway-product-name"
+              style={{
+                display: "block",
+                marginBottom: "4px",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+                color: "var(--ink, #0F172A)",
+                cursor: "pointer",
+              }}
+            >
+              Nome do produto / oferta
+            </label>
             <input
+              id="gateway-product-name"
               name="product_name"
+              type="text"
               placeholder="Ex.: Treinamento Viver de Anúncios, Mentoria VIP..."
               required
               disabled={loading}
               maxLength={120}
+              autoFocus
+              style={{
+                width: "100%",
+                height: "44px",
+                padding: "0 12px",
+                fontSize: "0.9rem",
+                borderRadius: "8px",
+                border: "1px solid var(--line, #CBD5E1)",
+                background: "var(--surface, #FFFFFF)",
+                color: "var(--ink, #0F172A)",
+                boxSizing: "border-box",
+                cursor: "text",
+                pointerEvents: "auto",
+              }}
             />
-            <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+            <small
+              className="form-help"
+              style={{
+                display: "block",
+                marginTop: "3px",
+                color: "var(--muted, #64748B)",
+                fontSize: "0.75rem",
+              }}
+            >
               O nome legível que aparecerá nos relatórios, cards de ofertas e notificações de vendas.
             </small>
-          </label>
+          </div>
         )}
 
-        <label>
-          {manual.product}
+        <div style={{ marginTop: "0.85rem" }}>
+          <label
+            htmlFor="gateway-external-product-id"
+            style={{
+              display: "block",
+              marginBottom: "4px",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              color: "var(--ink, #0F172A)",
+              cursor: "pointer",
+            }}
+          >
+            {manual.product}
+          </label>
           <input
+            id="gateway-external-product-id"
             name="external_product_id"
+            type="text"
             placeholder={manual.productPlaceholder || "Ex.: 8456025 ou ID do produto"}
             required
             disabled={loading}
+            style={{
+              width: "100%",
+              height: "44px",
+              padding: "0 12px",
+              fontSize: "0.9rem",
+              borderRadius: "8px",
+              border: "1px solid var(--line, #CBD5E1)",
+              background: "var(--surface, #FFFFFF)",
+              color: "var(--ink, #0F172A)",
+              boxSizing: "border-box",
+              cursor: "text",
+              pointerEvents: "auto",
+            }}
           />
-          <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+          <small
+            className="form-help"
+            style={{
+              display: "block",
+              marginTop: "3px",
+              color: "var(--muted, #64748B)",
+              fontSize: "0.75rem",
+            }}
+          >
             {manual.productHelp}
           </small>
-        </label>
+        </div>
         <input type="hidden" name="external_offer_id" value="" />
 
         <label>

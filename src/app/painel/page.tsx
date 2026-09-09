@@ -1,4 +1,4 @@
-import { db, configured } from "@/lib/supabase/server";
+import { db, configured, admin } from "@/lib/supabase/server";
 import { getAuthUser, checkPlatformAdmin } from "@/lib/platform-admin";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/components/dashboard";
@@ -144,7 +144,7 @@ export default async function Page({
           .order("created_at", { ascending: false }),
         client
           .from("utm_integrations")
-          .select("id,name,provider,status,offer_id,account_id,currency,last_synced_at")
+          .select("id,name,provider,status,offer_id,account_id,currency,last_synced_at,utm_credentials(webhook_hash)")
           .eq("workspace_id", w.id)
           .order("created_at"),
         needsSales
@@ -271,6 +271,35 @@ export default async function Page({
       ? "A conexão Meta não foi concluída. Confira as permissões e tente novamente."
       : undefined;
 
+  const rawIntegrations = (integrations.data ?? []) as Array<
+    Integration & { utm_credentials?: Array<{ webhook_hash?: string | null }> }
+  >;
+  const resolvedIntegrations: Integration[] = rawIntegrations.map((item) => {
+    const creds = item.utm_credentials;
+    const hasCred = Array.isArray(creds) && creds.some((c) => Boolean(c.webhook_hash));
+    const providerAlreadyConfigured = rawIntegrations.some(
+      (other) =>
+        other.id !== item.id &&
+        other.provider === item.provider &&
+        (other.status === "connected" ||
+          (Array.isArray(other.utm_credentials) &&
+            other.utm_credentials.some((c) => Boolean(c.webhook_hash)))),
+    );
+    if (item.status === "pending" && (hasCred || providerAlreadyConfigured)) {
+      if (w?.id) {
+        void Promise.resolve(
+          admin()
+            .from("utm_integrations")
+            .update({ status: "connected" })
+            .eq("id", item.id)
+            .eq("workspace_id", w.id),
+        ).catch(() => {});
+      }
+      return { ...item, status: "connected" as const };
+    }
+    return item;
+  });
+
   return (
     <Dashboard
       isAdmin={platformAdmin}
@@ -278,7 +307,7 @@ export default async function Page({
       workspace={w}
       offers={(offers.data ?? []) as Offer[]}
       links={(links.data ?? []) as LinkRow[]}
-      integrations={(integrations.data ?? []) as Integration[]}
+      integrations={resolvedIntegrations}
       sales={(sales.data ?? []) as SaleRow[]}
       insights={(insights.data ?? []) as InsightRow[]}
       entities={(entities.data ?? []) as Entity[]}

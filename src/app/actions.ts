@@ -593,6 +593,7 @@ export async function savePaymentIntegration(
         external_product_id: value.external_product_id,
         external_offer_id: value.external_offer_id || null,
         currency: value.currency,
+        status: "connected",
       })
       .select("id")
       .single();
@@ -646,6 +647,12 @@ export async function savePaymentIntegration(
       await service.from("utm_integrations").delete().eq("id", data.id);
       throw secretError;
     }
+
+    await service
+      .from("utm_integrations")
+      .update({ status: "connected" })
+      .eq("id", data.id)
+      .eq("workspace_id", workspace);
     revalidatePath("/painel");
     return { ok: true, integrationId: data.id };
   } catch (err: unknown) {

@@ -2,6 +2,7 @@ node_modules/
 .next/
 .next-*/
 .env*
+.env*
 !.env.example
 *.tsbuildinfo
 supabase/.temp/
@@ -9,3 +10,4 @@ supabase/.branches/
 coverage/
 test-results/
 .next-cache-backup*
+.superdesign/
