@@ -241,6 +241,14 @@ export function Dashboard(p: Props) {
     } catch {}
   }, []);
 
+  // Success feedback should confirm the immediate action, not become stale
+  // interface content in a section the user opens minutes later.
+  useEffect(() => {
+    if (notice !== "Operação concluída.") return;
+    const timeout = window.setTimeout(() => setNotice(""), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
@@ -445,6 +453,8 @@ export function Dashboard(p: Props) {
   const selectTab = (value: string) => {
     setTab(value);
     setMobile(false);
+    setNotice("");
+    setShowExportMenu(false);
     // A section is a new context, not a continuation of the previous scroll.
     // Reset before changing the URL so mobile and desktop behave identically.
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
