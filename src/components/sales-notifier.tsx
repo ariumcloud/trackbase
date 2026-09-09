@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Bell, Volume2, BellRing } from "lucide-react";
 import { soundPlayer } from "@/lib/sound";
-import { handlePushSound, PUSH_VERSION } from "@/lib/push-client";
 
 type Props = {
   workspaceId: string;
@@ -54,29 +53,32 @@ export function SalesNotifier({ workspaceId }: Props) {
     setMounted(true);
   }, []);
 
-  const playManualSound = useCallback(async () => {
-    const result = await soundPlayer.play();
-    setToastMessage(result.status === "started" ? "💰 Som de venda tocado." : "O navegador bloqueou o áudio. Toque novamente para testar.");
-    setTimeout(() => setToastMessage(null), 3000);
+  // Play sound function com dupla redundância (soundPlayer + elemento do DOM)
+  const playKaching = useCallback(() => {
+    soundPlayer.play().catch((e) => console.error("Audio play failed:", e));
+    try {
+      if (typeof document !== "undefined") {
+        const domAudio = document.getElementById("cash-machine-player") as HTMLAudioElement | null;
+        if (domAudio) {
+          domAudio.currentTime = 0;
+          domAudio.volume = 1.0;
+          domAudio.play().catch(() => {});
+        }
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
-    // O worker envia um MessagePort e espera a confirmação real da reprodução.
+    // Escuta eventos de som e notificação enviados pelo Service Worker (sempre ativo)
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === "TRACKBASE_PUSH_SOUND") {
-        void handlePushSound(event, workspaceId).then(() => {
-          const payload = event.data?.payload;
-          setToastMessage(`${payload?.title || "💰 Venda Realizada!"} ${payload?.body ? `— ${payload.body}` : ""}`);
-          setTimeout(() => setToastMessage(null), 7000);
-        });
-      } else if (event.data?.type === "PLAY_SALE_SOUND") {
-        const payload = event.data?.data;
-        const id = event.data?.id || payload?.id;
-        void soundPlayer.play(id ? { id, deadline: Date.now() + 5000 } : undefined);
-        if (payload?.title) {
-          setToastMessage(`${payload.title} ${payload.body ? `— ${payload.body}` : ""}`);
+      if (event.data?.type === "PLAY_SALE_SOUND") {
+        playKaching();
+        if (event.data?.data?.title) {
+          setToastMessage(`${event.data.data.title} - ${event.data.data.body || ""}`);
           setTimeout(() => setToastMessage(null), 7000);
         }
       }
@@ -87,7 +89,7 @@ export function SalesNotifier({ workspaceId }: Props) {
     // Registra e sincroniza o Service Worker se houver suporte a PushManager
     if ("PushManager" in window) {
       navigator.serviceWorker
-        .register(`/sw.js?v=${PUSH_VERSION}`, { updateViaCache: "none" })
+        .register("/sw.js?v=44e2368-restored", { updateViaCache: "none" })
         .then(async (registration) => {
           await registration.update();
           const subscription = await registration.pushManager.getSubscription();
@@ -266,7 +268,11 @@ export function SalesNotifier({ workspaceId }: Props) {
         <button
           type="button"
           className="notifier-btn-sound"
-          onClick={() => { void playManualSound(); }}
+          onClick={() => {
+            playKaching();
+            setToastMessage("💰 Som de venda testado! (Kaching)");
+            setTimeout(() => setToastMessage(null), 3000);
+          }}
           title="Testar som de venda (Kaching)"
           aria-label="Testar som de venda"
         >
