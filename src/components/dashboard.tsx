@@ -1,6 +1,6 @@
 "use client";
 import { plans, canUse, normalizePlan } from "@/lib/plans";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -40,6 +40,7 @@ import {
   ExternalLink,
   Code2,
   Package,
+  Search,
 } from "lucide-react";
 import { McpSettingsView } from "./mcp-settings-view";
 import { UtmifySummary } from "./utmify-summary";
@@ -138,6 +139,7 @@ type Props = {
   initialTab?: string;
   initialPeriod?: string;
   initialCurrency?: string;
+  metaSelectIntegrationId?: string;
   appUrl: string;
   error?: string;
   shields?: ShieldRow[];
@@ -314,6 +316,36 @@ export function Dashboard(p: Props) {
   const workspace = p.workspace?.id ?? "",
     timezone = p.workspace?.timezone ?? "America/Sao_Paulo";
   const today = dayInZone(new Date(), timezone);
+
+  const pendingMetaIntegration = p.integrations.find(
+    (i) => i.provider === "meta" && (!i.account_id || i.status === "select_account"),
+  );
+
+  const [metaAccountModalIntegration, setMetaAccountModalIntegration] =
+    useState<Integration | null>(null);
+
+  useEffect(() => {
+    if (!workspace) return;
+    if (p.metaSelectIntegrationId) {
+      const found = p.integrations.find(
+        (i) => i.id === p.metaSelectIntegrationId && (!i.account_id || i.status === "select_account"),
+      );
+      if (found) {
+        setMetaAccountModalIntegration(found);
+        return;
+      }
+    }
+    if (pendingMetaIntegration) {
+      try {
+        const dismissed = sessionStorage.getItem(
+          `meta_modal_dismissed_${pendingMetaIntegration.id}`,
+        );
+        if (!dismissed) {
+          setMetaAccountModalIntegration(pendingMetaIntegration);
+        }
+      } catch {}
+    }
+  }, [p.metaSelectIntegrationId, pendingMetaIntegration, p.integrations, workspace]);
 
   const currentPlan = normalizePlan(p.workspace?.plan || "devedor");
   const isFreePlan = currentPlan === "devedor";
@@ -1822,51 +1854,37 @@ export function Dashboard(p: Props) {
                           </div>
                         </div>
 
-                        {/* HERO: Link Completo Integrado */}
-                        <div className="hero-tracking-banner">
-                          <div className="hero-tracking-head">
-                            <span className="hero-tracking-head-title">
-                              <Sparkles size={14} /> Link Completo (URL + Parâmetros)
-                            </span>
+                        {/* Parâmetros de URL Diretos (Meta Ads) */}
+                        <div className="utm-parameters-box">
+                          <div className="utm-parameters-header">
+                            <div className="utm-parameters-title-wrap">
+                              <span className="utm-parameters-badge">
+                                PARÂMETROS DE URL · META ADS
+                              </span>
+                              <span className="utm-parameters-guide">
+                                Cole no campo &quot;Parâmetros de URL&quot; do anúncio no Gerenciador
+                              </span>
+                            </div>
                             <Clipboard
-                              value={built.full}
-                              label="Copiar Link Completo"
-                              className="hero-copy-btn"
+                              value={built.parameters}
+                              label="Copiar Parâmetros"
+                              className="utm-copy-main-btn"
                             />
                           </div>
-                          <div className="hero-tracking-url-box">
-                            <code title={built.full}>{built.full}</code>
+                          <div className="utm-parameters-code-box">
+                            <code title={built.parameters}>
+                              {built.parameters || "Nenhum parâmetro gerado"}
+                            </code>
                           </div>
-                        </div>
-
-                        {/* Meta Ads 2-Column Split */}
-                        <div className="meta-ads-split-grid">
-                          <div className="meta-split-box">
-                            <div className="meta-split-head">
-                              <span>1. URL do Site (Página Limpa)</span>
-                              <Clipboard
-                                value={l.url}
-                                label="Copiar URL"
-                                className="meta-copy-pill"
-                              />
-                            </div>
-                            <div className="meta-split-content" title={l.url}>
-                              {l.url}
-                            </div>
-                          </div>
-
-                          <div className="meta-split-box">
-                            <div className="meta-split-head">
-                              <span>2. Parâmetros de URL (Meta Ads)</span>
-                              <Clipboard
-                                value={built.parameters}
-                                label="Copiar Parâmetros"
-                                className="meta-copy-pill"
-                              />
-                            </div>
-                            <div className="meta-split-content" title={built.parameters}>
-                              {built.parameters}
-                            </div>
+                          <div className="utm-parameters-footer-row">
+                            <span className="utm-parameters-target-url" title={l.url}>
+                              URL do site (destino): <strong>{l.url}</strong>
+                            </span>
+                            <Clipboard
+                              value={l.url}
+                              label="Copiar URL"
+                              className="link-btn-ghost small"
+                            />
                           </div>
                         </div>
 
@@ -1908,6 +1926,26 @@ export function Dashboard(p: Props) {
           )}
           {tab === "integracoes" && (
             <>
+              {pendingMetaIntegration && (
+                <div className="meta-pending-banner">
+                  <div className="meta-pending-info">
+                    <span className="meta-pending-badge">
+                      <AlertTriangle size={13} /> AÇÃO NECESSÁRIA NO META ADS
+                    </span>
+                    <h3>Conexão com Facebook autorizada! Escolha sua conta de anúncios</h3>
+                    <p>
+                      Seu login no Facebook foi conectado. Falta apenas selecionar qual Conta de Anúncios a Trackbase vai sincronizar para puxar gastos e campanhas.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button primary meta-pending-action-btn"
+                    onClick={() => setMetaAccountModalIntegration(pendingMetaIntegration)}
+                  >
+                    <Landmark size={15} /> Selecionar Conta de Anúncios Agora
+                  </button>
+                </div>
+              )}
               <div className="integration-grid">
                 {[
                   {
@@ -2902,6 +2940,31 @@ export function Dashboard(p: Props) {
           </section>
         </div>
       )}
+      {metaAccountModalIntegration && (
+        <MetaAccountModal
+          workspace={workspace}
+          integration={metaAccountModalIntegration}
+          onClose={() => {
+            if (metaAccountModalIntegration) {
+              try {
+                sessionStorage.setItem(
+                  `meta_modal_dismissed_${metaAccountModalIntegration.id}`,
+                  "1",
+                );
+              } catch {}
+            }
+            setMetaAccountModalIntegration(null);
+          }}
+          onAccountSelected={(accountName) => {
+            setMetaAccountModalIntegration(null);
+            setNotice(`Conta "${accountName}" conectada com sucesso! Sincronizando dados...`);
+            router.refresh();
+          }}
+          run={run}
+          request={request}
+          pending={pending}
+        />
+      )}
       <BottomBar
         currentTab={tab}
         onSelectTab={selectTab}
@@ -3150,40 +3213,21 @@ function LinkForm({
           <div className="utm-split-item">
             <div className="utm-split-header">
               <span className="utm-split-title">
-                1. Campo &quot;URL do site&quot; na Meta:
+                1. URL do site (destino):
               </span>
               <Clipboard value={url} label="Copiar URL" />
             </div>
             <code>{url || "Informe a URL da página acima"}</code>
           </div>
 
-          <div className="utm-split-item">
+          <div className="utm-split-item highlight-param">
             <div className="utm-split-header">
               <span className="utm-split-title">
-                2. Campo &quot;Parâmetros de URL&quot; na Meta:
+                2. Parâmetros de URL (Meta Ads):
               </span>
               <Clipboard value={preview.parameters} label="Copiar parâmetros" />
             </div>
             <code>{preview.parameters || "Nenhum parâmetro gerado"}</code>
-          </div>
-
-          <div
-            style={{
-              borderTop: "1px solid var(--line, #E2E8F0)",
-              paddingTop: 8,
-              marginTop: 4,
-            }}
-          >
-            <div className="utm-split-header" style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: 11, color: "var(--ink-secondary)" }}>
-                Ou Link completo integrado (para WhatsApp, Bio ou outros
-                canais):
-              </span>
-              <Clipboard value={preview.full} label="Copiar link completo" />
-            </div>
-            <code style={{ fontSize: 11, opacity: 0.85 }}>
-              {preview.full || "Informe uma URL válida"}
-            </code>
           </div>
         </div>
       </div>
@@ -3251,6 +3295,273 @@ function LinkForm({
     </ActionForm>
   );
 }
+function MetaAccountModal({
+  workspace,
+  integration,
+  onClose,
+  onAccountSelected,
+  run,
+  request,
+  pending,
+}: {
+  workspace: string;
+  integration: Integration;
+  onClose: () => void;
+  onAccountSelected: (accountName: string) => void;
+  run: (fn: () => Promise<unknown>) => void;
+  request: (path: string, data: unknown) => Promise<unknown>;
+  pending: boolean;
+}) {
+  type MetaAccount = {
+    id: string;
+    name: string;
+    currency: string;
+    timezone_name: string;
+    origins: Array<{
+      type: "direct" | "business";
+      businessId?: string;
+      businessName?: string;
+    }>;
+  };
+  const [accounts, setAccounts] = useState<MetaAccount[]>([]);
+  const [businesses, setBusinesses] = useState<Array<{ id: string; name: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [submittingAccount, setSubmittingAccount] = useState<string | null>(null);
+
+  const loadAccounts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(integration.id)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === "string"
+            ? data.error
+            : data.error?.message || "Não foi possível listar contas.",
+        );
+      }
+      setAccounts(data.accounts || []);
+      setBusinesses(data.businesses || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar contas.");
+    } finally {
+      setLoading(false);
+    }
+  }, [workspace, integration.id]);
+
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
+
+  const filteredAccounts = accounts.filter((a) => {
+    if (!filter) return true;
+    const term = filter.toLowerCase();
+    return (
+      a.name.toLowerCase().includes(term) ||
+      a.id.toLowerCase().includes(term) ||
+      a.currency.toLowerCase().includes(term) ||
+      a.origins.some((o) => (o.businessName || "").toLowerCase().includes(term))
+    );
+  });
+
+  const handleSelect = (account: MetaAccount) => {
+    setSubmittingAccount(account.id);
+    run(async () => {
+      try {
+        await request("/api/meta/accounts", {
+          workspace,
+          integration: integration.id,
+          account: account.id,
+        });
+        fetch("/api/meta/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspace, integration: integration.id }),
+        }).catch(() => {});
+        onAccountSelected(account.name);
+      } catch (e) {
+        setSubmittingAccount(null);
+        throw e;
+      }
+    });
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <section
+        className="modal meta-account-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Selecionar Conta de Anúncios do Meta"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="meta-modal-head">
+          <div className="meta-modal-icon-badge">
+            <Landmark size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span className="meta-modal-eyebrow">CONEXÃO META ADS</span>
+            <h2>Selecione sua Conta de Anúncios</h2>
+            <p>
+              Escolha qual conta do Meta Ads você deseja sincronizar neste workspace:
+            </p>
+          </div>
+          <button
+            type="button"
+            className="icon-button meta-modal-close"
+            onClick={onClose}
+            aria-label="Fechar modal"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {businesses.length > 0 && (
+          <div className="meta-modal-businesses">
+            <span className="meta-modal-biz-label">
+              <Building2 size={13} /> Business Managers identificados:
+            </span>
+            <div className="meta-modal-biz-chips">
+              {businesses.map((b) => (
+                <span key={b.id} className="meta-business-chip">
+                  {b.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="meta-modal-loading">
+            <RefreshCw size={24} className="spin" />
+            <p>Buscando suas contas de anúncios no Facebook...</p>
+            <small>Aguarde um instante</small>
+          </div>
+        ) : error ? (
+          <div className="meta-modal-error">
+            <AlertTriangle size={24} />
+            <p>{error}</p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={loadAccounts}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : accounts.length === 0 ? (
+          <div className="meta-modal-empty">
+            <AlertTriangle size={28} />
+            <h3>Nenhuma conta de anúncios encontrada</h3>
+            <p>
+              O perfil do Facebook conectado não possui permissão de anunciante ou administrador em nenhuma Conta de Anúncios ativa.
+            </p>
+            <div className="meta-modal-empty-actions">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={loadAccounts}
+              >
+                Recarregar contas
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={onClose}
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="meta-modal-content">
+            {accounts.length > 3 && (
+              <div className="meta-modal-search">
+                <Search size={15} />
+                <input
+                  type="text"
+                  placeholder="Filtrar por nome ou ID..."
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                {filter && (
+                  <button
+                    type="button"
+                    className="meta-search-clear"
+                    onClick={() => setFilter("")}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="meta-modal-account-list">
+              {filteredAccounts.map((a) => {
+                const isSubmitting = submittingAccount === a.id;
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className={`meta-modal-account-card ${isSubmitting ? "submitting" : ""}`}
+                    disabled={pending || submittingAccount !== null}
+                    onClick={() => handleSelect(a)}
+                  >
+                    <div className="meta-modal-account-main">
+                      <div className="meta-modal-account-name-row">
+                        <strong>{a.name}</strong>
+                        <span className="meta-modal-currency-pill">{a.currency}</span>
+                      </div>
+                      <div className="meta-modal-account-details">
+                        <code>{a.id}</code>
+                        <span>{a.timezone_name}</span>
+                        {a.origins.map((origin, index) => (
+                          <span
+                            key={`${origin.type}-${origin.businessId || index}`}
+                            className="meta-modal-origin-pill"
+                          >
+                            {origin.type === "direct"
+                              ? "Acesso direto"
+                              : origin.businessName || "Business Manager"}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="meta-modal-account-action">
+                      <span className="button primary small">
+                        {isSubmitting ? "Conectando..." : "Conectar conta"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="meta-modal-footer">
+          <small>
+            Você pode trocar de conta ou conectar outras a qualquer momento.
+          </small>
+          <button
+            type="button"
+            className="text-button"
+            onClick={onClose}
+            disabled={pending || submittingAccount !== null}
+          >
+            Fazer isso mais tarde
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function IntegrationCard({
   integration: i,
   workspace,
@@ -3282,7 +3593,40 @@ function IntegrationCard({
     Array<{ id: string; name: string }>
   >([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingWebhookSecret, setEditingWebhookSecret] = useState(false);
+
+  const fetchAccounts = useCallback(async () => {
+    setLoadingAccounts(true);
+    setLoadError(null);
+    try {
+      const r = await fetch(
+        `/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(i.id)}`,
+      );
+      const data = await r.json();
+      if (!r.ok)
+        throw new Error(
+          typeof data.error === "string"
+            ? data.error
+            : data.error?.message || "Não foi possível listar contas.",
+        );
+      setAccounts(data.accounts || []);
+      setBusinesses(data.businesses || []);
+      setAccountsLoaded(true);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Erro ao carregar contas.");
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [workspace, i.id]);
+
+  useEffect(() => {
+    if (i.provider === "meta" && !i.account_id && !accountsLoaded && !loadingAccounts) {
+      fetchAccounts();
+    }
+  }, [i.provider, i.account_id, accountsLoaded, loadingAccounts, fetchAccounts]);
+
   const statusText: Record<string, string> = {
     connected: "Conta conectada",
     select_account: "OAuth conectado · selecione uma conta de anúncios",
@@ -3309,30 +3653,23 @@ function IntegrationCard({
         <div className="connection-actions">
           {!i.account_id ? (
             <>
-              <button
-                className="button"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    const r = await fetch(
-                        `/api/meta/accounts?workspace=${workspace}&integration=${i.id}`,
-                      ),
-                      data = await r.json();
-                    if (!r.ok)
-                      throw new Error(
-                        typeof data.error === "string"
-                          ? data.error
-                          : data.error?.message ||
-                              "Não foi possível listar contas.",
-                      );
-                    setAccounts(data.accounts);
-                    setBusinesses(data.businesses || []);
-                    setAccountsLoaded(true);
-                  })
-                }
-              >
-                <Landmark size={15} /> Carregar contas
-              </button>
+              {loadingAccounts ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "var(--surface-subtle)", borderRadius: 8, border: "1px solid var(--line)" }}>
+                  <RefreshCw size={15} className="spin" />
+                  <span style={{ fontSize: 13, color: "var(--ink-secondary)" }}>Carregando suas contas de anúncios do Facebook...</span>
+                </div>
+              ) : (!accountsLoaded || loadError) ? (
+                <div>
+                  {loadError && <p style={{ color: "var(--red, #DC2626)", fontSize: 12, margin: "0 0 6px" }}>{loadError}</p>}
+                  <button
+                    className="button"
+                    disabled={pending || loadingAccounts}
+                    onClick={fetchAccounts}
+                  >
+                    <Landmark size={15} /> Tentar carregar contas novamente
+                  </button>
+                </div>
+              ) : null}
               {accountsLoaded && businesses.length > 0 && (
                 <div className="meta-business-summary">
                   <span>

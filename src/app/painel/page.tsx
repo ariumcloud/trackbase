@@ -32,6 +32,7 @@ export default async function Page({
     period?: string;
     currency?: string;
     offer?: string;
+    meta_select?: string;
   }>;
 }) {
   const p = await searchParams;
@@ -294,6 +295,7 @@ export default async function Page({
         initialTab={p.tab}
         initialCurrency={currency}
       initialPeriod={p.period}
+      metaSelectIntegrationId={p.meta_select}
       appUrl={process.env.APP_URL || "http://localhost:3000"}
       error={error}
     />

@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     if (ce) throw ce;
     return NextResponse.redirect(
       new URL(
-        `/painel?tab=integracoes&workspace=${s.workspace_id}`,
+        `/painel?tab=integracoes&workspace=${s.workspace_id}&meta_select=${integrationId}`,
         appUrl(),
       ),
     );
