@@ -303,7 +303,7 @@ test("popup UI renders brand identity, visual states, copy action and full guide
   };
 
   let copiedText = "";
-  let sentMessages: unknown[] = [];
+  const sentMessages: unknown[] = [];
   const statusResponse = {
     origin: "https://app.trackbase.com.br",
     selected: "ws-1",
@@ -402,5 +402,4 @@ test("popup UI renders brand identity, visual states, copy action and full guide
   const zipBuf = readFileSync("public/downloads/trackbase-extension.zip");
   assert.ok(zipBuf.length > 5000);
 });
-
 
