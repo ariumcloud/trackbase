@@ -108,7 +108,7 @@ class SoundPlayer {
   public async play() {
     // Browsers, especially iOS, only permit custom audio after a user gesture.
     // Push received in the background uses the operating system's default sound.
-    if (!this.unlocked || document.visibilityState !== "visible") return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
 
     // 1. Tenta reprodução via Web Audio API (som nativo decodificado na memória)
     try {
