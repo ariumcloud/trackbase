@@ -193,6 +193,29 @@
     }
   }
 
+  async function enviarMensagem(mensagem) {
+    if (
+      typeof chrome === "undefined" ||
+      !chrome?.runtime ||
+      typeof chrome.runtime.sendMessage !== "function"
+    ) {
+      throw new Error("Extensão atualizada. Dê F5 nesta página para reconectar.");
+    }
+    try {
+      return await chrome.runtime.sendMessage(mensagem);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err || "");
+      if (
+        msg.includes("Extension context invalidated") ||
+        msg.includes("context invalidated") ||
+        msg.includes("Cannot read properties of undefined")
+      ) {
+        throw new Error("Extensão atualizada. Dê F5 nesta página para reconectar.");
+      }
+      throw err;
+    }
+  }
+
   function scan() {
     for (const card of TrackbaseParser.cards(document)) {
       const id = TrackbaseParser.idFromText(card.innerText || "");
@@ -257,13 +280,13 @@
         status.textContent = "Salvando no Trackbase…";
         try {
           const capture = TrackbaseParser.capture(card);
-          const result = await chrome.runtime.sendMessage({
+          const result = await enviarMensagem({
             action: "capture",
             capture,
             snapshot: false,
           });
-          if (result.error) throw new Error(result.error);
-          status.textContent = result.data.duplicate
+          if (result?.error) throw new Error(result.error);
+          status.textContent = result?.data?.duplicate
             ? "Anúncio já salvo neste workspace."
             : "Salvo no workspace selecionado.";
         } catch (e) {
@@ -280,12 +303,12 @@
         status.textContent = "Registrando verificação…";
         try {
           const capture = TrackbaseParser.capture(card);
-          const result = await chrome.runtime.sendMessage({
+          const result = await enviarMensagem({
             action: "capture",
             capture,
             snapshot: true,
           });
-          if (result.error) throw new Error(result.error);
+          if (result?.error) throw new Error(result.error);
           status.textContent = "Verificação registrada com sucesso.";
         } catch (e) {
           status.textContent = e.message || "Falha ao registrar verificação.";
