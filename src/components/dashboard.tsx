@@ -1551,49 +1551,39 @@ export function Dashboard(p: Props) {
           )}
           {tab === "ofertas" && (
             <>
-              <div className="section-summary">
-                <span>{p.offers.length} ofertas na operação</span>
-                <span className="chip">Organização que dá resultado</span>
+              <div className="offers-toolbar">
+                <div className="offers-summary">
+                  <span className="offers-count">
+                    <strong>{p.offers.length}</strong> {p.offers.length === 1 ? "oferta na operação" : "ofertas na operação"}
+                  </span>
+                  <span className="chip">Organização que dá resultado</span>
+                  <span className="offers-links-summary">
+                    {p.links.length} {p.links.length === 1 ? "link ativo" : "links ativos"}
+                  </span>
+                </div>
+                <button className="button primary offers-create-button" onClick={() => create("offer")}>
+                  <Plus size={15} /> Nova oferta
+                </button>
               </div>
               {p.offers.length ? (
                 <div className="offer-grid">
                   {p.offers.map((o) => (
                     <section className="panel offer-card" key={o.id}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: "0.5rem",
-                        }}
-                      >
-                        <span className="empty-icon" style={{ margin: 0 }}>
+                      <div className="offer-card-head">
+                        <span className="empty-icon">
                           <Layers size={23} />
                         </span>
                         <button
                           type="button"
-                          className="button secondary"
-                          style={{
-                            fontSize: "0.75rem",
-                            padding: "0.25rem 0.6rem",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
+                          className="button secondary offer-edit-button"
                           onClick={() => setModal(`offer-edit-${o.id}`)}
                         >
                           <Pencil size={12} /> Editar
                         </button>
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "0.35rem",
-                          flexWrap: "wrap",
-                          marginBottom: "0.4rem",
-                        }}
-                      >
-                        <span className="chip">{o.currency}</span>
+                      <div className="offer-card-body">
+                        <div className="offer-chips">
+                          <span className="chip">{o.currency}</span>
                         {o.product_type && (
                           <span className="chip">
                             {o.product_type === "main"
@@ -1614,34 +1604,24 @@ export function Dashboard(p: Props) {
                           </span>
                         )}
                         {o.platform && (
-                          <span
-                            className="chip"
-                            style={{ textTransform: "capitalize" }}
-                          >
+                          <span className="chip offer-platform-chip">
                             {o.platform}
                           </span>
                         )}
-                      </div>
-                      <h2>{o.name}</h2>
-                      <p className="url-text">{o.landing_url}</p>
-                      {o.checkout_url && (
-                        <p
-                          className="url-text"
-                          style={{ fontSize: "0.75rem", opacity: 0.8 }}
-                        >
-                          Checkout: {o.checkout_url}
-                        </p>
-                      )}
+                        </div>
+                        <h2>{o.name}</h2>
+                        <div className="offer-destinations">
+                          <a className="url-text" href={o.landing_url} target="_blank" rel="noreferrer">{o.landing_url}</a>
+                          {o.checkout_url && (
+                            <a className="offer-checkout-url" href={o.checkout_url} target="_blank" rel="noreferrer">
+                              <span>Checkout</span>{o.checkout_url}
+                            </a>
+                          )}
+                        </div>
                       {(Number(o.percent_fee) > 0 ||
                         Number(o.fixed_fee) > 0 ||
                         Number(o.cost_per_sale) > 0) && (
-                        <p
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "var(--muted, #64748B)",
-                            margin: "0.25rem 0",
-                          }}
-                        >
+                        <p className="offer-fees">
                           Taxas:{" "}
                           {Number(o.percent_fee) > 0
                             ? `${o.percent_fee}% `
@@ -1655,29 +1635,9 @@ export function Dashboard(p: Props) {
                         </p>
                       )}
                       {o.public_key && (
-                        <div
-                          style={{
-                            marginTop: "0.75rem",
-                            padding: "0.6rem",
-                            background: "var(--surface-subtle, #F9FAFB)",
-                            borderRadius: "6px",
-                            border: "1px solid var(--line, #E5E7EB)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: "0.3rem",
-                            }}
-                          >
-                            <small
-                              style={{
-                                fontSize: "0.75rem",
-                                color: "var(--muted, #64748B)",
-                              }}
-                            >
+                        <div className="offer-script-box">
+                          <div className="offer-script-head">
+                            <small>
                               Script da Página / Quiz:
                             </small>
                             <Clipboard
@@ -1685,14 +1645,7 @@ export function Dashboard(p: Props) {
                               label="Copiar script"
                             />
                           </div>
-                          <code
-                            style={{
-                              fontSize: "0.7rem",
-                              wordBreak: "break-all",
-                              display: "block",
-                              color: "var(--brand-accent, #5B34EA)",
-                            }}
-                          >
+                          <code>
                             {`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
                           </code>
                         </div>
@@ -1720,6 +1673,7 @@ export function Dashboard(p: Props) {
                           </button>
                         </div>
                       )}
+                      </div>
                       <div className="offer-footer">
                         <span>
                           {p.links.filter((l) => l.offer_id === o.id).length}{" "}
