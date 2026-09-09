@@ -1746,6 +1746,13 @@ tr:hover td {
   margin: 0 0 18px;
 }
 
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
 .integration-card {
   display: flex;
   flex-direction: column;
@@ -1763,9 +1770,38 @@ tr:hover td {
 }
 
 .integration-card .button {
-  margin-top: 4px;
+  width: 100%;
+  margin-top: auto;
   white-space: nowrap;
 }
+
+.connected-integrations-section {
+  margin: 28px 0 22px;
+}
+
+.connected-integrations-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.connected-integrations-heading h2 { margin: 3px 0 0; font-size: 17px; }
+.connected-integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.connection-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+}
+.connection-row > div:first-child h3 { margin: 0; }
+.connection-row > div:first-child p { margin: 5px 0 0; }
 
 /* Seleção de contas Meta: informação escaneável em desktop e toque confortável no mobile. */
 .connection-actions { min-width: 0; }

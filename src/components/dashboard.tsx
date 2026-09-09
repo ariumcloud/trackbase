@@ -445,6 +445,9 @@ export function Dashboard(p: Props) {
   const selectTab = (value: string) => {
     setTab(value);
     setMobile(false);
+    // A section is a new context, not a continuation of the previous scroll.
+    // Reset before changing the URL so mobile and desktop behave identically.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     router.replace(
       `/painel?${new URLSearchParams({ ...(workspace ? { workspace } : {}), tab: value })}`,
       { scroll: false },
@@ -660,7 +663,7 @@ export function Dashboard(p: Props) {
             <span className="top-avatar">U</span>
           </div>
         </header>
-        <main className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""}`}>
+        <main id="dashboard-content" className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""}`}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>
@@ -1836,17 +1839,30 @@ export function Dashboard(p: Props) {
                   </section>
                 ))}
               </div>
-              {p.integrations.map((i) => (
-                <IntegrationCard
-                  key={i.id}
-                  integration={i}
-                  workspace={workspace}
-                  appUrl={p.appUrl}
-                  run={run}
-                  request={request}
-                  pending={pending}
-                />
-              ))}
+              {p.integrations.length > 0 && (
+                <section className="connected-integrations-section" aria-labelledby="connected-integrations-title">
+                  <div className="connected-integrations-heading">
+                    <div>
+                      <span className="eyebrow">SUAS CONEXÕES</span>
+                      <h2 id="connected-integrations-title">Contas e gateways conectados</h2>
+                    </div>
+                    <span className="chip">{p.integrations.length} ativo{p.integrations.length === 1 ? "" : "s"}</span>
+                  </div>
+                  <div className="connected-integrations-grid">
+                    {p.integrations.map((i) => (
+                      <IntegrationCard
+                        key={i.id}
+                        integration={i}
+                        workspace={workspace}
+                        appUrl={p.appUrl}
+                        run={run}
+                        request={request}
+                        pending={pending}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
               <section className="panel">
                 <div className="panel-heading">
                   <div>
