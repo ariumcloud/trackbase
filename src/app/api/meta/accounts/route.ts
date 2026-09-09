@@ -158,3 +158,44 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    sameOrigin(request);
+    const query = new URL(request.url).searchParams;
+    const workspace = z.string().uuid().parse(query.get("workspace"));
+    const integration = z.string().uuid().parse(query.get("integration"));
+    await requireFeature(workspace, "integrations");
+
+    const service = admin();
+    const { data: connection, error: lookupError } = await service
+      .from("utm_integrations")
+      .select("id")
+      .eq("id", integration)
+      .eq("workspace_id", workspace)
+      .eq("provider", "meta")
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!connection) return NextResponse.json({ error: "Conexão Meta não encontrada." }, { status: 404 });
+
+    // Delete every child first; none of these queries can cross the workspace
+    // boundary because the integration was verified above.
+    for (const table of ["utm_meta_action_logs", "utm_ad_entities", "utm_insights", "utm_webhook_logs", "utm_sales", "utm_credentials"] as const) {
+      const { error } = await service.from(table).delete().eq("workspace_id", workspace).eq("integration_id", integration);
+      if (error) throw error;
+    }
+    const { error: deleteError } = await service
+      .from("utm_integrations")
+      .delete()
+      .eq("id", integration)
+      .eq("workspace_id", workspace)
+      .eq("provider", "meta");
+    if (deleteError) throw deleteError;
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error && (error.message === "Origem não autorizada." || error.message === "Workspace não autorizado.")
+      ? error.message
+      : "Não foi possível desconectar a conta Meta.";
+    return NextResponse.json({ error: message }, { status: 403 });
+  }
+}

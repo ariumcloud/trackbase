@@ -3065,6 +3065,21 @@ function IntegrationCard({
               >
                 <RefreshCw size={15} /> {i.status === "syncing" ? "Sincronizando…" : "Sincronizar 30 dias"}
               </button>
+              <button
+                className="text-button danger"
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (!window.confirm("Desconectar esta conta Meta? O token e os dados sincronizados desta conta serão removidos. As outras integrações não serão afetadas.")) return;
+                  run(async () => {
+                    const response = await fetch(`/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(i.id)}`, { method: "DELETE" });
+                    const data = await response.json().catch(() => null);
+                    if (!response.ok) throw new Error(data?.error || "Não foi possível desconectar a conta Meta.");
+                  });
+                }}
+              >
+                Desconectar conta Meta
+              </button>
             </>
           )}
         </div>
