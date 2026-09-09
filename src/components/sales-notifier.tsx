@@ -53,9 +53,21 @@ export function SalesNotifier({ workspaceId }: Props) {
     setMounted(true);
   }, []);
 
-  // Play sound function
+  // Play sound function com dupla redundância (soundPlayer + elemento do DOM)
   const playKaching = useCallback(() => {
     soundPlayer.play().catch((e) => console.error("Audio play failed:", e));
+    try {
+      if (typeof document !== "undefined") {
+        const domAudio = document.getElementById("cash-machine-player") as HTMLAudioElement | null;
+        if (domAudio) {
+          domAudio.currentTime = 0;
+          domAudio.volume = 1.0;
+          domAudio.play().catch(() => {});
+        }
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   // When opened via mobile push notification click (sale_alert=1)
