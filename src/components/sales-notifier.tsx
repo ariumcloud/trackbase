@@ -88,7 +88,9 @@ export function SalesNotifier({ workspaceId }: Props) {
     // Escuta eventos de som e notificação enviados pelo Service Worker (sempre ativo)
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "PLAY_SALE_SOUND") {
-        void soundPlayer.unlockAudio().then(playKaching);
+        // This is intentionally direct. Calling unlockAudio here is no longer
+        // a user gesture on iOS and can leave the audio context suspended.
+        playKaching();
         if (event.data?.data?.title) {
           setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
           setTimeout(() => setToastMessage(null), 7000);

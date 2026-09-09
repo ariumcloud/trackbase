@@ -17,9 +17,7 @@ self.addEventListener("push", (event) => {
       body: payload.body || "Nova compra aprovada na sua operação.",
       icon: "/trackbase-icon-192-v3.png",
       badge: "/Logo Roxa 42x42 PNG favicon.png",
-      // The foreground page plays Trackbase's sale sound. Web Push on iOS
-      // cannot use a custom notification sound, so mute the OS fallback.
-      silent: true,
+      vibrate: [200, 100, 200, 100, 400],
       tag: payload.tag || `sale-${Date.now()}`,
       data: {
         url: payload.url || "/painel",
