@@ -222,10 +222,12 @@ function Clipboard({
   value,
   label = "Copiar",
   className = "button small",
+  disabled = false,
 }: {
   value: string;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const [copied, setCopied] = useState(false),
     [error, setError] = useState(false);
@@ -233,7 +235,9 @@ function Clipboard({
     <button
       type="button"
       className={className}
+      disabled={disabled}
       onClick={async () => {
+        if (disabled) return;
         try {
           await navigator.clipboard.writeText(value);
           setCopied(true);
@@ -294,6 +298,9 @@ export function Dashboard(p: Props) {
       p.offers[0]?.public_key ||
       "",
     [p.offers],
+  );
+  const configuredPixel = p.pixels.find(
+    (pixel) => pixel.active && pixel.pixel_id.trim().length > 0,
   );
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -1815,10 +1822,14 @@ export function Dashboard(p: Props) {
                     className="button secondary"
                     onClick={() =>
                       setViewingPixelSnippet(
-                        p.pixels && p.pixels.length > 0 ? p.pixels[0].id : "universal",
+                        configuredPixel?.id || "universal",
                       )
                     }
-                    title="Ver código do Meta Pixel + Trackbase juntos"
+                    title={
+                      configuredPixel
+                        ? "Ver código do Meta Pixel + Trackbase juntos"
+                        : "Configure um Pixel da Meta antes de copiar o código"
+                    }
                   >
                     <Code2 size={14} style={{ marginRight: "0.3rem" }} />
                     Ver com Meta Pixel
@@ -2563,7 +2574,10 @@ export function Dashboard(p: Props) {
                           const linkedOffer = p.offers.find(
                             (o) => o.id === px.offer_id,
                           );
-                          const trackbasePixelCode = `<!-- Trackbase Pixel Code -->
+                          const hasPixelId =
+                            px.active && px.pixel_id.trim().length > 0;
+                          const trackbasePixelCode = hasPixelId
+                            ? `<!-- Trackbase Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -2579,7 +2593,8 @@ fbq('track', 'PageView');
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
 /></noscript>
-<!-- End Trackbase Pixel Code -->`;
+<!-- End Trackbase Pixel Code -->`
+                            : "<!-- Cadastre e ative um Pixel da Meta para gerar o código de instalação. -->";
 
                           return (
                             <div
@@ -2648,6 +2663,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                   value={trackbasePixelCode}
                                   label="Copiar Pixel"
                                   className="button small"
+                                  disabled={!hasPixelId}
                                 />
                                 <button
                                   type="button"
@@ -3303,13 +3319,15 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
       {viewingPixelSnippet && (() => {
         const px =
           viewingPixelSnippet === "universal"
-            ? p.pixels[0] || null
+            ? configuredPixel || null
             : p.pixels.find((x) => x.id === viewingPixelSnippet) || null;
         const linkedOffer = px ? p.offers.find((o) => o.id === px.offer_id) : null;
         const trackerKey = linkedOffer?.public_key || universalKey;
-        const pixelId = px ? px.pixel_id : "SEU_PIXEL_ID";
+        const pixelId = px?.pixel_id?.trim() || "";
+        const hasConfiguredPixel = Boolean(px?.active && pixelId.length > 0);
 
-        const trackbasePixelCode = `<!-- Trackbase Pixel Code -->
+        const trackbasePixelCode = hasConfiguredPixel
+          ? `<!-- Trackbase Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -3325,13 +3343,15 @@ fbq('track', 'PageView');
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 /></noscript>
-<!-- End Trackbase Pixel Code -->`;
+<!-- End Trackbase Pixel Code -->`
+          : "<!-- Configure um Pixel da Meta no Trackbase antes de copiar este código. -->";
 
         const trackbaseTrackerCode = trackerKey
           ? `<script src="${p.appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`
           : `<script src="${p.appUrl}/tracker.js" defer></script>`;
 
-        const fullCombinedCode = `<!-- Trackbase Pixel Code -->
+        const fullCombinedCode = hasConfiguredPixel
+          ? `<!-- Trackbase Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -3348,7 +3368,8 @@ fbq('track', 'PageView');
 src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 /></noscript>
 ${trackbaseTrackerCode}
-<!-- End Trackbase Pixel Code -->`;
+<!-- End Trackbase Pixel Code -->`
+          : "";
 
         return (
           <div
@@ -3458,6 +3479,40 @@ ${trackbaseTrackerCode}
                   gap: "1.25rem",
                 }}
               >
+                {!hasConfiguredPixel && (
+                  <div
+                    role="alert"
+                    style={{
+                      padding: "1rem 1.1rem",
+                      borderRadius: "10px",
+                      background: "#FFF7ED",
+                      border: "1px solid #FDBA74",
+                      color: "#9A3412",
+                      lineHeight: "1.45",
+                      fontSize: "0.84rem",
+                    }}
+                  >
+                    <strong style={{ display: "block", marginBottom: "0.25rem" }}>
+                      Configure seu Pixel da Meta antes de instalar
+                    </strong>
+                    <span>
+                      Este workspace ainda não tem um Pixel ativo. Não copie este
+                      código: ele só ficará completo depois que você cadastrar o
+                      ID e o token do Pixel em <strong>Integrações e Pixels</strong>.
+                    </span>
+                    <button
+                      type="button"
+                      className="button small"
+                      style={{ marginTop: "0.75rem" }}
+                      onClick={() => {
+                        setViewingPixelSnippet(null);
+                        setTab("integracoes");
+                      }}
+                    >
+                      Configurar Pixel agora
+                    </button>
+                  </div>
+                )}
                 {/* Hero: Copiar tudo de uma vez */}
                 <div
                   style={{
@@ -3501,6 +3556,7 @@ ${trackbaseTrackerCode}
                     value={fullCombinedCode}
                     label="Copiar Código Completo"
                     className="button primary"
+                    disabled={!hasConfiguredPixel}
                   />
                 </div>
 
@@ -3535,6 +3591,7 @@ ${trackbaseTrackerCode}
                       value={trackbasePixelCode}
                       label="Copiar Pixel"
                       className="button small"
+                      disabled={!hasConfiguredPixel}
                     />
                   </div>
                   <p
