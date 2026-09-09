@@ -1880,12 +1880,37 @@ tr:hover td {
   border-radius: 8px;
   background: var(--green-soft);
 }
-.meta-selected-account > span,
+.meta-selected-account-head > span,
 .meta-selected-account strong,
 .meta-selected-account small { display: block; }
-.meta-selected-account > span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .8px; }
+.meta-selected-account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.meta-selected-account-head > span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .8px; }
 .meta-selected-account strong { margin-top: 3px; font-size: 13px; }
 .meta-selected-account small { margin-top: 2px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.meta-disconnect-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid #FECACA;
+  border-radius: 6px;
+  background: rgba(255,255,255,.72);
+  color: #B91C1C;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.meta-disconnect-button:hover:not(:disabled) { background: #FEF2F2; border-color: #FCA5A5; }
+.meta-disconnect-button:active:not(:disabled) { transform: translateY(1px); }
+.meta-disconnect-button:disabled { cursor: not-allowed; opacity: .55; }
 .meta-accounts-empty {
   display: flex;
   align-items: flex-start;

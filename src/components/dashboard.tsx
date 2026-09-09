@@ -3050,7 +3050,25 @@ function IntegrationCard({
           ) : (
             <>
               <div className="meta-selected-account">
-                <span>CONTA SELECIONADA</span>
+                <div className="meta-selected-account-head">
+                  <span>CONTA SELECIONADA</span>
+                  <button
+                    className="meta-disconnect-button"
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      if (!window.confirm("Desconectar esta conta Meta? O token e os dados sincronizados desta conta serão removidos. As outras integrações não serão afetadas.")) return;
+                      run(async () => {
+                        const response = await fetch(`/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(i.id)}`, { method: "DELETE" });
+                        const data = await response.json().catch(() => null);
+                        if (!response.ok) throw new Error(data?.error || "Não foi possível desconectar a conta Meta.");
+                      });
+                    }}
+                    title="Desconectar esta conta Meta"
+                  >
+                    <Trash2 size={13} /> Desconectar
+                  </button>
+                </div>
                 <strong>{i.name}</strong>
                 <small>{i.account_id} · {i.currency || "Moeda indisponível"}</small>
               </div>
@@ -3064,21 +3082,6 @@ function IntegrationCard({
                 }
               >
                 <RefreshCw size={15} /> {i.status === "syncing" ? "Sincronizando…" : "Sincronizar 30 dias"}
-              </button>
-              <button
-                className="text-button danger"
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  if (!window.confirm("Desconectar esta conta Meta? O token e os dados sincronizados desta conta serão removidos. As outras integrações não serão afetadas.")) return;
-                  run(async () => {
-                    const response = await fetch(`/api/meta/accounts?workspace=${encodeURIComponent(workspace)}&integration=${encodeURIComponent(i.id)}`, { method: "DELETE" });
-                    const data = await response.json().catch(() => null);
-                    if (!response.ok) throw new Error(data?.error || "Não foi possível desconectar a conta Meta.");
-                  });
-                }}
-              >
-                Desconectar conta Meta
               </button>
             </>
           )}
