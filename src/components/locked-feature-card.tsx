@@ -10,16 +10,18 @@ import {
   TrendingDown,
   CheckCircle2,
   MessageCircle,
+  BookOpen,
 } from "lucide-react";
 
 interface LockedFeatureCardProps {
-  feature: "shield" | "diagnostico" | "radar";
+  feature: "shield" | "diagnostico" | "radar" | "mining";
 }
 
 const FEATURE_CONFIGS = {
   shield: {
     title: "Shield Anti-Bloqueio & Cloaker Inteligente",
-    subtitle: "Proteja sua oferta contra analistas da Meta e concorrentes do AdHeart",
+    subtitle:
+      "Proteja sua oferta contra analistas da Meta e concorrentes do AdHeart",
     icon: ShieldCheck,
     badge: "EXCLUSIVO PLANO PREMIUM",
     tagline:
@@ -53,7 +55,8 @@ const FEATURE_CONFIGS = {
   },
   radar: {
     title: "Radar de Leads & Mapa de Calor ao Vivo",
-    subtitle: "Monitore visitantes na página em tempo real e recupere desistências",
+    subtitle:
+      "Monitore visitantes na página em tempo real e recupere desistências",
     icon: Radio,
     badge: "PLANOS BÁSICO & PREMIUM",
     tagline:
@@ -66,6 +69,24 @@ const FEATURE_CONFIGS = {
       "Filtros instantâneos por criativo e campanha para encontrar o melhor público.",
     ],
     upgradeUrl: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03", // Link Stripe Básico
+    planName: "Plano Básico ou Premium",
+  },
+  mining: {
+    title: "Biblioteca de Ofertas da Meta",
+    subtitle:
+      "Salve criativos, analise ofertas e acompanhe mudanças na Biblioteca de Anúncios",
+    icon: BookOpen,
+    badge: "PLANOS BÁSICO & PREMIUM",
+    tagline:
+      "Capture anúncios visíveis na Meta, organize suas ofertas e acompanhe os criativos escolhidos no seu workspace.",
+    benefits: [
+      "Salvamento de anúncios direto pela extensão Chrome.",
+      "Filtros por anunciante, nicho, formato, tags e dias ativos.",
+      "Análises estruturadas de copy e oferta com o assistente de IA.",
+      "Monitoramento escolhido pelo usuário com snapshots e histórico de alterações.",
+      "Dados isolados por workspace, sem duplicidade do mesmo anúncio.",
+    ],
+    upgradeUrl: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03",
     planName: "Plano Básico ou Premium",
   },
 };
@@ -95,7 +116,8 @@ export function LockedFeatureCard({ feature }: LockedFeatureCardProps) {
           left: 0,
           right: 0,
           height: "5px",
-          background: "linear-gradient(90deg, #5B34EA 0%, #3B82F6 50%, #10B981 100%)",
+          background:
+            "linear-gradient(90deg, #5B34EA 0%, #3B82F6 50%, #10B981 100%)",
           borderTopLeftRadius: "15px",
           borderTopRightRadius: "15px",
         }}
@@ -110,7 +132,8 @@ export function LockedFeatureCard({ feature }: LockedFeatureCardProps) {
             width: "64px",
             height: "64px",
             borderRadius: "16px",
-            background: "linear-gradient(135deg, rgba(91, 52, 234, 0.12), rgba(59, 130, 246, 0.12))",
+            background:
+              "linear-gradient(135deg, rgba(91, 52, 234, 0.12), rgba(59, 130, 246, 0.12))",
             color: "var(--brand-accent, #5B34EA)",
             marginBottom: "1rem",
             border: "1px solid rgba(91, 52, 234, 0.2)",
@@ -183,8 +206,8 @@ export function LockedFeatureCard({ feature }: LockedFeatureCardProps) {
             gap: "8px",
           }}
         >
-          <Icon size={18} color="var(--brand-accent, #5B34EA)" />
-          O que você desbloqueia nesta funcionalidade:
+          <Icon size={18} color="var(--brand-accent, #5B34EA)" />O que você
+          desbloqueia nesta funcionalidade:
         </p>
 
         <div
@@ -272,7 +295,8 @@ export function LockedFeatureCard({ feature }: LockedFeatureCardProps) {
 
       <div style={{ textAlign: "center", marginTop: "1rem" }}>
         <small style={{ color: "var(--muted, #94A3B8)", fontSize: "0.8rem" }}>
-          Disponível no {config.planName} · Sem fidelidade · Cancele quando quiser
+          Disponível no {config.planName} · Sem fidelidade · Cancele quando
+          quiser
         </small>
       </div>
     </div>

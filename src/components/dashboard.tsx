@@ -1019,13 +1019,7 @@ export function Dashboard(p: Props) {
               hasMiningAccess ? (
                 <MiningView key={p.workspace.id} workspace={p.workspace.id} />
               ) : (
-                <section className="locked-feature-card">
-                  <h2>Biblioteca de ofertas</h2>
-                  <p>
-                    Salve e acompanhe anúncios da Biblioteca da Meta no Plano
-                    Básico ou superior.
-                  </p>
-                </section>
+                <LockedFeatureCard feature="mining" />
               )
             ) : (
               <p>Selecione ou crie um workspace para começar.</p>
