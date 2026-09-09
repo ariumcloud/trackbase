@@ -6,7 +6,7 @@
     if (!adArchiveId || typeof document.querySelectorAll !== "function") return null;
     try {
       const marcador = `"ad_archive_id":"${adArchiveId}"`;
-      const scripts = document.querySelectorAll('script[type="application/json"][data-sjs]');
+      const scripts = document.querySelectorAll('script[type="application/json"][data-sjs], script[type="application/json"]');
       for (const script of scripts) {
         const texto = script.textContent || "";
         const idx = texto.indexOf(marcador);
@@ -23,17 +23,20 @@
           try { return JSON.parse(`"${m[1]}"`); } catch { return m[1]; }
         };
         const extrairNum = (chave) => {
-          const m = trecho.match(new RegExp(`"${chave}"\\s*:\\s*(\\d+)`));
-          return m ? Number(m[1]) : null;
+          // Aceita tanto número cru (123) quanto string numérica ("123") no JSON
+          const m = trecho.match(new RegExp(`"${chave}"\\s*:\\s*"?(\\d+)"?`));
+          return m ? m[1] : null;
         };
 
+        const startDate = extrairNum("start_date");
+
         return {
-          page_id: extrairStr("page_id") || extrairNum("page_id"),
+          page_id: extrairNum("page_id") || extrairStr("page_id"),
           page_name: extrairStr("page_name"),
           video_hd_url: extrairStr("video_hd_url"),
           video_sd_url: extrairStr("video_sd_url"),
-          collation_count: extrairNum("collation_count"),
-          start_date: extrairNum("start_date"),
+          collation_count: extrairNum("collation_count") ? Number(extrairNum("collation_count")) : null,
+          start_date: startDate ? Number(startDate) : null,
         };
       }
     } catch {
@@ -153,44 +156,77 @@
     }
   }
 
+  function montarUrlPaginaAnunciante(pageId) {
+    return `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false&media_type=all&search_type=page&view_all_page_id=${pageId}`;
+  }
+
+  async function obterPageIdReal(urlAnuncio) {
+    try {
+      if (!urlAnuncio || !/[?&]id=\d+/.test(urlAnuncio)) return null;
+      const resposta = await fetch(urlAnuncio, { credentials: "include" });
+      const html = await resposta.text();
+      const padroes = [
+        /"page_id"\s*:\s*"?(\d+)"?/,
+        /view_all_page_id=(\d+)/,
+        /page_id=(\d+)/,
+      ];
+      for (const regex of padroes) {
+        const encontrado = html.match(regex);
+        if (encontrado) return encontrado[1];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   function abrirPaginaDoAnunciante(card, id) {
     const ssr = obterDadosSSR(id);
-    let pageId = ssr?.page_id;
+    const pageId = ssr?.page_id;
 
-    if (!pageId && typeof card.querySelectorAll === "function") {
-      const links = card.querySelectorAll('a[href*="facebook.com"]');
+    // 1. Se page_id numérico confiável já veio do SSR, abre diretamente
+    if (pageId && /^\d+$/.test(String(pageId))) {
+      window.open(montarUrlPaginaAnunciante(pageId), "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // 2. Se o próprio card tem link com view_all_page_id ou page_id no DOM
+    if (typeof card.querySelectorAll === "function") {
+      const links = card.querySelectorAll('a[href*="view_all_page_id="], a[href*="page_id="]');
       for (const a of links) {
         try {
           const u = new URL(a.href);
-          const candidate = u.searchParams.get("id") || u.searchParams.get("view_all_page_id") || u.pathname.match(/\/(\d+)\/?$/)?.[1];
-          if (/^\d{5,40}$/.test(candidate || "")) {
-            pageId = candidate;
-            break;
+          const candidate = u.searchParams.get("view_all_page_id") || u.searchParams.get("page_id");
+          if (candidate && /^\d+$/.test(candidate)) {
+            window.open(montarUrlPaginaAnunciante(candidate), "_blank", "noopener,noreferrer");
+            return;
           }
         } catch { /* skip */ }
       }
     }
 
-    if (pageId) {
-      window.open(
-        `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false&media_type=all&search_type=page&view_all_page_id=${pageId}`,
-        "_blank",
-        "noopener,noreferrer"
-      );
-    } else {
-      // Fallback: pesquisa pelo nome do anunciante visível
-      const advertiserEl = typeof card.querySelector === "function" ? card.querySelector('h2, h3, a[href*="facebook.com"]') : null;
-      const name = advertiserEl?.innerText?.trim() || "";
-      if (name) {
-        window.open(
-          `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false&media_type=all&search_type=keyword_unordered&q=${encodeURIComponent(name)}`,
-          "_blank",
-          "noopener,noreferrer"
-        );
+    // 3. Fallback idêntico ao Jeen:
+    // Abre a aba de imediato para manter a permissão de clique do usuário
+    // e atualiza a URL assim que confirmar o page_id real via snapshot do anúncio
+    const janela = window.open("about:blank", "_blank");
+    const linkDetalhes = typeof card.querySelector === "function"
+      ? card.querySelector('a[href*="/ads/library/?id="], a[href*="snapshot"]')
+      : null;
+    const urlAnuncio = linkDetalhes?.href || (id ? `https://www.facebook.com/ads/library/?id=${id}` : window.location.href);
+
+    obterPageIdReal(urlAnuncio).then((idReal) => {
+      if (!janela || janela.closed) return;
+      if (idReal) {
+        janela.location.href = montarUrlPaginaAnunciante(idReal);
       } else {
-        window.open("https://www.facebook.com/ads/library/", "_blank");
+        const termo = ssr?.page_name || card.querySelector('h2, h3, a[role="link"]')?.innerText?.trim() || "";
+        if (termo) {
+          janela.location.href = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false&media_type=all&search_type=keyword_unordered&q=${encodeURIComponent(termo)}`;
+        } else {
+          janela.location.href = "https://www.facebook.com/ads/library/";
+        }
       }
-    }
+    });
   }
 
   async function enviarMensagem(mensagem) {
@@ -280,6 +316,13 @@
         status.textContent = "Salvando no Trackbase…";
         try {
           const capture = TrackbaseParser.capture(card);
+          const ssr = obterDadosSSR(id);
+          if (!capture.page_id && ssr?.page_id) {
+            capture.page_id = String(ssr.page_id);
+          }
+          if (ssr?.page_name && (!capture.advertiser || capture.advertiser === "Anunciante Ad Library")) {
+            capture.advertiser = ssr.page_name;
+          }
           const result = await enviarMensagem({
             action: "capture",
             capture,
@@ -303,6 +346,13 @@
         status.textContent = "Registrando verificação…";
         try {
           const capture = TrackbaseParser.capture(card);
+          const ssr = obterDadosSSR(id);
+          if (!capture.page_id && ssr?.page_id) {
+            capture.page_id = String(ssr.page_id);
+          }
+          if (ssr?.page_name && (!capture.advertiser || capture.advertiser === "Anunciante Ad Library")) {
+            capture.advertiser = ssr.page_name;
+          }
           const result = await enviarMensagem({
             action: "capture",
             capture,
