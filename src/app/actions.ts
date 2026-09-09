@@ -9,6 +9,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createApiKey as createKeyRecord, listApiKeys as listKeyRecords, revokeApiKey as revokeKeyRecord } from "@/lib/api-keys";
+import { DEFAULT_PLATFORM_FEES, type PaymentProvider } from "@/lib/payment-contract";
 export type ActionResult = {
   ok?: boolean;
   error?: string;
@@ -507,6 +508,7 @@ export async function savePaymentIntegration(
       };
       const landingUrl = defaultLandingUrl[value.provider] || "https://trackbase.com.br";
       const offerName = value.product_name || value.external_product_id;
+      const defaultFees = DEFAULT_PLATFORM_FEES[value.provider as PaymentProvider];
 
       const { data: createdOffer, error: offerError } = await service
         .from("utm_offers")
@@ -517,6 +519,8 @@ export async function savePaymentIntegration(
           currency: value.currency,
           platform: value.provider,
           external_product_id: value.external_product_id,
+          percent_fee: defaultFees?.percent ?? 0,
+          fixed_fee: defaultFees?.fixed ?? 0,
         })
         .select("id,name")
         .single();

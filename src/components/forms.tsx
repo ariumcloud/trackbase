@@ -15,6 +15,8 @@ import {
   updateOffer,
   type ActionResult,
 } from "@/app/actions";
+import { DEFAULT_PLATFORM_FEES, type PaymentProvider } from "@/lib/payment-contract";
+
 export function ActionForm({
   action,
   children,
@@ -292,8 +294,33 @@ export function OfferForm({
   };
   onSuccess?: () => void;
 }) {
-  const [productType, setProductType] = useState(offer?.product_type || "main"),
-    [advanced, setAdvanced] = useState(Boolean(offer));
+  const [productType, setProductType] = useState(offer?.product_type || "main");
+  const [advanced, setAdvanced] = useState(Boolean(offer));
+  const [platform, setPlatform] = useState(offer?.platform || "");
+
+  const defaultFee = platform ? (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number }>)[platform] : null;
+
+  const initialPercent =
+    offer?.percent_fee !== undefined && offer?.percent_fee !== null && Number(offer.percent_fee) > 0
+      ? Number(offer.percent_fee)
+      : (defaultFee?.percent ?? 0);
+
+  const initialFixed =
+    offer?.fixed_fee !== undefined && offer?.fixed_fee !== null && Number(offer.fixed_fee) > 0
+      ? Number(offer.fixed_fee)
+      : (defaultFee?.fixed ?? 0);
+
+  const [percentFee, setPercentFee] = useState<number | string>(initialPercent);
+  const [fixedFee, setFixedFee] = useState<number | string>(initialFixed);
+
+  const handlePlatformChange = (newPlatform: string) => {
+    setPlatform(newPlatform);
+    const fees = (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number }>)[newPlatform];
+    if (fees) {
+      setPercentFee(fees.percent);
+      setFixedFee(fees.fixed);
+    }
+  };
 
   return (
     <ActionForm
@@ -371,18 +398,22 @@ export function OfferForm({
       <div className="form-grid form-grid-2">
         <label>
           Plataforma de checkout
-          <select name="platform" defaultValue={offer?.platform || ""}>
+          <select
+            name="platform"
+            value={platform}
+            onChange={(e) => handlePlatformChange(e.target.value)}
+          >
             <option value="">Nenhuma / Outra</option>
-            <option value="hotmart">Hotmart</option>
-            <option value="kiwify">Kiwify</option>
-            <option value="cakto">Cakto</option>
-            <option value="kirvano">Kirvano</option>
-            <option value="eduzz">Eduzz</option>
-            <option value="monetizze">Monetizze</option>
-            <option value="wiapy">Wiapy</option>
-            <option value="lowfy">Lowfy</option>
-            <option value="greenn">Greenn</option>
-            <option value="stripe">Stripe</option>
+            <option value="hotmart">Hotmart (9,9% + R$ 2,49)</option>
+            <option value="kiwify">Kiwify (8,99% + R$ 2,49)</option>
+            <option value="cakto">Cakto (4,99% + R$ 2,49)</option>
+            <option value="kirvano">Kirvano (7,49% + R$ 2,00)</option>
+            <option value="eduzz">Eduzz (4,90% + R$ 2,49)</option>
+            <option value="monetizze">Monetizze (7,90% + R$ 1,50)</option>
+            <option value="greenn">Greenn (4,99% + R$ 1,00)</option>
+            <option value="wiapy">Wiapy (4,99% + R$ 1,00)</option>
+            <option value="lowfy">Lowfy (4,90% + R$ 1,49)</option>
+            <option value="stripe">Stripe (3,99% + R$ 0,50)</option>
           </select>
         </label>
         <label>
@@ -405,7 +436,8 @@ export function OfferForm({
             min="0"
             max="100"
             placeholder="9.90"
-            defaultValue={offer?.percent_fee ?? 0}
+            value={percentFee}
+            onChange={(e) => setPercentFee(e.target.value)}
           />
         </label>
         <label>
@@ -415,8 +447,9 @@ export function OfferForm({
             type="number"
             step="0.01"
             min="0"
-            placeholder="1.00"
-            defaultValue={offer?.fixed_fee ?? 0}
+            placeholder="2.49"
+            value={fixedFee}
+            onChange={(e) => setFixedFee(e.target.value)}
           />
         </label>
         <label>
@@ -431,6 +464,13 @@ export function OfferForm({
           />
         </label>
       </div>
+      {platform && (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number; note: string }>)[platform] && (
+        <div style={{ marginTop: "0.25rem", marginBottom: "0.5rem" }}>
+          <small style={{ color: "var(--brand-primary, #6366F1)", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            ✓ Taxa padrão preenchida ({DEFAULT_PLATFORM_FEES[platform as PaymentProvider]?.note}). Ajuste livremente se tiver taxas negociadas.
+          </small>
+        </div>
+      )}
       </>}
     </ActionForm>
   );

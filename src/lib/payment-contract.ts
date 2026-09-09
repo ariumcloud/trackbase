@@ -12,6 +12,62 @@ export const paymentProviders = [
   "stripe",
 ] as const;
 export type PaymentProvider = (typeof paymentProviders)[number];
+
+export const DEFAULT_PLATFORM_FEES: Record<
+  PaymentProvider,
+  { percent: number; fixed: number; note: string }
+> = {
+  hotmart: {
+    percent: 9.9,
+    fixed: 2.49,
+    note: "Hotmart: 9,9% + R$ 2,49",
+  },
+  kiwify: {
+    percent: 8.99,
+    fixed: 2.49,
+    note: "Kiwify: 8,99% + R$ 2,49",
+  },
+  cakto: {
+    percent: 4.99,
+    fixed: 2.49,
+    note: "Cakto: 4,99% + R$ 2,49",
+  },
+  kirvano: {
+    percent: 7.49,
+    fixed: 2.0,
+    note: "Kirvano: 7,49% + R$ 2,00",
+  },
+  eduzz: {
+    percent: 4.9,
+    fixed: 2.49,
+    note: "Eduzz: 4,90% + R$ 2,49",
+  },
+  monetizze: {
+    percent: 7.9,
+    fixed: 1.5,
+    note: "Monetizze: 7,90% + R$ 1,50",
+  },
+  greenn: {
+    percent: 4.99,
+    fixed: 1.0,
+    note: "Greenn: 4,99% + R$ 1,00",
+  },
+  wiapy: {
+    percent: 4.99,
+    fixed: 1.0,
+    note: "Wiapy: 4,99% + R$ 1,00",
+  },
+  lowfy: {
+    percent: 4.9,
+    fixed: 1.49,
+    note: "Lowfy: 4,90% + R$ 1,49",
+  },
+  stripe: {
+    percent: 3.99,
+    fixed: 0.5,
+    note: "Stripe: 3,99% + R$ 0,50",
+  },
+};
 export const paymentEventTypes = [
   "checkout_started",
   "payment_pending",
