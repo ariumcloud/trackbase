@@ -198,15 +198,24 @@ export function GET() {
       });
     }
 
+    var ALLOWED_HOSTS = [
+      'hotmart.com', 'kiwify.com.br', 'kiwify.com', 'cakto.com', 'cakto.com.br',
+      'kirvano.com', 'kirvano.com.br', 'eduzz.com', 'monetizze.com.br',
+      'wiapy.com', 'wiapy.com.br', 'lowfy.com', 'lowfy.com.br', 'lowfy.app',
+      'braip.com', 'ticto.com.br', 'ticto.app', 'greenn.com.br', 'perfectpay.com.br', 'stripe.com'
+    ];
+
     function isAllowed(urlStr) {
       if (!urlStr || urlStr.indexOf('#') === 0 || /^(mailto|tel|javascript):/i.test(urlStr)) return false;
       try {
         var u = new URL(urlStr, window.location.href);
         if (u.origin === window.location.origin) return true;
         var h = u.hostname.toLowerCase();
-        var isHotmart = h === 'hotmart.com' || h.endsWith('.hotmart.com');
-        var isCakto = h === 'cakto.com' || h.endsWith('.cakto.com') || h === 'cakto.com.br' || h.endsWith('.cakto.com.br');
-        return isHotmart || isCakto;
+        for (var i = 0; i < ALLOWED_HOSTS.length; i++) {
+          var dom = ALLOWED_HOSTS[i];
+          if (h === dom || (h.length > dom.length && h.slice(-dom.length - 1) === '.' + dom)) return true;
+        }
+        return false;
       } catch(e) { return false; }
     }
 
@@ -214,18 +223,19 @@ export function GET() {
       if (!isAllowed(urlStr)) return urlStr;
       try {
         var u = new URL(urlStr, window.location.href);
-        var h = u.hostname.toLowerCase();
-        var isHotmart = h === 'hotmart.com' || h.endsWith('.hotmart.com');
         for (var k in attr) {
           if (attr.hasOwnProperty(k) && attr[k] && !u.searchParams.has(k)) {
             u.searchParams.set(k, attr[k]);
           }
         }
-        if (isHotmart && !u.searchParams.has('sck') && sessionId) {
+        if (!u.searchParams.has('sck') && sessionId) {
           u.searchParams.set('sck', sessionId);
         }
         if (!u.searchParams.has('utm_sck') && sessionId) {
           u.searchParams.set('utm_sck', sessionId);
+        }
+        if (!u.searchParams.has('src') && sessionId) {
+          u.searchParams.set('src', sessionId);
         }
         return u.toString();
       } catch(e) { return urlStr; }
