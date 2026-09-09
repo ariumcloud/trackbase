@@ -193,6 +193,7 @@ export function GatewayConnectForm({
   const [imported, setImported] = useState<{ integrationId: string; productName: string } | null>(null);
   const [generatedWebhookUrl, setGeneratedWebhookUrl] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState<"webhook" | "api">("webhook");
+  const [showSecretInput, setShowSecretInput] = useState(false);
   const [loading, start] = useTransition();
 
   const isCatalog = ["hotmart", "kiwify", "cakto"].includes(provider);
@@ -313,8 +314,8 @@ export function GatewayConnectForm({
             </span>
           </li>
           <li>
-            <strong>2. Copie o {manual.credential}.</strong>
-            <span>{manual.credentialHelp}</span>
+            <strong>2. {existingIntegrationId ? `${manual.credential} já configurado` : `Copie o ${manual.credential}`}.</strong>
+            <span>{existingIntegrationId ? `Suas credenciais salvas da ${providerNames[provider]} serão reutilizadas automaticamente.` : manual.credentialHelp}</span>
           </li>
           <li>
             <strong>3. Preencha os campos e gere a sua URL exclusiva.</strong>
@@ -358,13 +359,48 @@ export function GatewayConnectForm({
           </select>
         </label>
 
-        <label>
-          {manual.credential}
-          <input name="secret" type="password" minLength={4} required autoComplete="new-password" placeholder={`Cole aqui o seu ${manual.credential}`} disabled={loading} />
-          <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
-            {manual.credentialHelp}
-          </small>
-        </label>
+        {existingIntegrationId ? (
+          <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "8px", padding: "0.75rem 1rem", marginTop: "0.5rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ color: "#10B981", fontSize: "1rem" }}>✓</span>
+                <strong style={{ fontSize: "0.82rem", color: "#065F46" }}>
+                  {manual.credential} já salvo na sua conta!
+                </strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSecretInput(!showSecretInput)}
+                style={{ background: "none", border: "none", color: "#047857", fontSize: "0.75rem", cursor: "pointer", textDecoration: "underline" }}
+              >
+                {showSecretInput ? "Manter atual" : "Alterar"}
+              </button>
+            </div>
+            <p style={{ margin: "4px 0 0 0", fontSize: "0.75rem", color: "#047857" }}>
+              Como você já configurou a {providerNames[provider]} antes, não precisa colar o {manual.credential} novamente.
+            </p>
+            {showSecretInput && (
+              <div style={{ marginTop: "0.65rem" }}>
+                <input
+                  name="secret"
+                  type="password"
+                  minLength={4}
+                  autoComplete="new-password"
+                  placeholder={`Cole aqui apenas se desejar trocar o ${manual.credential}`}
+                  disabled={loading}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <label>
+            {manual.credential}
+            <input name="secret" type="password" minLength={4} required autoComplete="new-password" placeholder={`Cole aqui o seu ${manual.credential}`} disabled={loading} />
+            <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+              {manual.credentialHelp}
+            </small>
+          </label>
+        )}
 
         <button className="button primary" disabled={loading} style={{ marginTop: "0.75rem" }}>
           {loading ? "Salvando…" : "Salvar e gerar URL do webhook"}

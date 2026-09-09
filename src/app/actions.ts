@@ -464,7 +464,7 @@ export async function savePaymentIntegration(
         external_product_id: z.string().trim().min(1).max(200),
         external_offer_id: z.string().trim().max(200).optional(),
         currency: z.string().regex(/^[A-Z]{3}$/),
-        secret: z.string().min(4).max(500),
+        secret: z.string().min(4).max(500).optional().or(z.literal("")),
       })
       .parse(Object.fromEntries(form));
 
@@ -530,13 +530,45 @@ export async function savePaymentIntegration(
       }
       throw error;
     }
+
+    let webhookHash = value.secret ? digest(value.secret) : null;
+    let webhookSecretCiphertext = value.secret ? encrypt(value.secret) : null;
+
+    if (!webhookHash || !webhookSecretCiphertext) {
+      const { data: existingIntegrations } = await service
+        .from("utm_integrations")
+        .select("id")
+        .eq("workspace_id", workspace)
+        .eq("provider", value.provider);
+
+      const ids = existingIntegrations?.map((int) => int.id) || [];
+      if (ids.length > 0) {
+        const { data: existingCred } = await service
+          .from("utm_credentials")
+          .select("webhook_hash, webhook_secret_ciphertext")
+          .in("integration_id", ids)
+          .not("webhook_hash", "is", null)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingCred?.webhook_hash) {
+          webhookHash = existingCred.webhook_hash;
+          webhookSecretCiphertext = existingCred.webhook_secret_ciphertext;
+        }
+      }
+    }
+
+    if (!webhookHash || !webhookSecretCiphertext) {
+      return { error: "Informe o token/Hottok para autenticar a conexão." };
+    }
+
     const { error: secretError } = await service
       .from("utm_credentials")
       .insert({
         workspace_id: workspace,
         integration_id: data.id,
-        webhook_hash: digest(value.secret),
-        webhook_secret_ciphertext: encrypt(value.secret),
+        webhook_hash: webhookHash,
+        webhook_secret_ciphertext: webhookSecretCiphertext,
       });
     if (secretError) {
       await service.from("utm_integrations").delete().eq("id", data.id);

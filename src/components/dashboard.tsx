@@ -2817,12 +2817,10 @@ export function Dashboard(p: Props) {
                   name: offer.name,
                 }))}
                 existingIntegrationId={
-                  modal.endsWith("-add")
-                    ? p.integrations.find(
-                        (connection) =>
-                          connection.provider === modal.replace("-add", ""),
-                      )?.id
-                    : undefined
+                  p.integrations.find(
+                    (connection) =>
+                      connection.provider === modal.replace("-add", ""),
+                  )?.id
                 }
                 appUrl={p.appUrl}
                 onSuccess={() => {
