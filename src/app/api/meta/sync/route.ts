@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         time_range: JSON.stringify({ since, until }),
       }, "insights",
     );
-    const entities: Array<{ workspace_id: string; integration_id: string; external_id: string; name: string; status: string; kind: "campaign" | "adset" | "ad"; parent_id: string | null; budget_minor: number | null; budget_currency: string | null; budget_type: "daily" | "lifetime" | null }> = [];
+    const entities: Array<{ workspace_id: string; integration_id: string; external_id: string; name: string; status: string; kind: "campaign" | "adset" | "ad"; parent_id: string | null; budget_minor: number | null; budget_currency: string | null; budget_type: "daily" | "lifetime" | null; meta_created_at: string | null }> = [];
     const entityEdges: Array<[string, "campaign" | "adset" | "ad"]> = [["campaigns", "campaign"], ["adsets", "adset"], ["ads", "ad"]];
     for (const [edge, kind] of entityEdges) {
       const rows = await pages<{
@@ -59,8 +59,9 @@ export async function POST(request: Request) {
         adset_id?: string;
         daily_budget?: string;
         lifetime_budget?: string;
+        created_time?: string;
       }>(`${integration.account_id}/${edge}`, token, {
-        fields: `id,name,status${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget" : kind === "campaign" ? ",daily_budget,lifetime_budget" : ",adset_id"}`,
+        fields: `id,name,status,created_time${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget" : kind === "campaign" ? ",daily_budget,lifetime_budget" : ",adset_id"}`,
       });
       entities.push(
         ...rows.map((r) => ({
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
           budget_minor: kind === "ad" ? null : Number(r.daily_budget ?? r.lifetime_budget ?? 0) || null,
           budget_currency: kind === "ad" ? null : integration.currency ?? null,
           budget_type: kind === "ad" ? null : r.daily_budget ? "daily" as const : r.lifetime_budget ? "lifetime" as const : null,
+          meta_created_at: r.created_time ?? null,
         })),
       );
     }

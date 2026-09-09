@@ -124,7 +124,7 @@ export function CampaignsView({
   }, []);
 
   // Ordenação por colunas (crescente / decrescente)
-  const [sortKey, setSortKey] = useState<ColumnKey | null>("profit");
+  const [sortKey, setSortKey] = useState<ColumnKey | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Período personalizado
@@ -331,7 +331,13 @@ export function CampaignsView({
   // 5. Ordenação dinâmica
   const sortedRows = useMemo(() => {
     const rows = [...computedRows];
-    if (!sortKey) return rows;
+    if (!sortKey) {
+      return rows.sort((a, b) => {
+        const aTime = a.entity.meta_created_at ? new Date(a.entity.meta_created_at).getTime() : 0;
+        const bTime = b.entity.meta_created_at ? new Date(b.entity.meta_created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+    }
 
     rows.sort((a, b) => {
       let aVal = 0;

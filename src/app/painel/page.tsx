@@ -174,7 +174,7 @@ export default async function Page({
         needsEntities
           ? client
               .from("utm_ad_entities")
-              .select("integration_id,external_id,kind,name,status,budget_minor,budget_currency,budget_type")
+              .select("integration_id,external_id,kind,name,status,budget_minor,budget_currency,budget_type,meta_created_at")
               .eq("workspace_id", w.id)
               .order("name")
               .limit(500)

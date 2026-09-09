@@ -3078,26 +3078,26 @@ textarea {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  width: 240px;
+  width: 300px;
   background: #1F2937;
   border: 1px solid #374151;
   border-radius: 8px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
-  padding: 8px;
+  padding: 10px;
   z-index: 100;
   display: flex;
   flex-direction: column;
 }
 
 .campaign-date-options {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 
 .campaign-date-opt-btn {
-  text-align: left;
-  padding: 6px 10px;
+  text-align: center;
+  padding: 8px 6px;
   border-radius: 5px;
   background: transparent;
   border: none;
@@ -3129,7 +3129,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 2px 4px;
+  padding: 4px 2px 0;
 }
 
 .custom-date-title {
@@ -3155,6 +3155,7 @@ textarea {
 
 .custom-date-inputs input[type="date"] {
   width: 100%;
+  height: 36px;
   padding: 4px 6px;
   background: #111827;
   border: 1px solid #374151;
@@ -3258,6 +3259,9 @@ textarea {
   border-radius: 5px;
   user-select: none;
 }
+
+/* The date menu must be able to leave the campaigns surface. */
+.campaigns-container { overflow: visible; }
 
 .columns-picker-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; max-height: 280px; overflow-y: auto; padding-right: 2px; }
 .columns-picker-list .columns-picker-item { border: 1px solid transparent; background: var(--surface-subtle); }
