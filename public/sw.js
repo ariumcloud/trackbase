@@ -17,7 +17,9 @@ self.addEventListener("push", (event) => {
       body: payload.body || "Nova compra aprovada na sua operação.",
       icon: "/trackbase-icon-192-v3.png",
       badge: "/Logo Roxa 42x42 PNG favicon.png",
-      vibrate: [200, 100, 200, 100, 400],
+      // Keep the iOS notification visible, but do not let its generic system
+      // sound compete with the Trackbase cash-register sound in the open app.
+      silent: true,
       tag: payload.tag || `sale-${Date.now()}`,
       data: {
         url: payload.url || "/painel",
