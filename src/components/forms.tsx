@@ -302,12 +302,12 @@ export function OfferForm({
   const defaultFee = platform ? (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number }>)[platform] : null;
 
   const initialPercent =
-    offer?.percent_fee !== undefined && offer?.percent_fee !== null && Number(offer.percent_fee) > 0
+    offer?.percent_fee !== undefined && offer?.percent_fee !== null
       ? Number(offer.percent_fee)
       : (defaultFee?.percent ?? 0);
 
   const initialFixed =
-    offer?.fixed_fee !== undefined && offer?.fixed_fee !== null && Number(offer.fixed_fee) > 0
+    offer?.fixed_fee !== undefined && offer?.fixed_fee !== null
       ? Number(offer.fixed_fee)
       : (defaultFee?.fixed ?? 0);
 
@@ -433,7 +433,7 @@ export function OfferForm({
           <input
             name="percent_fee"
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             max="100"
             placeholder="9.90"
@@ -442,11 +442,11 @@ export function OfferForm({
           />
         </label>
         <label>
-          Taxa fixa (R$)
+          Taxa fixa ({offer?.currency || "R$"})
           <input
             name="fixed_fee"
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             placeholder="2.49"
             value={fixedFee}
@@ -454,24 +454,27 @@ export function OfferForm({
           />
         </label>
         <label>
-          Custo produto (R$)
+          Custo produto ({offer?.currency || "R$"})
           <input
             name="cost_per_sale"
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             placeholder="0.00"
             defaultValue={offer?.cost_per_sale ?? 0}
           />
         </label>
       </div>
-      {platform && (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number; note: string }>)[platform] && (
-        <div style={{ marginTop: "0.25rem", marginBottom: "0.5rem" }}>
+      <div style={{ marginTop: "0.35rem", marginBottom: "0.5rem", display: "grid", gap: "0.35rem" }}>
+        {platform && (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number; note: string }>)[platform] && (
           <small style={{ color: "var(--brand-primary, #6366F1)", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
             ✓ Taxa padrão preenchida ({DEFAULT_PLATFORM_FEES[platform as PaymentProvider]?.note}). Ajuste livremente se tiver taxas negociadas.
           </small>
-        </div>
-      )}
+        )}
+        <small style={{ color: "var(--muted, #64748B)", fontSize: "0.75rem", lineHeight: 1.45 }}>
+          💡 <strong>Sobre o valor da venda:</strong> O faturamento e o valor pago pelo comprador são capturados automaticamente em tempo real a cada venda via webhook. O campo &quot;Custo produto&quot; acima é seu custo interno/fabricação (opcional, deixe 0 para infoprodutos).
+        </small>
+      </div>
       </>}
     </ActionForm>
   );

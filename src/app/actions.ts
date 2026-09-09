@@ -249,6 +249,17 @@ export async function renameWorkspace(workspace: string, form: FormData): Promis
     return { error: "Não foi possível renomear este workspace." };
   }
 }
+function parseFormDecimal(val: unknown): number {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  if (typeof val === "string") {
+    const cleaned = val.replace(",", ".").trim();
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : num;
+  }
+  return 0;
+}
+
 export async function saveOffer(
   workspace: string,
   form: FormData,
@@ -259,7 +270,10 @@ export async function saveOffer(
     const value = z
       .object({
         name: z.string().trim().min(2).max(120),
-        landing_url: webUrl,
+        landing_url: z.preprocess(
+          (v) => (typeof v === "string" ? v.trim() : v),
+          webUrl,
+        ),
         currency: z.string().regex(/^[A-Z]{3}$/),
         product_type: z
           .enum([
@@ -276,9 +290,18 @@ export async function saveOffer(
         parent_offer_id: z.string().uuid().optional().or(z.literal("")),
         external_product_id: z.string().trim().max(200).optional().or(z.literal("")),
         external_offer_id: z.string().trim().max(200).optional().or(z.literal("")),
-        percent_fee: z.coerce.number().min(0).max(100).optional().default(0),
-        fixed_fee: z.coerce.number().min(0).optional().default(0),
-        cost_per_sale: z.coerce.number().min(0).optional().default(0),
+        percent_fee: z
+          .preprocess(parseFormDecimal, z.number().min(0).max(100))
+          .optional()
+          .default(0),
+        fixed_fee: z
+          .preprocess(parseFormDecimal, z.number().min(0))
+          .optional()
+          .default(0),
+        cost_per_sale: z
+          .preprocess(parseFormDecimal, z.number().min(0))
+          .optional()
+          .default(0),
         platform: z
           .enum([
             "hotmart",
@@ -294,7 +317,10 @@ export async function saveOffer(
           ])
           .optional()
           .or(z.literal("")),
-        checkout_url: webUrl.optional().or(z.literal("")),
+        checkout_url: z.preprocess(
+          (v) => (typeof v === "string" ? v.trim() : v),
+          webUrl.optional().or(z.literal("")),
+        ),
       })
       .parse(raw);
 
@@ -335,11 +361,31 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
   try {
     const { client } = await authorize(workspace, true);
     const value = z.object({
-      name: z.string().trim().min(2).max(120), landing_url: webUrl, currency: z.string().regex(/^[A-Z]{3}$/),
+      name: z.string().trim().min(2).max(120),
+      landing_url: z.preprocess(
+        (v) => (typeof v === "string" ? v.trim() : v),
+        webUrl,
+      ),
+      currency: z.string().regex(/^[A-Z]{3}$/),
       product_type: z.enum(["main", "upsell", "downsell", "order_bump", "subscription", "complementary", "alternative"]).optional().default("main"),
       parent_offer_id: z.string().uuid().optional().or(z.literal("")),
-      percent_fee: z.coerce.number().min(0).max(100).optional().default(0), fixed_fee: z.coerce.number().min(0).optional().default(0), cost_per_sale: z.coerce.number().min(0).optional().default(0),
-      platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn", "stripe"]).optional().or(z.literal("")), checkout_url: webUrl.optional().or(z.literal("")),
+      percent_fee: z
+        .preprocess(parseFormDecimal, z.number().min(0).max(100))
+        .optional()
+        .default(0),
+      fixed_fee: z
+        .preprocess(parseFormDecimal, z.number().min(0))
+        .optional()
+        .default(0),
+      cost_per_sale: z
+        .preprocess(parseFormDecimal, z.number().min(0))
+        .optional()
+        .default(0),
+      platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn", "stripe"]).optional().or(z.literal("")),
+      checkout_url: z.preprocess(
+        (v) => (typeof v === "string" ? v.trim() : v),
+        webUrl.optional().or(z.literal("")),
+      ),
     }).parse(Object.fromEntries(form));
     z.string().uuid().parse(id);
     const { data: oldOffer } = await client
@@ -358,7 +404,14 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
         .eq("offer_id", id);
     }
     revalidatePath("/painel"); return { ok: true };
-  } catch { return { error: "Não foi possível atualizar a oferta. Confira os campos." }; }
+  } catch (err: unknown) {
+    console.error("updateOffer error:", err);
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("Limite de ofertas")) {
+      return { error: "Limite de ofertas atingido para o plano deste workspace." };
+    }
+    return { error: "Não foi possível atualizar a oferta. Confira os campos." };
+  }
 }
 export async function deleteOffer(workspace: string, id: string): Promise<ActionResult> {
   try {

@@ -109,10 +109,28 @@ export async function listGatewayProducts(provider: CatalogProvider, credentials
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15_000),
   });
   const value = await json(response);
-  return (Array.isArray(value.items) ? value.items : []).map((item: Record<string, unknown>) => ({
-    // O webhook da Hotmart entrega data.product.id; ucode é apenas o código
-    // alternativo usado pela API de catálogo e não pode ser usado para conciliar vendas.
-    externalProductId: String(item.id || item.ucode), externalOfferId: null, name: String(item.name || "Produto sem nome"),
-    currency: "BRL", price: null, checkoutUrl: null,
-  }));
+  return (Array.isArray(value.items) ? value.items : []).map((item: Record<string, unknown>) => {
+    const rawCurrency =
+      typeof item.currency_code === "string"
+        ? item.currency_code
+        : typeof item.currency === "string"
+          ? item.currency
+          : "BRL";
+    const rawPrice =
+      typeof item.price === "number"
+        ? item.price
+        : typeof (item.price as Record<string, unknown>)?.value === "number"
+          ? ((item.price as Record<string, unknown>).value as number)
+          : null;
+    return {
+      // O webhook da Hotmart entrega data.product.id; ucode é apenas o código
+      // alternativo usado pela API de catálogo e não pode ser usado para conciliar vendas.
+      externalProductId: String(item.id || item.ucode),
+      externalOfferId: null,
+      name: String(item.name || "Produto sem nome"),
+      currency: rawCurrency,
+      price: rawPrice,
+      checkoutUrl: typeof item.salesPage === "string" ? item.salesPage : null,
+    };
+  });
 }
