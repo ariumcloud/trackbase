@@ -251,7 +251,7 @@ export function LockedFeatureCard({ feature }: LockedFeatureCardProps) {
         </a>
 
         <a
-          href="https://wa.me/5511999999999?text=Ol%C3%A1!%20Estou%20no%20Trackbase%20e%20gostaria%20de%20testar%20as%20fun%C3%A7%C3%B5es%20de%20Shield%20e%20Radar%20de%20Leads"
+          href="https://wa.me/55499999317620?text=Ol%C3%A1!%20Estou%20no%20Trackbase%20e%20gostaria%20de%20testar%20as%20fun%C3%A7%C3%B5es%20de%20Shield%20e%20Radar%20de%20Leads"
           target="_blank"
           rel="noopener noreferrer"
           className="button ghost"

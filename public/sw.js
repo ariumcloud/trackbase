@@ -30,19 +30,22 @@ self.addEventListener("push", (event) => {
       requireInteraction: false,
     };
 
-    // Notifica abas/janelas abertas IMEDIATAMENTE em paralelo (sem esperar showNotification)
-    const notifyClients = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      clientList.forEach((client) => {
-        client.postMessage({
+    // In the foreground, avoid showNotification entirely: iOS would play its
+    // generic system sound even while the Trackbase screen is open. The page
+    // receives this message and plays the user-unlocked custom sound instead.
+    const deliver = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      const visibleClients = clientList.filter((client) => client.visibilityState === "visible");
+      if (visibleClients.length) {
+        visibleClients.forEach((client) => client.postMessage({
           type: "PLAY_SALE_SOUND",
           data: payload,
-        });
-      });
+        }));
+        return;
+      }
+      return self.registration.showNotification(title, options);
     });
 
-    const showNotification = self.registration.showNotification(title, options);
-
-    event.waitUntil(Promise.all([notifyClients, showNotification]));
+    event.waitUntil(deliver);
   } catch (err) {
     console.error("Erro ao processar push notification:", err);
   }

@@ -66,6 +66,7 @@ export const DEFAULT_COLUMNS: Record<
 };
 
 export function CampaignsView({
+  workspace,
   entities,
   insights = [],
   sales = [],
@@ -80,6 +81,7 @@ export function CampaignsView({
   request,
   connect,
 }: {
+  workspace: string;
   entities: Entity[];
   insights?: InsightRow[];
   sales?: SaleRow[];
@@ -476,10 +478,15 @@ export function CampaignsView({
 
   const toggleEntityStatus = (entity: Entity) => {
     const nextStatus = entity.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    if (
+      nextStatus === "PAUSED" &&
+      !window.confirm(`Pausar “${entity.name}” na Meta? Esta ação interrompe a entrega até você reativá-la.`)
+    ) return;
     run(async () => {
-      await request("/api/integrations/meta/sync", {
-        action: "toggle_status",
-        entity_id: entity.external_id,
+      await request("/api/meta/status", {
+        workspace,
+        id: entity.external_id,
+        integration: entity.integration_id,
         kind: entity.kind,
         status: nextStatus,
       });
@@ -488,6 +495,9 @@ export function CampaignsView({
 
   return (
     <div className="utmify-campanhas-wrap">
+      <p className="form-help" style={{ margin: "0 0 0.75rem" }}>
+        Meta Ads: leitura de métricas e controle de status. Pausar exige confirmação; para controlar status, reconecte a conta e aceite a permissão solicitada.
+      </p>
       {/* 1. Subtabs Meta / UTMify com Seleção e Badges */}
       <div className="utmify-tabs-header">
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>

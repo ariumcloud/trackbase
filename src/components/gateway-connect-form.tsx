@@ -6,9 +6,11 @@ import {
   connectImportedGateway,
   listSavedGatewayProducts,
   saveGatewayWebhookSecret,
+  savePaymentIntegration,
 } from "@/app/actions";
 
-type Provider = "hotmart" | "kiwify" | "cakto";
+type Provider = "hotmart" | "kiwify" | "cakto" | "kirvano" | "eduzz" | "monetizze" | "wiapy" | "lowfy" | "greenn";
+type CatalogProvider = "hotmart" | "kiwify" | "cakto";
 type Product = {
   externalProductId: string;
   externalOfferId: string | null;
@@ -21,16 +23,31 @@ const providerNames: Record<Provider, string> = {
   hotmart: "Hotmart",
   kiwify: "Kiwify",
   cakto: "Cakto",
+  kirvano: "Kirvano",
+  eduzz: "Eduzz",
+  monetizze: "Monetizze",
+  wiapy: "Wiapy",
+  lowfy: "Lowfy",
+  greenn: "Greenn",
 };
 
-const providerDocs: Record<Provider, string> = {
+const manualProviders: Partial<Record<Provider, { credential: string; where: string; events: string; product: string }>> = {
+  kirvano: { credential: "token/secret de validação", where: "Configurações > Webhooks", events: "Venda aprovada, reembolso, chargeback e cancelamento", product: "ID do produto Kirvano" },
+  eduzz: { credential: "chave de segurança do webhook", where: "Órbita / Ferramentas > Webhooks", events: "Pagamento aprovado, reembolso, chargeback e cancelamento", product: "Código do produto Eduzz" },
+  monetizze: { credential: "Chave Única do postback", where: "Ferramentas > Postback", events: "Finalizada, devolvida, bloqueada/chargeback e cancelada", product: "Código do produto Monetizze" },
+  wiapy: { credential: "token de autenticação do webhook", where: "Webhooks", events: "Pagamento aprovado, reembolso, chargeback e cancelamento", product: "ID do produto Wiapy" },
+  lowfy: { credential: "token/secret de webhook", where: "Webhooks", events: "Venda aprovada, reembolso, chargeback e cancelamento", product: "ID do produto Lowfy" },
+  greenn: { credential: "token de validação", where: "Ferramentas > Webhooks", events: "Pedido aprovado, reembolso, chargeback e cancelamento", product: "ID do produto Greenn" },
+};
+
+const providerDocs: Record<CatalogProvider, string> = {
   hotmart: "https://developers.hotmart.com/docs/pt-BR/",
   kiwify: "https://docs.kiwify.com.br/api-reference/general",
   cakto: "https://docs.cakto.com.br/introduction",
 };
 
 const providerWebhookConfig: Record<
-  Provider,
+  CatalogProvider,
   {
     dashboardUrl: string;
     dashboardLabel: string;
@@ -77,12 +94,14 @@ const providerWebhookConfig: Record<
 export function GatewayConnectForm({
   workspace,
   provider,
+  offers,
   existingIntegrationId,
   appUrl = "https://www.trackbase.com.br",
   onSuccess,
 }: {
   workspace: string;
   provider: Provider;
+  offers: Array<{ id: string; name: string }>;
   existingIntegrationId?: string;
   appUrl?: string;
   onSuccess: () => void;
@@ -101,8 +120,40 @@ export function GatewayConnectForm({
     });
   }, [existingIntegrationId, workspace]);
 
+  const manual = manualProviders[provider];
+  if (manual) {
+    return (
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        setMessage("");
+        start(async () => {
+          const result = await savePaymentIntegration(workspace, new FormData(event.currentTarget));
+          if (result.error) return setMessage(result.error);
+          onSuccess();
+        });
+      }}>
+        <input type="hidden" name="provider" value={provider} />
+        <span className="gateway-next-step-kicker">CONFIGURAÇÃO GUIADA</span>
+        <h3>Conecte {providerNames[provider]} por webhook.</h3>
+        <ol className="gateway-webhook-steps">
+          <li><strong>Abra {manual.where}.</strong><span>Crie um novo endpoint e escolha o produto correto.</span></li>
+          <li><strong>Depois de salvar, copie a URL exibida no card da integração.</strong><span>Cole-a no provedor e marque: {manual.events}.</span></li>
+          <li><strong>Copie somente o {manual.credential}.</strong><span>Ele será armazenado cifrado e validado a cada evento.</span></li>
+          <li><strong>Teste.</strong><span>Envie uma venda de teste; depois valide reembolso e chargeback/cancelamento quando o provedor oferecer esses eventos.</span></li>
+        </ol>
+        <label>Oferta no Trackbase<select name="offer_id" required disabled={loading}>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
+        <label>{manual.product}<input name="external_product_id" required disabled={loading} /></label>
+        <input type="hidden" name="external_offer_id" value="" />
+        <label>Moeda padrão<select name="currency" defaultValue="BRL" disabled={loading}><option>BRL</option><option>USD</option><option>EUR</option><option>MXN</option></select></label>
+        <label>{manual.credential}<input name="secret" type="password" minLength={4} required autoComplete="new-password" disabled={loading} /></label>
+        <button className="button primary" disabled={loading}>{loading ? "Salvando…" : "Salvar e gerar URL do webhook"}</button>
+        {message && <p className="form-message" role="status">{message}</p>}
+      </form>
+    );
+  }
+
   if (imported) {
-    const cfg = providerWebhookConfig[provider];
+    const cfg = providerWebhookConfig[provider as CatalogProvider];
     const webhookUrl = `${appUrl}/api/webhooks/${provider}/${imported.integrationId}`;
     return (
       <div className="gateway-next-step">
@@ -333,7 +384,7 @@ export function GatewayConnectForm({
           )}
         </ol>
         <a
-          href={providerDocs[provider]}
+          href={providerDocs[provider as CatalogProvider]}
           target="_blank"
           rel="noreferrer"
           style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem" }}

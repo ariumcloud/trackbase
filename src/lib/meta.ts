@@ -109,7 +109,11 @@ export async function metaPermissions(token: string) {
     "me/permissions", token, { fields: "permission,status" }, "GET", "permissions",
   );
   const granted = new Set((value.data ?? []).filter((item) => item.status === "granted").map((item) => item.permission));
-  return { adsRead: granted.has("ads_read"), businessManagement: granted.has("business_management") };
+  return {
+    adsRead: granted.has("ads_read"),
+    adsManagement: granted.has("ads_management"),
+    businessManagement: granted.has("business_management"),
+  };
 }
 function appendAccount(accounts: Map<string, MetaAccount>, account: Account, origin: MetaAccount["origins"][number]) {
   const id = normalizeAdAccountId(account.id);

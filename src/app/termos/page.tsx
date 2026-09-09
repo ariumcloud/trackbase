@@ -161,7 +161,7 @@ export default function TermosPage() {
             10. Contato e Suporte
           </h2>
           <p>
-            Para esclarecimentos sobre estes Termos de Serviço ou solicitação de suporte técnico, entre em contato através do e-mail: <strong>suporte@trackbase.com.br</strong>.
+            Para esclarecimentos sobre estes Termos de Serviço ou solicitação de suporte técnico, entre em contato através do e-mail: <strong>contato@trackbase.com.br</strong>.
           </p>
         </div>
       </div>

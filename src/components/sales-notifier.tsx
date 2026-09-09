@@ -53,22 +53,16 @@ export function SalesNotifier({ workspaceId }: Props) {
     setMounted(true);
   }, []);
 
-  // Play sound function com dupla redundância (soundPlayer + elemento do DOM)
+  const [lastSoundAt, setLastSoundAt] = useState(0);
+
+  // Custom audio is a foreground enhancement. The service worker owns OS push.
   const playKaching = useCallback(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const now = Date.now();
+    if (now - lastSoundAt < 1500) return;
+    setLastSoundAt(now);
     soundPlayer.play().catch((e) => console.error("Audio play failed:", e));
-    try {
-      if (typeof document !== "undefined") {
-        const domAudio = document.getElementById("cash-machine-player") as HTMLAudioElement | null;
-        if (domAudio) {
-          domAudio.currentTime = 0;
-          domAudio.volume = 1.0;
-          domAudio.play().catch(() => {});
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [lastSoundAt]);
 
   // When opened via mobile push notification click (sale_alert=1)
   useEffect(() => {
@@ -92,7 +86,8 @@ export function SalesNotifier({ workspaceId }: Props) {
     // Escuta eventos de som e notificação enviados pelo Service Worker (sempre ativo)
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "PLAY_SALE_SOUND") {
-        playKaching();
+        // This click is a gesture, so it may unlock custom audio in the open app.
+        void soundPlayer.unlockAudio().then(playKaching);
         if (event.data?.data?.title) {
           setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
           setTimeout(() => setToastMessage(null), 7000);
@@ -242,8 +237,9 @@ export function SalesNotifier({ workspaceId }: Props) {
         }
 
         setIsSubscribed(true);
+        await soundPlayer.unlockAudio();
         playKaching();
-        setToastMessage("Notificações de Venda ativadas com sucesso!");
+        setToastMessage("Notificações ativadas. Com o Trackbase aberto, você ouvirá o som personalizado; em segundo plano no iPhone, o iOS usa o som padrão do sistema.");
         setTimeout(() => setToastMessage(null), 4000);
       }
     } catch (e: unknown) {
@@ -283,7 +279,7 @@ export function SalesNotifier({ workspaceId }: Props) {
           type="button"
           className="notifier-btn-sound"
           onClick={() => {
-            playKaching();
+            void soundPlayer.unlockAudio().then(playKaching);
             setToastMessage("💰 Som de venda testado! (Kaching)");
             setTimeout(() => setToastMessage(null), 3000);
           }}
@@ -306,14 +302,6 @@ export function SalesNotifier({ workspaceId }: Props) {
         document.body
       )}
 
-      {/* Elemento de áudio nativo no DOM para máxima compatibilidade com iOS Safari e Android */}
-      <audio
-        id="cash-machine-player"
-        src="/cash-machine.mp3"
-        preload="auto"
-        playsInline
-        style={{ display: "none" }}
-      />
     </>
   );
 }

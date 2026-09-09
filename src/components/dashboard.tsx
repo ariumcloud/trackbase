@@ -2092,6 +2092,7 @@ export function Dashboard(p: Props) {
           )}
           {tab === "campanhas" && (
             <CampaignsView
+              workspace={workspace}
               entities={p.entities}
               insights={insights}
               sales={sales}
@@ -2447,10 +2448,11 @@ export function Dashboard(p: Props) {
                   }
                 />
               )
-            ) : ["hotmart", "kiwify", "cakto"].includes(modal.replace("-add", "")) ? (
+            ) : ["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn"].includes(modal.replace("-add", "")) ? (
               <GatewayConnectForm
                 workspace={workspace}
-                provider={modal.replace("-add", "") as "cakto" | "kiwify" | "hotmart"}
+                provider={modal.replace("-add", "") as "cakto" | "kiwify" | "hotmart" | "kirvano" | "eduzz" | "monetizze" | "wiapy" | "lowfy" | "greenn"}
+                offers={p.offers.map((offer) => ({ id: offer.id, name: offer.name }))}
                 existingIntegrationId={
                   modal.endsWith("-add")
                     ? p.integrations.find(
@@ -3082,10 +3084,10 @@ function IntegrationCard({
         </div>
       ) : (
         <div className="gateway-connection-details">
-          {["cakto", "kiwify", "hotmart"].includes(i.provider) && i.status === "connected" && !editingWebhookSecret ? (
+          {["cakto", "kiwify", "hotmart", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn"].includes(i.provider) && i.status === "connected" && !editingWebhookSecret ? (
             <div className="gateway-saved-state">
               <span className="gateway-saved-badge">WEBHOOK ATIVO</span>
-              <strong>Webhook salvo para {i.name.replace(/^(CAKTO|KIWIFY|HOTMART)\s*·\s*/i, "")}</strong>
+              <strong>Webhook salvo para {i.name.replace(/^[A-Z]+\s*·\s*/i, "")}</strong>
               <span>As vendas deste produto serão recebidas pela Trackbase.</span>
               <div className="gateway-saved-actions">
                 <button className="button secondary" type="button" onClick={() => setEditingWebhookSecret(true)}>
@@ -3152,7 +3154,7 @@ function IntegrationCard({
             {i.provider === "greenn" && "Configure em Ferramentas > Webhooks na Greenn com seu token de autenticação."}
             {i.provider === "stripe" && "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
           </small>
-          {["cakto", "kiwify", "hotmart"].includes(i.provider) && (i.status !== "connected" || editingWebhookSecret) && (
+          {["cakto", "kiwify", "hotmart", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn"].includes(i.provider) && (i.status !== "connected" || editingWebhookSecret) && (
             <form
               className="gateway-secret-form"
               onSubmit={(event) => {
@@ -3176,7 +3178,7 @@ function IntegrationCard({
                     ? "Secret gerado pela Cakto"
                     : i.provider === "kiwify"
                       ? "Token / assinatura da Kiwify"
-                      : "Hottok / token da Hotmart"
+                    : i.provider === "hotmart" ? "Hottok / token da Hotmart" : "Token/secret do webhook"
                 }
               />
               <button className="button secondary" disabled={pending}>

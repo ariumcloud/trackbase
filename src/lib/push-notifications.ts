@@ -4,7 +4,7 @@ import { admin } from "./supabase/server";
 
 const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-let rawSubject = process.env.VAPID_SUBJECT || "mailto:suporte@trackbase.com.br";
+let rawSubject = process.env.VAPID_SUBJECT || "mailto:contato@trackbase.com.br";
 if (rawSubject && !rawSubject.startsWith("mailto:") && !rawSubject.startsWith("http")) {
   rawSubject = `mailto:${rawSubject}`;
 }

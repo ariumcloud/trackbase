@@ -6,6 +6,7 @@ class SoundPlayer {
   private audioBuffer: AudioBuffer | null = null;
   private audioElement: HTMLAudioElement | null = null;
   private isDecoding = false;
+  private unlocked = false;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -98,14 +99,16 @@ class SoundPlayer {
       if (!this.audioBuffer) {
         this.loadAudioBuffer();
       }
+      this.unlocked = this.audioCtx?.state === "running";
     } catch {
       // Ignora erro de desbloqueio silencioso
     }
   }
 
   public async play() {
-    // Tenta desbloquear caso ainda não tenha sido desbloqueado
-    await this.unlockAudio();
+    // Browsers, especially iOS, only permit custom audio after a user gesture.
+    // Push received in the background uses the operating system's default sound.
+    if (!this.unlocked || document.visibilityState !== "visible") return;
 
     // 1. Tenta reprodução via Web Audio API (som nativo decodificado na memória)
     try {
