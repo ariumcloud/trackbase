@@ -37,6 +37,7 @@ type ManualProviderConfig = {
   events: string;
   product: string;
   productHelp: string;
+  productPlaceholder?: string;
   credentialHelp: string;
   directUrl?: string;
 };
@@ -46,8 +47,9 @@ const manualProviders: Record<string, ManualProviderConfig> = {
     credential: "Hottok de verificação",
     where: "Ferramentas > Webhook",
     events: "Compra aprovada, Compra completa, Reembolso e Disputa",
-    product: "Código ou ID do produto na Hotmart",
-    productHelp: "Encontre em Produtos > Meus Produtos (é o código numérico de 7 dígitos abaixo do título do produto, ex.: 3848123).",
+    product: "ID numérico do produto na Hotmart",
+    productHelp: "Encontre em Produtos > Meus Produtos (é o número de 7 dígitos abaixo do título do produto, ex.: 8456025).",
+    productPlaceholder: "Ex.: 8456025",
     credentialHelp: "Na Hotmart, vá em Ferramentas > Webhook, clique na aba 'Autenticação' no topo e copie o Hottok de verificação.",
     directUrl: "https://app-vlc.hotmart.com/tools/webhook",
   },
@@ -55,8 +57,9 @@ const manualProviders: Record<string, ManualProviderConfig> = {
     credential: "Token ou assinatura do webhook",
     where: "Configurações > Webhooks",
     events: "Pedido aprovado, Reembolso e Chargeback",
-    product: "ID do produto Kiwify",
+    product: "ID do produto na Kiwify",
     productHelp: "O código do produto na Kiwify (visível na URL ao editar o produto).",
+    productPlaceholder: "Ex.: abc12345",
     credentialHelp: "Na Kiwify, acesse Configurações > Webhooks e copie o token gerado.",
     directUrl: "https://dashboard.kiwify.com.br/webhooks",
   },
@@ -64,8 +67,9 @@ const manualProviders: Record<string, ManualProviderConfig> = {
     credential: "Secret do webhook",
     where: "Apps > Webhooks",
     events: "Compra aprovada, Reembolso e Chargeback",
-    product: "ID do produto Cakto",
+    product: "ID do produto na Cakto",
     productHelp: "O identificador do produto na Cakto.",
+    productPlaceholder: "Ex.: ckt_12345",
     credentialHelp: "Na Cakto, copie a chave secret informada ao criar o webhook.",
     directUrl: "https://app.cakto.com.br/dashboard/webhooks",
   },
@@ -194,6 +198,7 @@ export function GatewayConnectForm({
   const [generatedWebhookUrl, setGeneratedWebhookUrl] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState<"webhook" | "api">("webhook");
   const [showSecretInput, setShowSecretInput] = useState(false);
+  const [selectedOfferId, setSelectedOfferId] = useState("new");
   const [loading, start] = useTransition();
 
   const isCatalog = ["hotmart", "kiwify", "cakto"].includes(provider);
@@ -325,7 +330,12 @@ export function GatewayConnectForm({
 
         <label style={{ marginTop: "1rem" }}>
           Oferta no Trackbase
-          <select name="offer_id" defaultValue="new" disabled={loading}>
+          <select
+            name="offer_id"
+            value={selectedOfferId}
+            onChange={(e) => setSelectedOfferId(e.target.value)}
+            disabled={loading}
+          >
             <option value="new">✨ Criar nova oferta automaticamente (Recomendado)</option>
             {offers.length > 0 && (
               <optgroup label="Ou vincular a uma oferta já existente:">
@@ -340,9 +350,30 @@ export function GatewayConnectForm({
           </small>
         </label>
 
+        {selectedOfferId === "new" && (
+          <label>
+            Nome do produto / oferta
+            <input
+              name="product_name"
+              placeholder="Ex.: Treinamento Viver de Anúncios, Mentoria VIP..."
+              required
+              disabled={loading}
+              maxLength={120}
+            />
+            <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+              O nome legível que aparecerá nos relatórios, cards de ofertas e notificações de vendas.
+            </small>
+          </label>
+        )}
+
         <label>
           {manual.product}
-          <input name="external_product_id" placeholder="Ex.: 3848123 ou nome do produto" required disabled={loading} />
+          <input
+            name="external_product_id"
+            placeholder={manual.productPlaceholder || "Ex.: 8456025 ou ID do produto"}
+            required
+            disabled={loading}
+          />
           <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
             {manual.productHelp}
           </small>

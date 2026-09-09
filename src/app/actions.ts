@@ -341,8 +341,21 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
       platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn", "stripe"]).optional().or(z.literal("")), checkout_url: webUrl.optional().or(z.literal("")),
     }).parse(Object.fromEntries(form));
     z.string().uuid().parse(id);
+    const { data: oldOffer } = await client
+      .from("utm_offers")
+      .select("name")
+      .eq("workspace_id", workspace)
+      .eq("id", id)
+      .single();
     const { error } = await client.from("utm_offers").update({ ...value, parent_offer_id: value.parent_offer_id || null, platform: value.platform || null, checkout_url: value.checkout_url || null }).eq("workspace_id", workspace).eq("id", id);
     if (error) throw error;
+    if (oldOffer && oldOffer.name !== value.name) {
+      await admin()
+        .from("utm_integrations")
+        .update({ name: `${value.platform ? value.platform.toUpperCase() : "OFERTA"} · ${value.name}` })
+        .eq("workspace_id", workspace)
+        .eq("offer_id", id);
+    }
     revalidatePath("/painel"); return { ok: true };
   } catch { return { error: "Não foi possível atualizar a oferta. Confira os campos." }; }
 }
@@ -461,6 +474,7 @@ export async function savePaymentIntegration(
           "stripe",
         ]),
         offer_id: z.string().optional(),
+        product_name: z.string().trim().max(120).optional(),
         external_product_id: z.string().trim().min(1).max(200),
         external_offer_id: z.string().trim().max(200).optional(),
         currency: z.string().regex(/^[A-Z]{3}$/),
@@ -492,12 +506,13 @@ export async function savePaymentIntegration(
         cakto: "https://cakto.com.br",
       };
       const landingUrl = defaultLandingUrl[value.provider] || "https://trackbase.com.br";
+      const offerName = value.product_name || value.external_product_id;
 
       const { data: createdOffer, error: offerError } = await service
         .from("utm_offers")
         .insert({
           workspace_id: workspace,
-          name: value.external_product_id,
+          name: offerName,
           landing_url: landingUrl,
           currency: value.currency,
           platform: value.provider,

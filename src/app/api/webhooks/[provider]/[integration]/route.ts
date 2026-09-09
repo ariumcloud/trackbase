@@ -133,6 +133,32 @@ function validCaktoSignature(request: Request, raw: string, secret: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function extractPayloadProductName(provider: string, payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+  if (provider === "hotmart") {
+    const data = (p.data && typeof p.data === "object" ? p.data : {}) as Record<string, unknown>;
+    const product = (data.product && typeof data.product === "object" ? data.product : {}) as Record<string, unknown>;
+    const name = String(product.name || data.product_name || p.prod_name || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "kiwify") {
+    const order = (p.Order && typeof p.Order === "object" ? p.Order : {}) as Record<string, unknown>;
+    const prod1 = (p.Product && typeof p.Product === "object" ? p.Product : {}) as Record<string, unknown>;
+    const prod2 = (order.Product && typeof order.Product === "object" ? order.Product : {}) as Record<string, unknown>;
+    const name = String(prod1.product_name || prod2.product_name || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "cakto") {
+    const prod = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
+    const name = String(prod.title || prod.name || p.product_name || "").trim();
+    return name || null;
+  }
+  const generic = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
+  const name = String(generic.name || generic.title || p.product_name || "").trim();
+  return name || null;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ provider: string; integration: string }> },
@@ -353,12 +379,32 @@ export async function POST(
           }).catch(() => {});
         }
 
-        if (isApproved) {
-          const { data: offer } = await service
+        const { data: offer } = await service
+          .from("utm_offers")
+          .select("name")
+          .eq("id", i.offer_id)
+          .maybeSingle();
+
+        const webhookProductName = extractPayloadProductName(provider, payload);
+        if (
+          webhookProductName &&
+          offer?.name &&
+          (offer.name === i.external_product_id || /^\d+$/.test(offer.name))
+        ) {
+          await service
             .from("utm_offers")
-            .select("name")
-            .eq("id", i.offer_id)
-            .maybeSingle();
+            .update({ name: webhookProductName })
+            .eq("id", i.offer_id);
+
+          await service
+            .from("utm_integrations")
+            .update({ name: `${provider.toUpperCase()} · ${webhookProductName}` })
+            .eq("id", integration);
+
+          offer.name = webhookProductName;
+        }
+
+        if (isApproved) {
           const pushResult = await notifySalePush(i.workspace_id, {
             amount: event.grossAmount ?? 0,
             currency: event.grossCurrency || i.currency || "BRL",

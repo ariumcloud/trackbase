@@ -1559,9 +1559,32 @@ export function Dashboard(p: Props) {
                 <div className="offer-grid">
                   {p.offers.map((o) => (
                     <section className="panel offer-card" key={o.id}>
-                      <span className="empty-icon">
-                        <Layers size={23} />
-                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        <span className="empty-icon" style={{ margin: 0 }}>
+                          <Layers size={23} />
+                        </span>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.25rem 0.6rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                          onClick={() => setModal(`offer-edit-${o.id}`)}
+                        >
+                          <Pencil size={12} /> Editar
+                        </button>
+                      </div>
                       <div
                         style={{
                           display: "flex",
@@ -2717,39 +2740,41 @@ export function Dashboard(p: Props) {
                   ? "Excluir workspace"
                   : modal === "workspace-rename"
                     ? "Renomear workspace"
-                    : modal === "offer"
-                      ? "Cadastrar oferta"
-                      : modal === "link"
-                        ? "Criar link UTM"
-                        : modal === "cakto-add"
-                          ? "Adicionar produto da Cakto"
-                          : modal === "kiwify-add"
-                            ? "Adicionar produto da Kiwify"
-                            : modal === "hotmart-add"
-                              ? "Adicionar produto da Hotmart"
-                              : `Conectar ${
-                                  modal === "hotmart"
-                                    ? "Hotmart"
-                                    : modal === "kiwify"
-                                      ? "Kiwify"
-                                      : modal === "cakto"
-                                        ? "Cakto"
-                                        : modal === "kirvano"
-                                          ? "Kirvano"
-                                          : modal === "eduzz"
-                                            ? "Eduzz"
-                                            : modal === "monetizze"
-                                              ? "Monetizze"
-                                              : modal === "wiapy"
-                                                ? "Wiapy"
-                                                : modal === "lowfy"
-                                                  ? "Lowfy"
-                                                  : modal === "greenn"
-                                                    ? "Greenn"
-                                                    : modal === "stripe"
-                                                      ? "Stripe"
-                                                      : modal
-                                }`}
+                    : modal?.startsWith("offer-edit-")
+                      ? "Editar oferta"
+                      : modal === "offer"
+                        ? "Cadastrar oferta"
+                        : modal === "link"
+                          ? "Criar link UTM"
+                          : modal === "cakto-add"
+                            ? "Adicionar produto da Cakto"
+                            : modal === "kiwify-add"
+                              ? "Adicionar produto da Kiwify"
+                              : modal === "hotmart-add"
+                                ? "Adicionar produto da Hotmart"
+                                : `Conectar ${
+                                    modal === "hotmart"
+                                      ? "Hotmart"
+                                      : modal === "kiwify"
+                                        ? "Kiwify"
+                                        : modal === "cakto"
+                                          ? "Cakto"
+                                          : modal === "kirvano"
+                                            ? "Kirvano"
+                                            : modal === "eduzz"
+                                              ? "Eduzz"
+                                              : modal === "monetizze"
+                                                ? "Monetizze"
+                                                : modal === "wiapy"
+                                                  ? "Wiapy"
+                                                  : modal === "lowfy"
+                                                    ? "Lowfy"
+                                                    : modal === "greenn"
+                                                      ? "Greenn"
+                                                      : modal === "stripe"
+                                                        ? "Stripe"
+                                                        : modal
+                                  }`}
             </h2>
             {modal === "workspace" ? (
               <WorkspaceForm />
@@ -2765,7 +2790,20 @@ export function Dashboard(p: Props) {
                 name={p.workspace.name}
               />
             ) : modal === "offer" ? (
-              <OfferForm workspace={workspace} offers={p.offers} />
+              <OfferForm workspace={workspace} offers={p.offers} onSuccess={() => setModal(null)} />
+            ) : modal?.startsWith("offer-edit-") ? (
+              (() => {
+                const offerId = modal.replace("offer-edit-", "");
+                const editingOffer = p.offers.find((item) => item.id === offerId);
+                return editingOffer ? (
+                  <OfferForm
+                    workspace={workspace}
+                    offers={p.offers}
+                    offer={editingOffer}
+                    onSuccess={() => setModal(null)}
+                  />
+                ) : null;
+              })()
             ) : modal === "link" ? (
               p.offers.length ? (
                 <LinkForm
