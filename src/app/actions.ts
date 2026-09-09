@@ -4,6 +4,7 @@ import { db, admin } from "@/lib/supabase/server";
 import { authorize, digest, rateLimit, encrypt, decrypt } from "@/lib/security";
 import { listGatewayProducts, type CatalogProvider } from "@/lib/gateway-catalog";
 import { linkSchema, webUrl } from "@/lib/utm";
+import { validateDocument } from "@/lib/document";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -65,20 +66,77 @@ export async function signup(form: FormData): Promise<ActionResult> {
       .trim()
       .regex(/^\+?[0-9\s().-]{10,20}$/)
       .safeParse(form.get("phone")),
+    rawDoc = form.get("document"),
     password = z.string().min(10).max(128).safeParse(form.get("password"));
-  if (!email.success || !phone.success || !password.success)
+
+  if (!email.success || !phone.success || !password.success) {
     return {
-      error: "Use um e-mail válido, celular válido e senha com pelo menos 10 caracteres.",
+      error:
+        "Use um e-mail válido, celular válido e senha com pelo menos 10 caracteres.",
     };
-  if (!(await rateLimit(`signup:${email.data.toLowerCase()}`, 3)))
-    return { error: "Muitas tentativas. Aguarde um minuto para tentar novamente." };
+  }
+
+  const docValidation = validateDocument(
+    typeof rawDoc === "string" ? rawDoc : "",
+  );
+  if (!docValidation.valid) {
+    return {
+      error:
+        docValidation.error ||
+        "Informe um CPF ou CNPJ válido para criar sua conta.",
+    };
+  }
+
+  if (!(await rateLimit(`signup:${email.data.toLowerCase()}`, 3))) {
+    return {
+      error: "Muitas tentativas. Aguarde um minuto para tentar novamente.",
+    };
+  }
+
+  if (!(await rateLimit(`signup:doc:${docValidation.clean}`, 3))) {
+    return {
+      error: "Muitas tentativas com este documento. Aguarde um minuto.",
+    };
+  }
+
+  // Previne criação de contas duplicadas com o mesmo CPF ou CNPJ
+  try {
+    const service = admin();
+    const { data: usersData, error: listError } =
+      await service.auth.admin.listUsers({ perPage: 1000 });
+    if (!listError && usersData?.users) {
+      const isDuplicate = usersData.users.some((u) => {
+        const meta = u.user_metadata as Record<string, unknown> | undefined;
+        return (
+          meta?.document === docValidation.clean ||
+          meta?.cpf === docValidation.clean ||
+          meta?.cnpj === docValidation.clean
+        );
+      });
+      if (isDuplicate) {
+        return {
+          error:
+            "Este CPF/CNPJ já está cadastrado em outra conta. Acesse 'Entrar' ou recupere sua senha.",
+        };
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao verificar duplicidade de documento:", err);
+  }
+
   const client = await db();
   const { error } = await client.auth.signUp({
     email: email.data,
     password: password.data,
     options: {
       emailRedirectTo: `${process.env.APP_URL}/auth/callback`,
-      data: { phone: phone.data, app: "trackbase" },
+      data: {
+        phone: phone.data,
+        document: docValidation.clean,
+        document_formatted: docValidation.formatted,
+        document_type: docValidation.type,
+        app: "trackbase",
+      },
     },
   });
   return error

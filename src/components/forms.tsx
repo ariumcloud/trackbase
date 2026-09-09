@@ -1,5 +1,8 @@
 "use client";
 import { useState, useTransition } from "react";
+import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
+import { formatDocument, cleanDocument } from "@/lib/document";
 import {
   login,
   signup,
@@ -63,6 +66,11 @@ export function ActionForm({
 }
 export function AuthForm({ configured }: { configured: boolean }) {
   const [register, setRegister] = useState(false);
+  const [doc, setDoc] = useState("");
+  const clean = cleanDocument(doc);
+  const docType =
+    clean.length === 11 ? "CPF" : clean.length === 14 ? "CNPJ" : null;
+
   return (
     <div className="auth-box">
       <span className="tag">SUA OPERAÇÃO, MAIS CLARA</span>
@@ -71,7 +79,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
       </h2>
       <p>
         {register
-          ? "Crie sua conta e organize sua operação."
+          ? "Crie sua conta para acompanhar o que realmente traz resultado."
           : "Entre para acompanhar o que traz resultado."}
       </p>
       {configured ? (
@@ -90,7 +98,7 @@ export function AuthForm({ configured }: { configured: boolean }) {
             label={register ? "Criar minha conta" : "Entrar na minha conta"}
           >
             <label>
-              E-mail
+              <span className="auth-field-label">E-mail</span>
               <input
                 name="email"
                 type="email"
@@ -100,20 +108,55 @@ export function AuthForm({ configured }: { configured: boolean }) {
               />
             </label>
             {register && (
-              <label>
-                Celular
-                <input
-                  name="phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="(11) 99999-9999"
-                  required
-                />
-              </label>
+              <>
+                <label>
+                  <span className="auth-field-label">Celular / WhatsApp</span>
+                  <input
+                    name="phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="(11) 99999-9999"
+                    required
+                  />
+                </label>
+                <label>
+                  <div className="auth-field-header">
+                    <span className="auth-field-label">CPF ou CNPJ</span>
+                    {docType && (
+                      <span className="auth-doc-badge">{docType}</span>
+                    )}
+                  </div>
+                  <input
+                    name="document"
+                    value={doc}
+                    onChange={(e) => setDoc(formatDocument(e.target.value))}
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    maxLength={18}
+                    required
+                  />
+                  <small
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--muted)",
+                      marginTop: "2px",
+                      display: "block",
+                    }}
+                  >
+                    Documento único por titular para segurança da conta
+                  </small>
+                </label>
+              </>
             )}
             <label>
-              Senha
+              <div className="auth-field-header">
+                <span className="auth-field-label">Senha</span>
+                {!register && (
+                  <Link href="/recuperar-senha" className="auth-forgot-link">
+                    Esqueceu a senha?
+                  </Link>
+                )}
+              </div>
               <input
                 name="password"
                 type="password"
@@ -126,18 +169,20 @@ export function AuthForm({ configured }: { configured: boolean }) {
               />
             </label>
           </ActionForm>
-          <div className="auth-links">
+          <div className="auth-footer-switch">
+            <span>
+              {register ? "Já possui uma conta?" : "Ainda não tem conta?"}
+            </span>
             <button
-              className="text-button"
-              onClick={() => setRegister(!register)}
+              type="button"
+              className="auth-switch-btn"
+              onClick={() => {
+                setRegister(!register);
+                setDoc("");
+              }}
             >
-              {register ? "Já tenho conta. Entrar" : "Ainda não tem conta? Comece aqui"}
+              {register ? "Fazer login" : "Criar conta"}
             </button>
-            {!register && (
-              <a className="text-button" href="/recuperar-senha">
-                Esqueci minha senha
-              </a>
-            )}
           </div>
         </>
       ) : (
@@ -146,7 +191,10 @@ export function AuthForm({ configured }: { configured: boolean }) {
           disponível para visualizar a estrutura, sem dados simulados.
         </div>
       )}
-      <small>Seus dados pertencem ao seu workspace.</small>
+      <div className="auth-footer-security">
+        <ShieldCheck size={13} />
+        <span>Ambiente seguro · Seus dados pertencem ao seu workspace</span>
+      </div>
     </div>
   );
 }
