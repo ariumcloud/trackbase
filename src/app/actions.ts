@@ -318,11 +318,21 @@ export async function saveOffer(
           .optional()
           .or(z.literal("")),
         checkout_url: z.preprocess(
-          (v) => (typeof v === "string" ? v.trim() : v),
-          webUrl.optional().or(z.literal("")),
+          (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
+          webUrl.optional(),
         ),
       })
       .parse(raw);
+
+    const defaultFees = value.platform ? DEFAULT_PLATFORM_FEES[value.platform as PaymentProvider] : null;
+    const percentFee =
+      value.percent_fee !== undefined && value.percent_fee > 0
+        ? value.percent_fee
+        : (defaultFees?.percent ?? 0);
+    const fixedFee =
+      value.fixed_fee !== undefined && value.fixed_fee > 0
+        ? value.fixed_fee
+        : (defaultFees?.fixed ?? 0);
 
     const { error } = await client.from("utm_offers").insert({
       workspace_id: workspace,
@@ -333,9 +343,9 @@ export async function saveOffer(
       parent_offer_id: value.parent_offer_id ? value.parent_offer_id : null,
       external_product_id: value.external_product_id || null,
       external_offer_id: value.external_offer_id || null,
-      percent_fee: value.percent_fee,
-      fixed_fee: value.fixed_fee,
-      cost_per_sale: value.cost_per_sale,
+      percent_fee: percentFee,
+      fixed_fee: fixedFee,
+      cost_per_sale: value.cost_per_sale ?? 0,
       platform: value.platform ? value.platform : null,
       checkout_url: value.checkout_url || null,
     });
@@ -348,18 +358,24 @@ export async function saveOffer(
     revalidatePath("/painel");
     return { ok: true };
   } catch (err: unknown) {
+    console.error("saveOffer error:", err);
+    if (err instanceof z.ZodError) {
+      return {
+        error: `Dados inválidos: ${err.issues.map((i) => i.message).join(", ")}`,
+      };
+    }
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("Limite de ofertas")) {
       return { error: "Limite de ofertas atingido para o plano deste workspace." };
     }
     return {
-      error: "Não foi possível salvar. Confira os campos e sua permissão.",
+      error: msg || "Não foi possível salvar. Confira os campos e sua permissão.",
     };
   }
 }
 export async function updateOffer(workspace: string, id: string, form: FormData): Promise<ActionResult> {
   try {
-    const { client } = await authorize(workspace, true);
+    await authorize(workspace, true);
     const value = z.object({
       name: z.string().trim().min(2).max(120),
       landing_url: z.preprocess(
@@ -371,33 +387,65 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
       parent_offer_id: z.string().uuid().optional().or(z.literal("")),
       percent_fee: z
         .preprocess(parseFormDecimal, z.number().min(0).max(100))
-        .optional()
-        .default(0),
+        .optional(),
       fixed_fee: z
         .preprocess(parseFormDecimal, z.number().min(0))
-        .optional()
-        .default(0),
+        .optional(),
       cost_per_sale: z
         .preprocess(parseFormDecimal, z.number().min(0))
         .optional()
         .default(0),
       platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn", "stripe"]).optional().or(z.literal("")),
       checkout_url: z.preprocess(
-        (v) => (typeof v === "string" ? v.trim() : v),
-        webUrl.optional().or(z.literal("")),
+        (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
+        webUrl.optional(),
       ),
     }).parse(Object.fromEntries(form));
     z.string().uuid().parse(id);
-    const { data: oldOffer } = await client
+
+    const defaultFees = value.platform ? DEFAULT_PLATFORM_FEES[value.platform as PaymentProvider] : null;
+    const percentFee =
+      value.percent_fee !== undefined && value.percent_fee > 0
+        ? value.percent_fee
+        : (defaultFees?.percent ?? 0);
+    const fixedFee =
+      value.fixed_fee !== undefined && value.fixed_fee > 0
+        ? value.fixed_fee
+        : (defaultFees?.fixed ?? 0);
+
+    const service = admin();
+    const { data: oldOffer } = await service
       .from("utm_offers")
       .select("name")
       .eq("workspace_id", workspace)
       .eq("id", id)
-      .single();
-    const { error } = await client.from("utm_offers").update({ ...value, parent_offer_id: value.parent_offer_id || null, platform: value.platform || null, checkout_url: value.checkout_url || null }).eq("workspace_id", workspace).eq("id", id);
+      .maybeSingle();
+
+    const parentOfferId =
+      value.parent_offer_id && value.parent_offer_id !== id
+        ? value.parent_offer_id
+        : null;
+
+    const { error } = await service
+      .from("utm_offers")
+      .update({
+        name: value.name,
+        landing_url: value.landing_url,
+        currency: value.currency,
+        product_type: value.product_type,
+        parent_offer_id: parentOfferId,
+        platform: value.platform || null,
+        checkout_url: value.checkout_url || null,
+        percent_fee: percentFee,
+        fixed_fee: fixedFee,
+        cost_per_sale: value.cost_per_sale ?? 0,
+      })
+      .eq("workspace_id", workspace)
+      .eq("id", id);
+
     if (error) throw error;
     if (oldOffer && oldOffer.name !== value.name) {
-      await admin()
+      await service
         .from("utm_integrations")
         .update({ name: `${value.platform ? value.platform.toUpperCase() : "OFERTA"} · ${value.name}` })
         .eq("workspace_id", workspace)
@@ -406,11 +454,16 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
     revalidatePath("/painel"); return { ok: true };
   } catch (err: unknown) {
     console.error("updateOffer error:", err);
+    if (err instanceof z.ZodError) {
+      return {
+        error: `Dados inválidos: ${err.issues.map((i) => i.message).join(", ")}`,
+      };
+    }
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("Limite de ofertas")) {
       return { error: "Limite de ofertas atingido para o plano deste workspace." };
     }
-    return { error: "Não foi possível atualizar a oferta. Confira os campos." };
+    return { error: msg || "Não foi possível atualizar a oferta. Confira os campos." };
   }
 }
 export async function deleteOffer(workspace: string, id: string): Promise<ActionResult> {

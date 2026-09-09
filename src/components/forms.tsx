@@ -15,7 +15,6 @@ import {
   updateOffer,
   type ActionResult,
 } from "@/app/actions";
-import { DEFAULT_PLATFORM_FEES, type PaymentProvider } from "@/lib/payment-contract";
 
 export function ActionForm({
   action,
@@ -299,30 +298,6 @@ export function OfferForm({
   const [advanced, setAdvanced] = useState(Boolean(offer));
   const [platform, setPlatform] = useState(offer?.platform || "");
 
-  const defaultFee = platform ? (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number }>)[platform] : null;
-
-  const initialPercent =
-    offer?.percent_fee !== undefined && offer?.percent_fee !== null
-      ? Number(offer.percent_fee)
-      : (defaultFee?.percent ?? 0);
-
-  const initialFixed =
-    offer?.fixed_fee !== undefined && offer?.fixed_fee !== null
-      ? Number(offer.fixed_fee)
-      : (defaultFee?.fixed ?? 0);
-
-  const [percentFee, setPercentFee] = useState<number | string>(initialPercent);
-  const [fixedFee, setFixedFee] = useState<number | string>(initialFixed);
-
-  const handlePlatformChange = (newPlatform: string) => {
-    setPlatform(newPlatform);
-    const fees = (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number }>)[newPlatform];
-    if (fees) {
-      setPercentFee(fees.percent);
-      setFixedFee(fees.fixed);
-    }
-  };
-
   return (
     <ActionForm
       action={(f) => offer ? updateOffer(workspace, offer.id, f) : saveOffer(workspace, f)}
@@ -351,7 +326,7 @@ export function OfferForm({
         />
       </label>
       <button type="button" className="text-button" onClick={() => setAdvanced(!advanced)}>
-        {advanced ? "Ocultar configurações adicionais" : "Adicionar checkout, custos ou funil (opcional)"}
+        {advanced ? "Ocultar configurações adicionais" : "Adicionar checkout ou funil (opcional)"}
       </button>
       {advanced && <>
       <div className="form-grid form-grid-2">
@@ -388,11 +363,13 @@ export function OfferForm({
           Oferta principal vinculada (funil)
           <select name="parent_offer_id" defaultValue={offer?.parent_offer_id || ""}>
             <option value="">Nenhuma / Independente</option>
-            {offers.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
+            {offers
+              .filter((o) => o.id !== offer?.id)
+              .map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
           </select>
         </label>
       )}
@@ -402,7 +379,7 @@ export function OfferForm({
           <select
             name="platform"
             value={platform}
-            onChange={(e) => handlePlatformChange(e.target.value)}
+            onChange={(e) => setPlatform(e.target.value)}
           >
             <option value="">Nenhuma / Outra</option>
             <option value="hotmart">Hotmart (9,9% + R$ 2,49)</option>
@@ -426,54 +403,6 @@ export function OfferForm({
             defaultValue={offer?.checkout_url || ""}
           />
         </label>
-      </div>
-      <div className="form-grid form-grid-3">
-        <label>
-          Taxa % plataforma
-          <input
-            name="percent_fee"
-            type="number"
-            step="any"
-            min="0"
-            max="100"
-            placeholder="9.90"
-            value={percentFee}
-            onChange={(e) => setPercentFee(e.target.value)}
-          />
-        </label>
-        <label>
-          Taxa fixa ({offer?.currency || "R$"})
-          <input
-            name="fixed_fee"
-            type="number"
-            step="any"
-            min="0"
-            placeholder="2.49"
-            value={fixedFee}
-            onChange={(e) => setFixedFee(e.target.value)}
-          />
-        </label>
-        <label>
-          Custo produto ({offer?.currency || "R$"})
-          <input
-            name="cost_per_sale"
-            type="number"
-            step="any"
-            min="0"
-            placeholder="0.00"
-            defaultValue={offer?.cost_per_sale ?? 0}
-          />
-        </label>
-      </div>
-      <div style={{ marginTop: "0.35rem", marginBottom: "0.5rem", display: "grid", gap: "0.35rem" }}>
-        {platform && (DEFAULT_PLATFORM_FEES as Record<string, { percent: number; fixed: number; note: string }>)[platform] && (
-          <small style={{ color: "var(--brand-primary, #6366F1)", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-            ✓ Taxa padrão preenchida ({DEFAULT_PLATFORM_FEES[platform as PaymentProvider]?.note}). Ajuste livremente se tiver taxas negociadas.
-          </small>
-        )}
-        <small style={{ color: "var(--muted, #64748B)", fontSize: "0.75rem", lineHeight: 1.45 }}>
-          💡 <strong>Sobre o valor da venda:</strong> O faturamento e o valor pago pelo comprador são capturados automaticamente em tempo real a cada venda via webhook. O campo &quot;Custo produto&quot; acima é seu custo interno/fabricação (opcional, deixe 0 para infoprodutos).
-        </small>
       </div>
       </>}
     </ActionForm>
