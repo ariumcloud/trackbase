@@ -7,6 +7,13 @@ const config: NextConfig = {
   async headers() {
     return [
       {
+        source: "/tracker.js",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400" },
+          { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
+      },
+      {
         source: "/sw.js",
         headers: [
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
