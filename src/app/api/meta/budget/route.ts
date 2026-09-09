@@ -19,12 +19,12 @@ export async function POST(request: Request) {
     if (!(await metaPermissions(token)).adsManagement) {
       return NextResponse.json({ error: "Reconecte a Meta e aceite a permissão para gerenciar anúncios.", reconnect: true }, { status: 403 });
     }
-    const entity = await graph<{ account_id: string; daily_budget?: string; lifetime_budget?: string; account_currency?: string }>(v.id, token, {
-      fields: "account_id,daily_budget,lifetime_budget,account_currency",
+    const entity = await graph<{ account_id: string; daily_budget?: string; lifetime_budget?: string }>(v.id, token, {
+      fields: "account_id,daily_budget,lifetime_budget",
     });
     if (`act_${entity.account_id}` !== integration.account_id) throw new Error("Conta Meta inválida.");
     const field = entity.daily_budget ? "daily_budget" : entity.lifetime_budget ? "lifetime_budget" : "daily_budget";
-    const currency = entity.account_currency || integration.currency || "USD";
+    const currency = integration.currency || "USD";
     const zeroDecimal = new Set(["CLP", "COP", "JPY", "KRW", "VND"]).has(currency);
     const minor = Math.round(v.amount * (zeroDecimal ? 1 : 100));
     await graph(v.id, token, { [field]: String(minor) }, "POST");

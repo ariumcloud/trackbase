@@ -175,7 +175,11 @@ export function CampaignsView({
     if (changeCurrency) changeCurrency(newCurr);
   };
 
-  const formatMoney = (val: number | null | undefined, sourceCurrency = selectedCurrency) => {
+  const metricCurrency = (selectedIntegration !== "all"
+    ? integrations.find((integration) => integration.id === selectedIntegration)?.currency
+    : integrations.find((integration) => integration.provider === "meta")?.currency) || "USD";
+
+  const formatMoney = (val: number | null | undefined, sourceCurrency = metricCurrency) => {
     if (val === null || val === undefined) return "—";
     const source = sourceCurrency.toUpperCase();
     const target = selectedCurrency.toUpperCase();
@@ -604,16 +608,18 @@ export function CampaignsView({
                     <X size={14} />
                   </button>
                 </div>
-                {(Object.keys(DEFAULT_COLUMNS) as ColumnKey[]).map((colKey) => (
-                  <label key={colKey} className="columns-picker-item">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(visibleCols[colKey])}
-                      onChange={() => toggleColumn(colKey)}
-                    />
-                    <span>{DEFAULT_COLUMNS[colKey].label}</span>
-                  </label>
-                ))}
+                <div className="columns-picker-list">
+                  {(Object.keys(DEFAULT_COLUMNS) as ColumnKey[]).map((colKey) => (
+                    <label key={colKey} className="columns-picker-item">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(visibleCols[colKey])}
+                        onChange={() => toggleColumn(colKey)}
+                      />
+                      <span>{DEFAULT_COLUMNS[colKey].label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -644,7 +650,9 @@ export function CampaignsView({
             className="utmify-btn-primary"
             onClick={() => {
               run(async () => {
-                await request("/api/integrations/meta/sync", {});
+                const targets = integrations.filter((integration) => integration.provider === "meta" && integration.status !== "token_expired" && (selectedIntegration === "all" || integration.id === selectedIntegration));
+                if (!targets.length) throw new Error("Conecte uma conta Meta antes de sincronizar.");
+                await Promise.all(targets.map((integration) => request("/api/meta/sync", { workspace, integration: integration.id })));
               });
             }}
             disabled={pending}

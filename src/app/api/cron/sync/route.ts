@@ -109,9 +109,8 @@ export async function GET(request: Request) {
             adset_id?: string;
             daily_budget?: string;
             lifetime_budget?: string;
-            account_currency?: string;
           }>(`${integration.account_id}/${edge}`, token, {
-            fields: `id,name,status${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget,account_currency" : kind === "campaign" ? ",daily_budget,lifetime_budget,account_currency" : ",adset_id"}`,
+            fields: `id,name,status${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget" : kind === "campaign" ? ",daily_budget,lifetime_budget" : ",adset_id"}`,
           });
           entities.push(
             ...rows.map((r) => ({
@@ -123,7 +122,7 @@ export async function GET(request: Request) {
               kind,
               parent_id: r.adset_id ?? r.campaign_id ?? null,
               budget_minor: kind === "ad" ? null : Number(r.daily_budget ?? r.lifetime_budget ?? 0) || null,
-              budget_currency: kind === "ad" ? null : r.account_currency ?? integration.currency ?? null,
+              budget_currency: kind === "ad" ? null : integration.currency ?? null,
               budget_type: kind === "ad" ? null : r.daily_budget ? "daily" : r.lifetime_budget ? "lifetime" : null,
             })),
           );

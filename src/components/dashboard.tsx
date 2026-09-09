@@ -557,13 +557,13 @@ export function Dashboard(p: Props) {
         {workspace && (
           <div className="workspace-quick-actions">
             <button type="button" className="workspace-action" onClick={() => create("workspace")}>
-              <Plus size={14} /> Nova operação
+              <Plus size={14} /> Criar
             </button>
             <button type="button" className="workspace-action" onClick={() => setModal("workspace-rename")}>
-              <Pencil size={14} /> Renomear
+              <Pencil size={14} /> Editar
             </button>
             <button type="button" className="workspace-action danger" onClick={() => setModal("workspace-delete")}>
-              <Trash2 size={14} /> Excluir atual
+              <Trash2 size={14} /> Excluir
             </button>
           </div>
         )}
@@ -3399,6 +3399,8 @@ function PushSettingsCard({
   const handleTestPush = () => {
     setStatusFeedback(null);
     run(async () => {
+      await soundPlayer.unlockAudio();
+      await soundPlayer.play();
       const res = await sendTestPushAction(workspace);
       if (res.error) {
         setStatusFeedback({ type: "error", message: res.error });
