@@ -18,9 +18,8 @@ import {
   RefreshCw,
   ExternalLink,
   Pencil,
-  Smartphone,
-  Copy,
   Check,
+  CheckCircle2,
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration, Offer } from "@/lib/types";
 
@@ -68,6 +67,108 @@ export const DEFAULT_COLUMNS: Record<
   impressions: { label: "Impressões", defaultVisible: false, numeric: true },
 };
 
+export const COLUMN_PRESETS: Record<
+  string,
+  { label: string; icon: string; cols: Partial<Record<ColumnKey, boolean>> }
+> = {
+  desempenho: {
+    label: "Desempenho",
+    icon: "🎯",
+    cols: {
+      status: true,
+      name: true,
+      budget: true,
+      sales: true,
+      cpa: true,
+      spend: true,
+      revenue: true,
+      roas: true,
+      profit: true,
+      ic: false,
+      cpi: false,
+      margin: false,
+      roi: false,
+      cpc: false,
+      ctr: false,
+      cpm: false,
+      clicks: false,
+      impressions: false,
+    },
+  },
+  financeiro: {
+    label: "Financeiro",
+    icon: "💰",
+    cols: {
+      status: true,
+      name: true,
+      budget: false,
+      spend: true,
+      revenue: true,
+      profit: true,
+      margin: true,
+      roi: true,
+      roas: true,
+      sales: true,
+      cpa: true,
+      ic: false,
+      cpi: false,
+      cpc: false,
+      ctr: false,
+      cpm: false,
+      clicks: false,
+      impressions: false,
+    },
+  },
+  trafego: {
+    label: "Tráfego & Anúncios",
+    icon: "📊",
+    cols: {
+      status: true,
+      name: true,
+      budget: true,
+      spend: true,
+      impressions: true,
+      clicks: true,
+      ctr: true,
+      cpc: true,
+      cpm: true,
+      ic: true,
+      sales: true,
+      cpa: true,
+      revenue: false,
+      profit: false,
+      roas: false,
+      margin: false,
+      roi: false,
+      cpi: false,
+    },
+  },
+  completo: {
+    label: "Todas as Colunas",
+    icon: "✨",
+    cols: {
+      status: true,
+      name: true,
+      budget: true,
+      sales: true,
+      cpa: true,
+      spend: true,
+      revenue: true,
+      ic: true,
+      profit: true,
+      cpi: true,
+      roas: true,
+      margin: true,
+      roi: true,
+      cpc: true,
+      ctr: true,
+      cpm: true,
+      clicks: true,
+      impressions: true,
+    },
+  },
+};
+
 export function CampaignsView({
   workspace,
   entities,
@@ -99,7 +200,7 @@ export function CampaignsView({
   request: (path: string, data: unknown) => Promise<unknown>;
   connect: () => void;
 }) {
-  const [kind, setKind] = useState<"campaign" | "adset" | "ad" | "placement">("campaign");
+  const [kind, setKind] = useState<"campaign" | "adset" | "ad">("campaign");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
@@ -110,7 +211,8 @@ export function CampaignsView({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [budgetEditor, setBudgetEditor] = useState<{ integration: string; id: string; kind: "campaign" | "adset"; name: string; amount: number | null; currency: string; type: "daily" | "lifetime" | null } | null>(null);
   const [exchangeRates, setExchangeRates] = useState<Record<string, number> | null>(null);
-  const [copiedPlacementSnippet, setCopiedPlacementSnippet] = useState(false);
+  const [activeModel, setActiveModel] = useState<string>("desempenho");
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const latestMetaSync = integrations
     .filter((integration) => integration.provider === "meta" && integration.last_synced_at)
     .sort((a, b) => new Date(b.last_synced_at!).getTime() - new Date(a.last_synced_at!).getTime())[0]?.last_synced_at;
@@ -136,12 +238,6 @@ export function CampaignsView({
   const [customEnd, setCustomEnd] = useState("");
 
   const [visibleCols, setVisibleCols] = useState<Record<ColumnKey, boolean>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("trackbase_campaign_cols_v3");
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
     const initial: Record<string, boolean> = {};
     for (const [k, v] of Object.entries(DEFAULT_COLUMNS)) {
       initial[k] = v.defaultVisible;
@@ -149,16 +245,89 @@ export function CampaignsView({
     return initial as Record<ColumnKey, boolean>;
   });
 
+  // Carrega configuração de colunas e modelo salvo no navegador do usuário
+  useEffect(() => {
+    try {
+      const savedCols = localStorage.getItem("trackbase_campaign_cols_v4");
+      const savedModel = localStorage.getItem("trackbase_campaign_model_v4");
+      if (savedCols) {
+        const parsed = JSON.parse(savedCols);
+        if (parsed && typeof parsed === "object") {
+          setVisibleCols(parsed);
+        }
+      }
+      if (savedModel) {
+        setActiveModel(savedModel);
+      }
+    } catch {}
+  }, []);
+
+  const applyModel = (modelKey: string) => {
+    setActiveModel(modelKey);
+    let newCols: Record<ColumnKey, boolean>;
+
+    if (modelKey === "custom") {
+      try {
+        const savedCustom = localStorage.getItem("trackbase_campaign_user_custom_cols");
+        if (savedCustom) {
+          newCols = JSON.parse(savedCustom);
+        } else {
+          newCols = { ...visibleCols };
+        }
+      } catch {
+        newCols = { ...visibleCols };
+      }
+    } else if (COLUMN_PRESETS[modelKey]) {
+      const preset = COLUMN_PRESETS[modelKey].cols;
+      newCols = {} as Record<ColumnKey, boolean>;
+      for (const colKey of Object.keys(DEFAULT_COLUMNS) as ColumnKey[]) {
+        newCols[colKey] = Boolean(preset[colKey]);
+      }
+    } else {
+      return;
+    }
+
+    setVisibleCols(newCols);
+    try {
+      localStorage.setItem("trackbase_campaign_cols_v4", JSON.stringify(newCols));
+      localStorage.setItem("trackbase_campaign_model_v4", modelKey);
+    } catch {}
+  };
+
+  const saveAsCustomModel = () => {
+    try {
+      localStorage.setItem("trackbase_campaign_user_custom_cols", JSON.stringify(visibleCols));
+      localStorage.setItem("trackbase_campaign_cols_v4", JSON.stringify(visibleCols));
+      localStorage.setItem("trackbase_campaign_model_v4", "custom");
+      setActiveModel("custom");
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2200);
+    } catch {}
+  };
+
   const toggleColumn = (key: ColumnKey) => {
     setVisibleCols((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("trackbase_campaign_cols_v3", JSON.stringify(next));
-        } catch {}
-      }
+      setActiveModel("custom");
+      try {
+        localStorage.setItem("trackbase_campaign_cols_v4", JSON.stringify(next));
+        localStorage.setItem("trackbase_campaign_model_v4", "custom");
+      } catch {}
       return next;
     });
+  };
+
+  const setAllColumns = (val: boolean) => {
+    const next = {} as Record<ColumnKey, boolean>;
+    for (const k of Object.keys(DEFAULT_COLUMNS) as ColumnKey[]) {
+      next[k] = val;
+    }
+    setVisibleCols(next);
+    setActiveModel(val ? "completo" : "custom");
+    try {
+      localStorage.setItem("trackbase_campaign_cols_v4", JSON.stringify(next));
+      localStorage.setItem("trackbase_campaign_model_v4", val ? "completo" : "custom");
+    } catch {}
   };
 
   const handleSort = (key: ColumnKey) => {
@@ -486,117 +655,10 @@ export function CampaignsView({
   const totalCpm =
     totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null;
 
-  // 5. Agregação e estatísticas por Posicionamento (Placement) da Meta
-  const placementStats = useMemo(() => {
-    const map = new Map<string, { count: number; revenue: number }>();
-    for (const sale of sales) {
-      if (sale.is_test || !["paid", "approved", "completed"].includes(sale.status)) continue;
-      if (selectedOffer !== "all" && sale.offer_id !== selectedOffer) continue;
-      const attr = sale.attribution || {};
-      const raw = (attr.utm_placement || attr.placement || "").trim();
-      const key = raw || "Sem tag de posicionamento";
-      const current = map.get(key) || { count: 0, revenue: 0 };
-      current.count += 1;
-      current.revenue += Number(sale.amount || 0);
-      map.set(key, current);
-    }
-
-    const totalCount = Array.from(map.values()).reduce((sum, v) => sum + v.count, 0);
-
-    return Array.from(map.entries())
-      .map(([key, data]) => {
-        let displayName = key;
-        let platform: "instagram" | "facebook" | "network" | "other" = "other";
-        let icon = "📱";
-
-        if (/instagram_stories|ig_stories|stories_ig/i.test(key)) {
-          displayName = "Instagram Stories";
-          platform = "instagram";
-          icon = "📱";
-        } else if (/instagram_feed|ig_feed|feed_ig/i.test(key)) {
-          displayName = "Instagram Feed / Post";
-          platform = "instagram";
-          icon = "📰";
-        } else if (/instagram_reels|reels_ig|ig_reels/i.test(key)) {
-          displayName = "Instagram Reels";
-          platform = "instagram";
-          icon = "🎬";
-        } else if (/instagram_explore/i.test(key)) {
-          displayName = "Instagram Explorar";
-          platform = "instagram";
-          icon = "🔍";
-        } else if (/facebook_mobile_feed|fb_mobile_feed/i.test(key)) {
-          displayName = "Facebook Feed (Mobile)";
-          platform = "facebook";
-          icon = "📱";
-        } else if (/facebook_desktop_feed|fb_desktop_feed/i.test(key)) {
-          displayName = "Facebook Feed (Desktop)";
-          platform = "facebook";
-          icon = "💻";
-        } else if (/facebook_feed|fb_feed/i.test(key)) {
-          displayName = "Facebook Feed";
-          platform = "facebook";
-          icon = "📰";
-        } else if (/facebook_stories|fb_stories/i.test(key)) {
-          displayName = "Facebook Stories";
-          platform = "facebook";
-          icon = "📱";
-        } else if (/facebook_reels|fb_reels/i.test(key)) {
-          displayName = "Facebook Reels";
-          platform = "facebook";
-          icon = "🎬";
-        } else if (/audience/i.test(key)) {
-          displayName = "Audience Network";
-          platform = "network";
-          icon = "🌐";
-        } else if (/messenger/i.test(key)) {
-          displayName = "Messenger";
-          platform = "facebook";
-          icon = "💬";
-        }
-
-        return {
-          rawKey: key,
-          displayName,
-          platform,
-          icon,
-          salesCount: data.count,
-          revenue: data.revenue,
-          percentage: totalCount > 0 ? (data.count / totalCount) * 100 : 0,
-          avgTicket: data.count > 0 ? data.revenue / data.count : 0,
-        };
-      })
-      .sort((a, b) => b.salesCount - a.salesCount || b.revenue - a.revenue);
-  }, [sales, selectedOffer]);
-
-  const filteredPlacementStats = useMemo(() => {
-    if (!search.trim()) return placementStats;
-    const term = search.toLowerCase();
-    return placementStats.filter(
-      (p) =>
-        p.displayName.toLowerCase().includes(term) ||
-        p.rawKey.toLowerCase().includes(term) ||
-        p.platform.toLowerCase().includes(term)
-    );
-  }, [placementStats, search]);
-
-  const totalPlacementSales = useMemo(() => {
-    return placementStats.reduce((acc, p) => acc + p.salesCount, 0);
-  }, [placementStats]);
-
-  const totalPlacementRevenue = useMemo(() => {
-    return placementStats.reduce((acc, p) => acc + p.revenue, 0);
-  }, [placementStats]);
-
-  const topPlacementItem = useMemo(() => {
-    return placementStats.find((p) => p.rawKey !== "Sem tag de posicionamento") || placementStats[0];
-  }, [placementStats]);
-
   const kindCounts = {
     campaign: entities.filter((e) => e.kind === "campaign").length,
     adset: entities.filter((e) => e.kind === "adset").length,
     ad: entities.filter((e) => e.kind === "ad").length,
-    placement: placementStats.length,
   };
 
   const getDateLabel = () => {
@@ -718,16 +780,6 @@ export function CampaignsView({
             </span>
             <span className="badge-count">{kindCounts.ad}</span>
           </button>
-
-          <button
-            className={`utmify-tab-btn ${kind === "placement" ? "active" : ""}`}
-            onClick={() => setKind("placement")}
-            type="button"
-          >
-            <Smartphone size={15} />
-            <span>Posicionamentos</span>
-            <span className="badge-count">{kindCounts.placement}</span>
-          </button>
         </div>
       </div>
 
@@ -748,33 +800,147 @@ export function CampaignsView({
 
             {showColPicker && (
               <div className="columns-picker-popover">
+                {/* Cabeçalho */}
                 <div className="columns-picker-title">
-                  <span>Colunas Visíveis</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Settings size={14} color="#2563EB" />
+                    <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--ink)" }}>
+                      Modelos de Colunas
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowColPicker(false)}
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#9CA3AF",
+                      color: "var(--muted)",
                       cursor: "pointer",
-                      padding: 0,
+                      padding: "4px",
+                      display: "flex",
+                      alignItems: "center",
                     }}
+                    title="Fechar"
                   >
-                    <X size={14} />
+                    <X size={15} />
                   </button>
                 </div>
-                <div className="columns-picker-list">
-                  {(Object.keys(DEFAULT_COLUMNS) as ColumnKey[]).map((colKey) => (
-                    <label key={colKey} className="columns-picker-item">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(visibleCols[colKey])}
-                        onChange={() => toggleColumn(colKey)}
-                      />
-                      <span>{DEFAULT_COLUMNS[colKey].label}</span>
-                    </label>
+
+                {/* Seletor de Modelos / Presets */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", margin: "4px 0 8px" }}>
+                  {Object.entries(COLUMN_PRESETS).map(([key, preset]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => applyModel(key)}
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: "6px",
+                        fontSize: "0.73rem",
+                        fontWeight: 700,
+                        border: activeModel === key ? "1px solid #2563EB" : "1px solid var(--line)",
+                        background: activeModel === key ? "#2563EB" : "var(--surface-muted, #F8FAFC)",
+                        color: activeModel === key ? "#FFFFFF" : "var(--ink)",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {preset.icon} {preset.label}
+                    </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => applyModel("custom")}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.73rem",
+                      fontWeight: 700,
+                      border: activeModel === "custom" ? "1px solid #5B34EA" : "1px solid var(--line)",
+                      background: activeModel === "custom" ? "#5B34EA" : "var(--surface-muted, #F8FAFC)",
+                      color: activeModel === "custom" ? "#FFFFFF" : "var(--ink)",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    ⭐ Meu Modelo
+                  </button>
+                </div>
+
+                {/* Sub-barra de Ações Rápidas */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.72rem", color: "var(--muted)", padding: "2px 2px 6px" }}>
+                  <span>{Object.values(visibleCols).filter(Boolean).length} colunas ativas</span>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => setAllColumns(true)}
+                      style={{ background: "none", border: "none", color: "#2563EB", fontWeight: 700, cursor: "pointer", padding: 0, fontSize: "0.72rem" }}
+                    >
+                      Marcar todas
+                    </button>
+                    <span>·</span>
+                    <button
+                      type="button"
+                      onClick={() => setAllColumns(false)}
+                      style={{ background: "none", border: "none", color: "var(--muted)", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: "0.72rem" }}
+                    >
+                      Desmarcar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lista de Colunas em Grid Elegante com Checkboxes */}
+                <div className="columns-picker-list">
+                  {(Object.keys(DEFAULT_COLUMNS) as ColumnKey[]).map((colKey) => {
+                    const isChecked = Boolean(visibleCols[colKey]);
+                    return (
+                      <label
+                        key={colKey}
+                        className="columns-picker-item"
+                        style={{
+                          background: isChecked ? "rgba(37, 99, 235, 0.05)" : "transparent",
+                          border: isChecked ? "1px solid rgba(37, 99, 235, 0.2)" : "1px solid transparent",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleColumn(colKey)}
+                        />
+                        <span style={{ fontWeight: isChecked ? 700 : 500 }}>
+                          {DEFAULT_COLUMNS[colKey].label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Rodapé: Salvar Meu Modelo Padrão */}
+                <div style={{ marginTop: "6px", paddingTop: "8px", borderTop: "1px solid var(--line)" }}>
+                  <button
+                    type="button"
+                    onClick={saveAsCustomModel}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      background: saveSuccess ? "#10B981" : "#2563EB",
+                      color: "#FFFFFF",
+                      border: "none",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                    }}
+                  >
+                    {saveSuccess ? <Check size={14} /> : <CheckCircle2 size={14} />}
+                    <span>{saveSuccess ? "Modelo salvo como seu padrão!" : "Salvar como meu modelo padrão"}</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -992,374 +1158,7 @@ export function CampaignsView({
       </div>
 
       {/* 4. Tabela com Checkbox, iOS Toggle, Dot Indicator e Floating Footer */}
-      {kind === "placement" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", paddingBottom: "3rem" }}>
-          {/* Banner educativo & parâmetro dinâmico Meta Ads */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "1rem",
-              padding: "1.1rem 1.25rem",
-              borderRadius: "12px",
-              background: "linear-gradient(135deg, rgba(91, 52, 234, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%)",
-              border: "1px solid rgba(91, 52, 234, 0.2)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", maxWidth: "750px" }}>
-              <div
-                style={{
-                  width: "38px",
-                  height: "38px",
-                  borderRadius: "10px",
-                  background: "#5B34EA",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Smartphone size={20} />
-              </div>
-              <div>
-                <h4 style={{ margin: "0 0 4px 0", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-                  Posicionamentos Dinâmicos da Meta Ads (Stories, Feed, Reels)
-                </h4>
-                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.45 }}>
-                  Descubra com precisão onde cada venda foi realizada. A tag dinâmica da Meta{" "}
-                  <code style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, color: "#5B34EA" }}>
-                    utm_placement={"{{placement}}"}
-                  </code>{" "}
-                  identifica automaticamente se o comprador veio do Instagram Stories, Feed, Reels ou Facebook.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="utmify-btn-secondary"
-              onClick={() => {
-                navigator.clipboard.writeText("utm_placement={{placement}}");
-                setCopiedPlacementSnippet(true);
-                setTimeout(() => setCopiedPlacementSnippet(false), 2000);
-              }}
-              style={{
-                background: "var(--surface)",
-                fontWeight: 700,
-                borderColor: copiedPlacementSnippet ? "#10B981" : "rgba(91, 52, 234, 0.3)",
-                color: copiedPlacementSnippet ? "#10B981" : "#5B34EA",
-              }}
-            >
-              {copiedPlacementSnippet ? <Check size={14} /> : <Copy size={14} />}
-              <span>{copiedPlacementSnippet ? "Copiado!" : "Copiar utm_placement"}</span>
-            </button>
-          </div>
-
-          {/* Cards de Métricas Principais */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "1rem",
-            }}
-          >
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: "12px",
-                padding: "1rem 1.15rem",
-              }}
-            >
-              <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600 }}>Total de Vendas Rastreadas</span>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "4px" }}>
-                <strong style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)" }}>
-                  {new Intl.NumberFormat("pt-BR").format(totalPlacementSales)}
-                </strong>
-                <span style={{ fontSize: "0.75rem", color: "#10B981", fontWeight: 700 }}>vendas</span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: "12px",
-                padding: "1rem 1.15rem",
-              }}
-            >
-              <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600 }}>Faturamento Rastreado</span>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "4px" }}>
-                <strong style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10B981" }}>
-                  {formatMoney(totalPlacementRevenue)}
-                </strong>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: "12px",
-                padding: "1rem 1.15rem",
-              }}
-            >
-              <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600 }}>Posicionamento Campeão</span>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "4px" }}>
-                <strong style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {topPlacementItem ? `${topPlacementItem.icon} ${topPlacementItem.displayName}` : "N/A"}
-                </strong>
-                {topPlacementItem && topPlacementItem.salesCount > 0 && (
-                  <span style={{ fontSize: "0.75rem", color: "#5B34EA", fontWeight: 700, whiteSpace: "nowrap" }}>
-                    {topPlacementItem.percentage.toFixed(1)}% das vendas
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: "12px",
-                padding: "1rem 1.15rem",
-              }}
-            >
-              <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 600 }}>Ticket Médio Geral</span>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "4px" }}>
-                <strong style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)" }}>
-                  {formatMoney(totalPlacementSales > 0 ? totalPlacementRevenue / totalPlacementSales : 0)}
-                </strong>
-                <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>por venda</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Gráfico / Barra Visual de Distribuição de Vendas */}
-          {totalPlacementSales > 0 && (
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: "12px",
-                padding: "1.15rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink)" }}>
-                  Distribuição de Conversões por Posicionamento
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                  {placementStats.length} {placementStats.length === 1 ? "posicionamento detectado" : "posicionamentos detectados"}
-                </span>
-              </div>
-
-              {/* Barra segmentada */}
-              <div
-                style={{
-                  display: "flex",
-                  width: "100%",
-                  height: "14px",
-                  borderRadius: "7px",
-                  overflow: "hidden",
-                  background: "var(--line)",
-                }}
-              >
-                {placementStats.map((p, idx) => {
-                  const colors = [
-                    "#E1306C",
-                    "#2563EB",
-                    "#8B5CF6",
-                    "#10B981",
-                    "#F59E0B",
-                    "#06B6D4",
-                    "#64748B",
-                  ];
-                  const barColor = colors[idx % colors.length];
-                  return (
-                    <div
-                      key={p.rawKey}
-                      title={`${p.displayName}: ${p.salesCount} vendas (${p.percentage.toFixed(1)}%)`}
-                      style={{
-                        width: `${p.percentage}%`,
-                        backgroundColor: barColor,
-                        transition: "width 0.3s ease",
-                      }}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Legenda */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.85rem", marginTop: "4px" }}>
-                {placementStats.slice(0, 6).map((p, idx) => {
-                  const colors = [
-                    "#E1306C",
-                    "#2563EB",
-                    "#8B5CF6",
-                    "#10B981",
-                    "#F59E0B",
-                    "#06B6D4",
-                    "#64748B",
-                  ];
-                  const dotColor = colors[idx % colors.length];
-                  return (
-                    <div key={p.rawKey} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: dotColor }} />
-                      <span style={{ color: "var(--ink)", fontWeight: 600 }}>{p.displayName}</span>
-                      <span style={{ color: "var(--muted)" }}>({p.percentage.toFixed(1)}%)</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Tabela de Posicionamentos */}
-          {filteredPlacementStats.length > 0 ? (
-            <div className="campaign-table-wrapper">
-              <table className="campaign-table">
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", minWidth: "220px" }}>Posicionamento</th>
-                    <th style={{ textAlign: "center", width: "130px" }}>Plataforma</th>
-                    <th style={{ textAlign: "right", width: "120px" }}>Vendas</th>
-                    <th style={{ textAlign: "left", width: "160px" }}>% Participação</th>
-                    <th style={{ textAlign: "right", width: "140px" }}>Faturamento</th>
-                    <th style={{ textAlign: "right", width: "130px" }}>Ticket Médio</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPlacementStats.map((item) => {
-                    const isInstagram = item.platform === "instagram";
-                    const isFacebook = item.platform === "facebook";
-                    const isChampion = topPlacementItem && topPlacementItem.rawKey === item.rawKey && item.salesCount > 0;
-
-                    return (
-                      <tr key={item.rawKey}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ fontSize: "1.1rem" }}>{item.icon}</span>
-                            <div>
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                <strong style={{ fontSize: "0.85rem", color: "var(--ink)" }}>
-                                  {item.displayName}
-                                </strong>
-                                {isChampion && (
-                                  <span
-                                    style={{
-                                      fontSize: "0.65rem",
-                                      fontWeight: 700,
-                                      padding: "1px 6px",
-                                      borderRadius: "999px",
-                                      background: "rgba(16, 185, 129, 0.15)",
-                                      color: "#10B981",
-                                    }}
-                                  >
-                                    Campeão
-                                  </span>
-                                )}
-                              </div>
-                              <span style={{ fontSize: "0.7rem", color: "var(--muted)", fontFamily: "monospace" }}>
-                                {item.rawKey}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td style={{ textAlign: "center" }}>
-                          <span
-                            style={{
-                              fontSize: "0.72rem",
-                              fontWeight: 700,
-                              padding: "2px 8px",
-                              borderRadius: "6px",
-                              background: isInstagram
-                                ? "rgba(225, 48, 108, 0.12)"
-                                : isFacebook
-                                ? "rgba(24, 119, 242, 0.12)"
-                                : "var(--surface-muted)",
-                              color: isInstagram
-                                ? "#E1306C"
-                                : isFacebook
-                                ? "#1877F2"
-                                : "var(--muted)",
-                            }}
-                          >
-                            {isInstagram ? "Instagram" : isFacebook ? "Facebook" : "Outro / Web"}
-                          </span>
-                        </td>
-
-                        <td style={{ textAlign: "right" }}>
-                          <strong style={{ fontSize: "0.9rem", color: "var(--ink)" }}>
-                            {new Intl.NumberFormat("pt-BR").format(item.salesCount)}
-                          </strong>
-                        </td>
-
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <div
-                              style={{
-                                flex: 1,
-                                height: "6px",
-                                borderRadius: "3px",
-                                background: "var(--line)",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  height: "100%",
-                                  width: `${item.percentage}%`,
-                                  backgroundColor: isInstagram ? "#E1306C" : "#2563EB",
-                                  borderRadius: "3px",
-                                }}
-                              />
-                            </div>
-                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--ink)", width: "42px", textAlign: "right" }}>
-                              {item.percentage.toFixed(1)}%
-                            </span>
-                          </div>
-                        </td>
-
-                        <td style={{ textAlign: "right" }}>
-                          <strong style={{ fontSize: "0.9rem", color: "#10B981" }}>
-                            {formatMoney(item.revenue)}
-                          </strong>
-                        </td>
-
-                        <td style={{ textAlign: "right" }}>
-                          <span style={{ fontSize: "0.85rem", color: "var(--ink)" }}>
-                            {formatMoney(item.avgTicket)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={{ padding: "40px 20px" }}>
-              <Empty
-                icon={Smartphone}
-                title="Nenhum dado de posicionamento encontrado"
-                description={
-                  search
-                    ? "Nenhum posicionamento corresponde ao termo pesquisado."
-                    : "Para rastrear onde vendeu (Stories, Feed, Reels), certifique-se de incluir utm_placement={{placement}} nos seus anúncios da Meta."
-                }
-              />
-            </div>
-          )}
-        </div>
-      ) : sortedRows.length > 0 ? (
+      {sortedRows.length > 0 ? (
         <div className="campaign-table-wrapper">
           <table className="campaign-table">
             <thead>

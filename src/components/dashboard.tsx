@@ -1,6 +1,6 @@
 "use client";
 import { plans, canUse, normalizePlan } from "@/lib/plans";
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -41,6 +41,7 @@ import {
   Code2,
   Package,
   Search,
+  Smartphone,
 } from "lucide-react";
 import { McpSettingsView } from "./mcp-settings-view";
 import { UtmifySummary } from "./utmify-summary";
@@ -444,6 +445,85 @@ export function Dashboard(p: Props) {
 
   const byProduct = s?.by_product_type || {};
   const byCountry = s?.by_country || {};
+
+  const byPlacement = useMemo(() => {
+    const map = new Map<
+      string,
+      { count: number; revenue: number; platform: string; icon: string; name: string }
+    >();
+    for (const sale of sales) {
+      if (sale.is_test || !["paid", "approved", "completed"].includes(sale.status)) continue;
+      const attr = sale.attribution || {};
+      const raw = (attr.utm_placement || attr.placement || "").trim();
+      if (!raw) continue;
+
+      let displayName = raw;
+      let platform = "Meta Ads";
+      let icon = "📱";
+
+      if (/instagram_stories|ig_stories|stories_ig/i.test(raw)) {
+        displayName = "Instagram Stories";
+        platform = "Instagram";
+        icon = "📱";
+      } else if (/instagram_feed|ig_feed|feed_ig/i.test(raw)) {
+        displayName = "Instagram Feed / Post";
+        platform = "Instagram";
+        icon = "📰";
+      } else if (/instagram_reels|reels_ig|ig_reels/i.test(raw)) {
+        displayName = "Instagram Reels";
+        platform = "Instagram";
+        icon = "🎬";
+      } else if (/instagram_explore/i.test(raw)) {
+        displayName = "Instagram Explorar";
+        platform = "Instagram";
+        icon = "🔍";
+      } else if (/facebook_mobile_feed|fb_mobile_feed/i.test(raw)) {
+        displayName = "Facebook Feed (Mobile)";
+        platform = "Facebook";
+        icon = "📱";
+      } else if (/facebook_desktop_feed|fb_desktop_feed/i.test(raw)) {
+        displayName = "Facebook Feed (Desktop)";
+        platform = "Facebook";
+        icon = "💻";
+      } else if (/facebook_feed|fb_feed/i.test(raw)) {
+        displayName = "Facebook Feed";
+        platform = "Facebook";
+        icon = "📰";
+      } else if (/facebook_stories|fb_stories/i.test(raw)) {
+        displayName = "Facebook Stories";
+        platform = "Facebook";
+        icon = "📱";
+      } else if (/facebook_reels|fb_reels/i.test(raw)) {
+        displayName = "Facebook Reels";
+        platform = "Facebook";
+        icon = "🎬";
+      } else if (/audience/i.test(raw)) {
+        displayName = "Audience Network";
+        platform = "Audience Network";
+        icon = "🌐";
+      } else if (/messenger/i.test(raw)) {
+        displayName = "Messenger";
+        platform = "Messenger";
+        icon = "💬";
+      }
+
+      const curr = map.get(displayName) || { count: 0, revenue: 0, platform, icon, name: displayName };
+      curr.count += 1;
+      curr.revenue += Number(sale.amount || 0);
+      map.set(displayName, curr);
+    }
+
+    const list = Array.from(map.values()).sort((a, b) => b.count - a.count || b.revenue - a.revenue);
+    const totalCount = list.reduce((sum, item) => sum + item.count, 0);
+    return {
+      list: list.map((item) => ({
+        ...item,
+        percentage: totalCount > 0 ? (item.count / totalCount) * 100 : 0,
+      })),
+      top: list[0] || null,
+      totalCount,
+    };
+  }, [sales]);
 
   const metrics = {
     revenue: grossRevenue,
@@ -1543,6 +1623,74 @@ export function Dashboard(p: Props) {
                     <Empty
                       title="Nenhum dado por tipo"
                       description="As vendas processadas aparecerão divididas por produto principal e adicionais."
+                    />
+                  )}
+                </section>
+
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Posicionamentos Mais Vendidos (Meta Ads)</h2>
+                      <p>Onde suas vendas acontecem: Stories, Feed, Reels ou Facebook</p>
+                    </div>
+                    {byPlacement.top && (
+                      <span
+                        className="chip"
+                        style={{
+                          background: "rgba(91, 52, 234, 0.12)",
+                          color: "#5B34EA",
+                          fontWeight: 700,
+                        }}
+                      >
+                        🏆 Top: {byPlacement.top.name}
+                      </span>
+                    )}
+                  </div>
+                  {byPlacement.list.length ? (
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Posicionamento</th>
+                            <th>Plataforma</th>
+                            <th>Vendas</th>
+                            <th>% Vendas</th>
+                            <th>Faturamento</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {byPlacement.list.map((item) => (
+                            <tr key={item.name}>
+                              <td>
+                                <strong>
+                                  {item.icon} {item.name}
+                                </strong>
+                              </td>
+                              <td>
+                                <span className="chip">{item.platform}</span>
+                              </td>
+                              <td>{item.count}</td>
+                              <td>
+                                <span
+                                  style={{
+                                    fontWeight: 700,
+                                    color: "#5B34EA",
+                                  }}
+                                >
+                                  {item.percentage.toFixed(1)}%
+                                </span>
+                              </td>
+                              <td>{money(item.revenue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <Empty
+                      icon={Smartphone}
+                      title="Nenhuma venda com posicionamento ainda"
+                      description="Adicione utm_placement={{placement}} nos seus anúncios da Meta para saber exatamente onde vendeu (Stories, Feed, Reels)."
                     />
                   )}
                 </section>
