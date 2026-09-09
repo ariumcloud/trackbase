@@ -35,7 +35,9 @@ import {
   Moon,
   Radio,
   BookOpen,
+  Sparkles,
 } from "lucide-react";
+import { McpSettingsView } from "./mcp-settings-view";
 import { UtmifySummary } from "./utmify-summary";
 import {
   ActionForm,
@@ -148,9 +150,14 @@ const tabs = [
   { id: "mineracao", name: "Biblioteca de ofertas", icon: BookOpen },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
   { id: "assistente", name: "Assistente IA", icon: Bot },
+  { id: "mcp", name: "MCP (Claude & Codex)", icon: Sparkles },
   { id: "alertas", name: "Alertas", icon: Bell },
 ];
 const titles: Record<string, [string, string]> = {
+  mcp: [
+    "Conexão MCP · Claude, Codex & Cursor",
+    "Permita que seus agentes de IA consultem métricas, campanhas e criem links de rastreio em tempo real.",
+  ],
   mineracao: [
     "Biblioteca de ofertas",
     "Salve criativos e acompanhe as ofertas escolhidas no workspace.",
@@ -2368,6 +2375,28 @@ export function Dashboard(p: Props) {
                 </div>
               </section>
 
+              <section className="panel" style={{ background: "linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.08) 100%)", border: "1px solid var(--brand-border, #C7D2FE)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                      <Sparkles size={18} color="var(--brand-primary, #6366F1)" />
+                      <strong style={{ fontSize: "1rem", color: "var(--ink, #0F172A)" }}>Conexão MCP · Claude, Codex & Cursor</strong>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--muted, #64748B)" }}>
+                      Permita que seus agentes de IA consultem métricas, analisem anúncios e criem links de rastreio em tempo real.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => selectTab("mcp")}
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    Configurar MCP →
+                  </button>
+                </div>
+              </section>
+
               <PushSettingsCard
                 workspace={workspace}
                 pushSettings={p.workspace?.push_settings}
@@ -2429,6 +2458,12 @@ export function Dashboard(p: Props) {
               insights={p.insights}
               entities={p.entities}
               diagnostics={p.diagnostics}
+            />
+          )}
+          {tab === "mcp" && (
+            <McpSettingsView
+              workspace={workspace}
+              appUrl={p.appUrl}
             />
           )}
           {tab === "alertas" && (

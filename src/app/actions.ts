@@ -8,6 +8,7 @@ import { validateDocument } from "@/lib/document";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { createApiKey as createKeyRecord, listApiKeys as listKeyRecords, revokeApiKey as revokeKeyRecord } from "@/lib/api-keys";
 export type ActionResult = {
   ok?: boolean;
   error?: string;
@@ -1212,5 +1213,43 @@ export async function deleteShield(
     return { error: "Não foi possível excluir o link blindado." };
   }
 }
+
+export async function createMcpApiKeyAction(
+  workspace: string,
+  name: string = "Claude / Codex MCP",
+): Promise<{ ok?: boolean; error?: string; rawKey?: string; keyInfo?: unknown }> {
+  try {
+    const { user } = await authorize(workspace, true);
+    const result = await createKeyRecord(workspace, user.id, name);
+    revalidatePath("/painel");
+    return { ok: true, rawKey: result.rawKey, keyInfo: result };
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : "Não foi possível gerar a chave MCP." };
+  }
+}
+
+export async function listMcpApiKeysAction(workspace: string) {
+  try {
+    await authorize(workspace, false);
+    const keys = await listKeyRecords(workspace);
+    return { ok: true, keys };
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : "Não foi possível listar as chaves.", keys: [] };
+  }
+}
+
+export async function revokeMcpApiKeyAction(workspace: string, keyId: string): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    z.string().uuid().parse(keyId);
+    const success = await revokeKeyRecord(workspace, keyId);
+    if (!success) throw new Error();
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível revogar esta chave." };
+  }
+}
+
 
 
