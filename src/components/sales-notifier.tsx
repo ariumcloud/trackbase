@@ -72,8 +72,9 @@ export function SalesNotifier({ workspaceId }: Props) {
           setTimeout(() => setToastMessage(null), 7000);
         });
       } else if (event.data?.type === "PLAY_SALE_SOUND") {
-        void soundPlayer.play();
         const payload = event.data?.data;
+        const id = event.data?.id || payload?.id;
+        void soundPlayer.play(id ? { id, deadline: Date.now() + 5000 } : undefined);
         if (payload?.title) {
           setToastMessage(`${payload.title} ${payload.body ? `— ${payload.body}` : ""}`);
           setTimeout(() => setToastMessage(null), 7000);

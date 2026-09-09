@@ -3403,7 +3403,6 @@ function PushSettingsCard({
 
   const handleTestPush = () => {
     setStatusFeedback(null);
-    void soundPlayer.play();
     run(async () => {
       const res = await sendTestPushAction(workspace);
       if (res.error) {
