@@ -96,7 +96,7 @@ export function GatewayConnectForm({
   provider,
   offers,
   existingIntegrationId,
-  appUrl = "https://www.trackbase.com.br",
+  appUrl = "https://trackbase.com.br",
   onSuccess,
 }: {
   workspace: string;
