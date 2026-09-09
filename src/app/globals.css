@@ -3344,20 +3344,26 @@ textarea {
   z-index: 12;
 }
 
-.campaign-table tfoot tr td {
-  background: #0B0F19 !important;
+.campaign-table tfoot tr td,
+.campaign-table tfoot tr td.col-sticky-name {
+  background: #F8FAFC !important;
   font-weight: 700;
-  color: #F9FAFB;
-  border-top: 2px solid #38BDF8;
+  color: #0F172A !important;
+  border-top: 2px solid #CBD5E1 !important;
   border-bottom: none;
   font-size: 12px;
-  padding: 10px 12px;
-  box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.45);
+  padding: 8px 10px;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.campaign-table tfoot tr td strong {
+  color: #0F172A !important;
+  font-weight: 700;
 }
 
 .campaign-table tfoot tr td.col-sticky-name {
   z-index: 15;
-  background: #0B0F19 !important;
+  background: #F8FAFC !important;
 }
 
 /* Campanhas: leitura financeira clara, sem aparência de painel técnico. */
@@ -3436,7 +3442,7 @@ textarea {
 .metric-val-highlight { color: #5c34d7; }
 .metric-val-positive { color: #07885c !important; }
 .metric-val-negative { color: #dc3d50 !important; }
-.campaign-table tfoot tr td, .campaign-table tfoot tr td.col-sticky-name { background: var(--surface-subtle, #f6f5fa); color: var(--ink, #28324a); border-top-color: var(--line, #d7cfff); box-shadow: 0 -4px 12px rgba(20,33,61,.06); }
+
 
 @media (max-width: 960px) {
   .campaigns-overview { align-items: flex-start; flex-direction: column; }
