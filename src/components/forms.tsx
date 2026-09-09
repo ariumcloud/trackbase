@@ -10,6 +10,7 @@ import {
   updatePassword,
   createWorkspace,
   deleteWorkspace,
+  renameWorkspace,
   saveOffer,
   updateOffer,
   type ActionResult,
@@ -256,6 +257,17 @@ export function WorkspaceDeleteForm({ workspace, name }: { workspace: string; na
         Digite <strong>EXCLUIR</strong> para confirmar
         <input name="confirmation" autoComplete="off" required placeholder="EXCLUIR" />
       </label>
+    </ActionForm>
+  );
+}
+export function WorkspaceRenameForm({ workspace, name }: { workspace: string; name: string }) {
+  return (
+    <ActionForm action={(form) => renameWorkspace(workspace, form)} label="Salvar nome">
+      <label>
+        Nome do workspace
+        <input name="name" defaultValue={name} minLength={2} maxLength={100} required autoFocus />
+      </label>
+      <p className="form-help">Esse nome aparece no seletor de operações e não altera seus dados.</p>
     </ActionForm>
   );
 }

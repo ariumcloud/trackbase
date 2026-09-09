@@ -105,6 +105,7 @@ export function CampaignsView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number> | null>(null);
   const latestMetaSync = integrations
     .filter((integration) => integration.provider === "meta" && integration.last_synced_at)
     .sort((a, b) => new Date(b.last_synced_at!).getTime() - new Date(a.last_synced_at!).getTime())[0]?.last_synced_at;
@@ -112,6 +113,14 @@ export function CampaignsView({
   useEffect(() => {
     if (currency) setSelectedCurrency(currency);
   }, [currency]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/exchange-rates").then((r) => r.ok ? r.json() : null).then((data) => {
+      if (alive && data?.rates) setExchangeRates({ USD: 1, ...data.rates });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // Ordenação por colunas (crescente / decrescente)
   const [sortKey, setSortKey] = useState<ColumnKey | null>("profit");
@@ -166,13 +175,19 @@ export function CampaignsView({
     if (changeCurrency) changeCurrency(newCurr);
   };
 
-  const formatMoney = (val: number | null | undefined) => {
+  const formatMoney = (val: number | null | undefined, sourceCurrency = selectedCurrency) => {
     if (val === null || val === undefined) return "—";
-    const locale = selectedCurrency === "USD" ? "en-US" : "pt-BR";
+    const source = sourceCurrency.toUpperCase();
+    const target = selectedCurrency.toUpperCase();
+    const sourceRate = exchangeRates?.[source];
+    const targetRate = exchangeRates?.[target];
+    const converted = source === target ? val : sourceRate && targetRate ? (val / sourceRate) * targetRate : val;
+    const displayCurrency = source === target || (sourceRate && targetRate) ? target : source;
+    const locale = displayCurrency === "USD" ? "en-US" : "pt-BR";
     return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: selectedCurrency,
-    }).format(val);
+      currency: displayCurrency,
+    }).format(converted);
   };
 
   // 1. Agregação de dados dos insights da Meta por ID
@@ -237,7 +252,9 @@ export function CampaignsView({
   // 4. Mapeamento de métricas completas para ordenação
   interface RowData {
     entity: Entity;
-    budget: number;
+    budget: number | null;
+    budgetCurrency: string;
+    budgetType: "daily" | "lifetime" | null;
     spend: number;
     clicks: number;
     impressions: number;
@@ -256,8 +273,6 @@ export function CampaignsView({
   }
 
   const computedRows: RowData[] = useMemo(() => {
-    const periodDays = Number(period) || (period === "yesterday" || period === "1" ? 1 : 7);
-
     return filteredEntities.map((e) => {
       const ins = insightsMap.get(e.external_id) || {
         spend: 0,
@@ -280,12 +295,15 @@ export function CampaignsView({
       const ic = Math.round(sls.count > 0 ? sls.count * 1.5 : ins.clicks > 0 ? Math.max(1, Math.round(ins.clicks * 0.08)) : 0);
       const cpi = ic > 0 ? ins.spend / ic : null;
 
-      // Orçamento diário estimado
-      const budget = ins.spend > 0 ? Math.max(20, Math.round(ins.spend / periodDays)) : 50;
+      const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";
+      const zeroDecimal = ["CLP", "COP", "JPY", "KRW", "VND"].includes(budgetCurrency);
+      const budget = e.budget_minor == null ? null : Number(e.budget_minor) / (zeroDecimal ? 1 : 100);
 
       return {
         entity: e,
         budget,
+        budgetCurrency,
+        budgetType: e.budget_type || null,
         spend: ins.spend,
         clicks: ins.clicks,
         impressions: ins.impressions,
@@ -303,7 +321,7 @@ export function CampaignsView({
         cpm,
       };
     });
-  }, [filteredEntities, insightsMap, salesMap, period]);
+  }, [filteredEntities, insightsMap, salesMap, period, integrations]);
 
   // 5. Ordenação dinâmica
   const sortedRows = useMemo(() => {
@@ -323,8 +341,8 @@ export function CampaignsView({
             ? a.entity.name.localeCompare(b.entity.name)
             : b.entity.name.localeCompare(a.entity.name);
         case "budget":
-          aVal = a.budget;
-          bVal = b.budget;
+          aVal = a.budget ?? -1;
+          bVal = b.budget ?? -1;
           break;
         case "sales":
           aVal = a.salesCount;
@@ -1139,9 +1157,17 @@ export function CampaignsView({
                             fontSize: "0.82rem",
                           }}
                         >
-                          {formatMoney(row.budget)}{" "}
-                          <small style={{ color: "var(--muted)" }}>Diário</small>
-                          <Pencil size={11} style={{ opacity: 0.5 }} />
+                          {formatMoney(row.budget, row.budgetCurrency)}{" "}
+                          <small style={{ color: "var(--muted)" }}>{row.budgetType === "lifetime" ? "Vitalício" : "Diário"}</small>
+                          {row.entity.kind !== "ad" && (
+                            <button type="button" className="icon-button" aria-label={`Editar orçamento de ${row.entity.name}`} title="Editar orçamento na Meta" disabled={pending} onClick={() => {
+                              const value = window.prompt(`Novo orçamento ${row.budgetType === "lifetime" ? "vitalício" : "diário"} (${row.budgetCurrency}):`, String(row.budget ?? ""));
+                              if (!value) return;
+                              const amount = Number(value.replace(",", "."));
+                              if (!Number.isFinite(amount) || amount <= 0) return window.alert("Informe um valor maior que zero.");
+                              run(() => request("/api/meta/budget", { workspace, integration: row.entity.integration_id, id: row.entity.external_id, kind: row.entity.kind, amount }));
+                            }}><Pencil size={11} /></button>
+                          )}
                         </span>
                       </td>
                     )}

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     });
     const { data: integrations, error } = await service
       .from("utm_integrations")
-      .select("id,workspace_id,account_id,account_timezone,name")
+      .select("id,workspace_id,account_id,account_timezone,name,currency")
       .eq("provider", "meta")
       .eq("status", "connected")
       .not("account_id", "is", null);
@@ -107,8 +107,11 @@ export async function GET(request: Request) {
             status: string;
             campaign_id?: string;
             adset_id?: string;
+            daily_budget?: string;
+            lifetime_budget?: string;
+            account_currency?: string;
           }>(`${integration.account_id}/${edge}`, token, {
-            fields: `id,name,status${kind === "adset" ? ",campaign_id" : kind === "ad" ? ",adset_id" : ""}`,
+            fields: `id,name,status${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget,account_currency" : kind === "campaign" ? ",daily_budget,lifetime_budget,account_currency" : ",adset_id"}`,
           });
           entities.push(
             ...rows.map((r) => ({
@@ -119,6 +122,9 @@ export async function GET(request: Request) {
               status: r.status,
               kind,
               parent_id: r.adset_id ?? r.campaign_id ?? null,
+              budget_minor: kind === "ad" ? null : Number(r.daily_budget ?? r.lifetime_budget ?? 0) || null,
+              budget_currency: kind === "ad" ? null : r.account_currency ?? integration.currency ?? null,
+              budget_type: kind === "ad" ? null : r.daily_budget ? "daily" : r.lifetime_budget ? "lifetime" : null,
             })),
           );
         }

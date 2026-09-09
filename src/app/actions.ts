@@ -229,6 +229,24 @@ export async function deleteWorkspace(
     return { error: "Não foi possível excluir este workspace." };
   }
 }
+
+export async function renameWorkspace(workspace: string, form: FormData): Promise<ActionResult> {
+  try {
+    const { client } = await authorize(workspace, true);
+    const name = z.string().trim().min(2).max(100).safeParse(form.get("name"));
+    if (!name.success) return { error: "Informe um nome entre 2 e 100 caracteres." };
+    const { error } = await client
+      .from("utm_workspaces")
+      .update({ name: name.data })
+      .eq("id", workspace);
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e) {
+    console.error("Workspace rename failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível renomear este workspace." };
+  }
+}
 export async function saveOffer(
   workspace: string,
   form: FormData,

@@ -25,6 +25,7 @@ import {
   Bell,
   AlertTriangle,
   Trash2,
+  Pencil,
   Download,
   Bot,
   Volume2,
@@ -36,7 +37,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { UtmifySummary } from "./utmify-summary";
-import { ActionForm, OfferForm, WorkspaceDeleteForm, WorkspaceForm } from "./forms";
+import { ActionForm, OfferForm, WorkspaceDeleteForm, WorkspaceForm, WorkspaceRenameForm } from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
 import { GuideModal } from "./guide-modal";
 import { LockedFeatureCard } from "./locked-feature-card";
@@ -557,6 +558,9 @@ export function Dashboard(p: Props) {
           <div className="workspace-quick-actions">
             <button type="button" className="workspace-action" onClick={() => create("workspace")}>
               <Plus size={14} /> Nova operação
+            </button>
+            <button type="button" className="workspace-action" onClick={() => setModal("workspace-rename")}>
+              <Pencil size={14} /> Renomear
             </button>
             <button type="button" className="workspace-action danger" onClick={() => setModal("workspace-delete")}>
               <Trash2 size={14} /> Excluir atual
@@ -2427,6 +2431,8 @@ export function Dashboard(p: Props) {
                 ? "Novo workspace"
                 : modal === "workspace-delete"
                   ? "Excluir workspace"
+                  : modal === "workspace-rename"
+                    ? "Renomear workspace"
                 : modal === "offer"
                   ? "Cadastrar oferta"
                   : modal === "link"
@@ -2463,6 +2469,8 @@ export function Dashboard(p: Props) {
             </h2>
             {modal === "workspace" ? (
               <WorkspaceForm />
+            ) : modal === "workspace-rename" && p.workspace ? (
+              <WorkspaceRenameForm workspace={workspace} name={p.workspace.name} />
             ) : modal === "workspace-delete" && p.workspace ? (
               <WorkspaceDeleteForm workspace={workspace} name={p.workspace.name} />
             ) : modal === "offer" ? (

@@ -7,6 +7,15 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+const foregroundAcks = new Map();
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (data?.type === "TRACKBASE_FOREGROUND_ACK" && data.id) {
+    const resolve = foregroundAcks.get(data.id);
+    if (resolve) resolve(true);
+  }
+});
+
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -30,19 +39,17 @@ self.addEventListener("push", (event) => {
       requireInteraction: false,
     };
 
-    // In the foreground, avoid showNotification entirely: iOS would play its
-    // generic system sound even while the Trackbase screen is open. The page
-    // receives this message and plays the user-unlocked custom sound instead.
+    // iOS does not reliably expose Client.visibilityState in a PWA. Ask the
+    // page itself if it is visible before falling back to the system alert.
     const deliver = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      const visibleClients = clientList.filter((client) => client.visibilityState === "visible");
-      if (visibleClients.length) {
-        visibleClients.forEach((client) => client.postMessage({
-          type: "PLAY_SALE_SOUND",
-          data: payload,
-        }));
-        return;
-      }
-      return self.registration.showNotification(title, options);
+      if (!clientList.length) return self.registration.showNotification(title, options);
+      const id = `${Date.now()}-${Math.random()}`;
+      const acknowledged = new Promise((resolve) => {
+        foregroundAcks.set(id, resolve);
+        setTimeout(() => { foregroundAcks.delete(id); resolve(false); }, 450);
+      });
+      clientList.forEach((client) => client.postMessage({ type: "TRACKBASE_SALE_EVENT", id, data: payload }));
+      return acknowledged.then((isForeground) => isForeground ? undefined : self.registration.showNotification(title, options));
     });
 
     event.waitUntil(deliver);

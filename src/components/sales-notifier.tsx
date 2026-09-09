@@ -85,9 +85,13 @@ export function SalesNotifier({ workspaceId }: Props) {
 
     // Escuta eventos de som e notificação enviados pelo Service Worker (sempre ativo)
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === "PLAY_SALE_SOUND") {
-        // This click is a gesture, so it may unlock custom audio in the open app.
-        void soundPlayer.unlockAudio().then(playKaching);
+      if (event.data?.type === "TRACKBASE_SALE_EVENT" || event.data?.type === "PLAY_SALE_SOUND") {
+        if (event.data?.type === "TRACKBASE_SALE_EVENT" && document.visibilityState === "visible") {
+          navigator.serviceWorker.controller?.postMessage({ type: "TRACKBASE_FOREGROUND_ACK", id: event.data.id });
+        }
+        // A push callback is not a user gesture. Audio must have been unlocked
+        // when the user activated or tested alerts while the app was open.
+        playKaching();
         if (event.data?.data?.title) {
           setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
           setTimeout(() => setToastMessage(null), 7000);

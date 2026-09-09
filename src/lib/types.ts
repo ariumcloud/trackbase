@@ -111,6 +111,9 @@ export type Entity = {
   kind: string;
   name: string;
   status: string;
+  budget_minor?: number | null;
+  budget_currency?: string | null;
+  budget_type?: "daily" | "lifetime" | null;
 };
 export type WebhookLog = {
   id: string;
