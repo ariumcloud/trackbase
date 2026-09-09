@@ -123,8 +123,23 @@ export async function POST(request: Request) {
     }
 
     const service = admin();
+    let resolvedKey = key;
+    if (key && (key.includes("-") || key.length >= 30)) {
+      const { data: wsOffer } = await service
+        .from("utm_offers")
+        .select("public_key")
+        .eq("workspace_id", key)
+        .eq("active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (wsOffer?.public_key) {
+        resolvedKey = wsOffer.public_key;
+      }
+    }
+
     const { data, error } = await service.rpc("utm_track_event", {
-      p_key: key,
+      p_key: resolvedKey,
       p_event: {
         ...eventData,
         event_type: dbEventType,

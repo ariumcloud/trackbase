@@ -288,6 +288,14 @@ export function Dashboard(p: Props) {
     [viewingPixelSnippet, setViewingPixelSnippet] = useState<string | null>(null),
     [pending, start] = useTransition();
 
+  const universalKey = useMemo(
+    () =>
+      p.offers.find((o) => o.product_type === "main")?.public_key ||
+      p.offers[0]?.public_key ||
+      "",
+    [p.offers],
+  );
+
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -1743,6 +1751,81 @@ export function Dashboard(p: Props) {
           )}
           {tab === "ofertas" && (
             <>
+              <div
+                style={{
+                  marginBottom: "1.25rem",
+                  padding: "1.1rem 1.35rem",
+                  borderRadius: "14px",
+                  background:
+                    "linear-gradient(135deg, rgba(91, 52, 234, 0.08) 0%, rgba(124, 58, 237, 0.12) 100%)",
+                  border: "1px solid rgba(91, 52, 234, 0.22)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      marginBottom: "0.3rem",
+                    }}
+                  >
+                    <Sparkles size={16} color="var(--brand-accent, #5B34EA)" />
+                    <strong
+                      style={{
+                        fontSize: "0.98rem",
+                        color: "var(--ink, #0F172A)",
+                      }}
+                    >
+                      Script Universal do Workspace (Padrão UTMify)
+                    </strong>
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.82rem",
+                      color: "var(--muted, #64748B)",
+                      maxWidth: "680px",
+                      lineHeight: "1.45",
+                    }}
+                  >
+                    Você <strong>não precisa</strong> colar scripts separados para cada produto! Basta colar este <strong>único script universal</strong> na tag <code>&lt;head&gt;</code> do seu site para rastrear todas as suas ofertas, order bumps e checkouts.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Clipboard
+                    value={`<script src="${p.appUrl}/tracker.js" data-key="${universalKey}" defer></script>`}
+                    label="Copiar Script Universal"
+                    className="button primary"
+                  />
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() =>
+                      setViewingPixelSnippet(
+                        p.pixels && p.pixels.length > 0 ? p.pixels[0].id : "universal",
+                      )
+                    }
+                    title="Ver código do Meta Pixel + Trackbase juntos"
+                  >
+                    <Code2 size={14} style={{ marginRight: "0.3rem" }} />
+                    Ver com Meta Pixel
+                  </button>
+                </div>
+              </div>
+
               <div className="offers-toolbar">
                 <div className="offers-summary">
                   <span className="offers-count">
@@ -1886,23 +1969,6 @@ export function Dashboard(p: Props) {
                               </div>
                             )}
                           </div>
-
-                          {o.public_key && (
-                            <div className="offer-script-bar">
-                              <div className="offer-script-info">
-                                <Code2 size={18} />
-                                <div className="offer-script-text">
-                                  <strong>Script de Rastreamento</strong>
-                                  <code>tracker.js · key: {o.public_key.slice(0, 8)}...</code>
-                                </div>
-                              </div>
-                              <Clipboard
-                                value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
-                                label="Copiar Script"
-                                className="offer-copy-script-btn"
-                              />
-                            </div>
-                          )}
 
                           {p.integrations.some(
                             (integration) =>
@@ -2072,20 +2138,6 @@ export function Dashboard(p: Props) {
                             />
                           </div>
                         </div>
-
-                        {l.public_key && (
-                          <div className="link-script-snippet-bar">
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                              <Code2 size={14} style={{ color: "var(--brand-accent)" }} />
-                              Script individual deste link (opcional)
-                            </span>
-                            <Clipboard
-                              value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
-                              label="Copiar script"
-                              className="meta-copy-pill"
-                            />
-                          </div>
-                        )}
                       </article>
                     );
                   })}
@@ -2641,11 +2693,14 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
               </section>
 
               {viewingPixelSnippet && (() => {
-                const px = p.pixels.find((x) => x.id === viewingPixelSnippet);
-                if (!px) return null;
-                const linkedOffer = p.offers.find((o) => o.id === px.offer_id);
+                const px =
+                  viewingPixelSnippet === "universal"
+                    ? p.pixels[0] || null
+                    : p.pixels.find((x) => x.id === viewingPixelSnippet) || null;
+                const linkedOffer = px ? p.offers.find((o) => o.id === px.offer_id) : null;
                 const trackerKey =
-                  linkedOffer?.public_key || p.offers[0]?.public_key || "";
+                  linkedOffer?.public_key || universalKey;
+                const pixelId = px ? px.pixel_id : "SEU_PIXEL_ID";
 
                 const trackbasePixelCode = `<!-- Trackbase Pixel Code -->
 <script>
@@ -2657,11 +2712,11 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${px.pixel_id}');
+fbq('init', '${pixelId}');
 fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
+src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 /></noscript>
 <!-- End Trackbase Pixel Code -->`;
 
@@ -2679,11 +2734,11 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${px.pixel_id}');
+fbq('init', '${pixelId}');
 fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
+src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 /></noscript>
 ${trackbaseTrackerCode}
 <!-- End Trackbase Pixel Code -->`;
@@ -2772,7 +2827,7 @@ ${trackbaseTrackerCode}
                                 color: "var(--muted, #64748B)",
                               }}
                             >
-                              Pixel: {px.pixel_id} · Escopo:{" "}
+                              Pixel: {px ? px.pixel_id : "Universal (Workspace)"} · Escopo:{" "}
                               {linkedOffer
                                 ? linkedOffer.name
                                 : "Global (Workspace)"}
