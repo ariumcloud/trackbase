@@ -142,7 +142,6 @@ type Props = {
   shieldLogs?: ShieldLogRow[];
 };
 const tabs = [
-  { id: "mineracao", name: "Biblioteca de ofertas", icon: BookOpen },
   { id: "visao", name: "Visão geral", icon: LayoutDashboard },
   { id: "ofertas", name: "Minhas ofertas", icon: Layers },
   { id: "links", name: "Links e UTMs", icon: Link2 },
@@ -150,6 +149,7 @@ const tabs = [
   { id: "shield", name: "Shield (Anti-Spy)", icon: ShieldCheck },
   { id: "diagnostico", name: "Diagnóstico de Funil", icon: Activity },
   { id: "radar", name: "Radar de Leads", icon: Radio },
+  { id: "mineracao", name: "Biblioteca de ofertas", icon: BookOpen },
   { id: "integracoes", name: "Integrações e Pixels", icon: Plug },
   { id: "assistente", name: "Assistente IA", icon: Bot },
   { id: "alertas", name: "Alertas", icon: Bell },

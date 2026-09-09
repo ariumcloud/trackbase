@@ -32,7 +32,7 @@ Data da verificação: 2026-09-09. Ambiente de execução final: Node.js 24.19.0
 - `tests/mining-endpoints.test.ts`
 - `tests/mining-extension.test.ts`
 
-A mineração foi configurada no catálogo para o Plano Básico (`liso`) e permanece disponível no Premium (`vorcaro`); o Free (`devedor`) recebe 403 no backend e não vê a área funcional na interface.
+A mineração e o Shield foram configurados no catálogo para o Plano Básico (`liso`) e permanecem disponíveis no Premium (`vorcaro`); o Free (`devedor`) recebe 403 no backend e não vê as áreas funcionais na interface.
 
 ## Arquivos alterados
 

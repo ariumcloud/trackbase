@@ -45,6 +45,7 @@ export const plans = {
       "integrations",
       "capi",
       "alerts",
+      "shield",
       "mining",
       "radar",
       "diagnostico",
