@@ -23,7 +23,13 @@ export async function POST(request: Request) {
       fields: "account_id,daily_budget,lifetime_budget",
     });
     if (`act_${entity.account_id}` !== integration.account_id) throw new Error("Conta Meta inválida.");
-    const field = entity.daily_budget ? "daily_budget" : entity.lifetime_budget ? "lifetime_budget" : "daily_budget";
+    const field = entity.daily_budget ? "daily_budget" : entity.lifetime_budget ? "lifetime_budget" : null;
+    if (!field) {
+      return NextResponse.json(
+        { error: "Esta campanha usa orçamento no conjunto (ABO). Abra Conjuntos para alterar o orçamento correto.", code: "abo_campaign" },
+        { status: 409 },
+      );
+    }
     const currency = integration.currency || "USD";
     const zeroDecimal = new Set(["CLP", "COP", "JPY", "KRW", "VND"]).has(currency);
     const minor = Math.round(v.amount * (zeroDecimal ? 1 : 100));

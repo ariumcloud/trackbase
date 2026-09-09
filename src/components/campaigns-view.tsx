@@ -1165,7 +1165,7 @@ export function CampaignsView({
                         >
                           {formatMoney(row.budget, row.budgetCurrency)}{" "}
                           <small style={{ color: "var(--muted)" }}>{row.budgetType === "lifetime" ? "Vitalício" : "Diário"}</small>
-                          {row.entity.kind !== "ad" && (
+                          {row.entity.kind !== "ad" && row.budgetType !== null && (
                             <button type="button" className="icon-button" aria-label={`Editar orçamento de ${row.entity.name}`} title="Editar orçamento na Meta" disabled={pending} onClick={() => setBudgetEditor({ integration: row.entity.integration_id, id: row.entity.external_id, kind: row.entity.kind as "campaign" | "adset", name: row.entity.name, amount: row.budget, currency: row.budgetCurrency, type: row.budgetType })}><Pencil size={11} /></button>
                           )}
                         </span>

@@ -87,10 +87,7 @@ export function SalesNotifier({ workspaceId }: Props) {
 
     // Escuta eventos de som e notificação enviados pelo Service Worker (sempre ativo)
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === "TRACKBASE_SALE_EVENT" || event.data?.type === "PLAY_SALE_SOUND") {
-        if (event.data?.type === "TRACKBASE_SALE_EVENT" && document.visibilityState === "visible") {
-          (event.source as ServiceWorker | null)?.postMessage({ type: "TRACKBASE_FOREGROUND_ACK", id: event.data.id });
-        }
+      if (event.data?.type === "PLAY_SALE_SOUND") {
         void soundPlayer.unlockAudio().then(playKaching);
         if (event.data?.data?.title) {
           setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);

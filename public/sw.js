@@ -7,15 +7,6 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-const foregroundAcks = new Map();
-self.addEventListener("message", (event) => {
-  const data = event.data;
-  if (data?.type === "TRACKBASE_FOREGROUND_ACK" && data.id) {
-    const resolve = foregroundAcks.get(data.id);
-    if (resolve) resolve(true);
-  }
-});
-
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -39,20 +30,13 @@ self.addEventListener("push", (event) => {
       requireInteraction: false,
     };
 
-    // iOS does not reliably expose Client.visibilityState in a PWA. Ask the
-    // page itself if it is visible before falling back to the system alert.
-    const deliver = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      if (!clientList.length) return self.registration.showNotification(title, options);
-      const id = `${Date.now()}-${Math.random()}`;
-      const acknowledged = new Promise((resolve) => {
-        foregroundAcks.set(id, resolve);
-        setTimeout(() => { foregroundAcks.delete(id); resolve(false); }, 450);
-      });
-      clientList.forEach((client) => client.postMessage({ type: "TRACKBASE_SALE_EVENT", id, data: payload }));
-      return acknowledged.then((isForeground) => isForeground ? undefined : self.registration.showNotification(title, options));
+    // Restore the delivery sequence that was stable in the installed iPhone
+    // app: notify the current page immediately and deliver the OS push too.
+    const notifyClients = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      clientList.forEach((client) => client.postMessage({ type: "PLAY_SALE_SOUND", data: payload }));
     });
-
-    event.waitUntil(deliver);
+    const showNotification = self.registration.showNotification(title, options);
+    event.waitUntil(Promise.all([notifyClients, showNotification]));
   } catch (err) {
     console.error("Erro ao processar push notification:", err);
   }
