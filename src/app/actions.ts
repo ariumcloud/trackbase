@@ -460,28 +460,64 @@ export async function savePaymentIntegration(
           "greenn",
           "stripe",
         ]),
-        offer_id: z.string().uuid(),
+        offer_id: z.string().optional(),
         external_product_id: z.string().trim().min(1).max(200),
-        external_offer_id: z.string().trim().max(200),
+        external_offer_id: z.string().trim().max(200).optional(),
         currency: z.string().regex(/^[A-Z]{3}$/),
         secret: z.string().min(4).max(500),
       })
       .parse(Object.fromEntries(form));
-    const { data: offer } = await client
-      .from("utm_offers")
-      .select("id,name")
-      .eq("workspace_id", workspace)
-      .eq("id", value.offer_id)
-      .single();
-    if (!offer) throw new Error();
+
     const service = admin();
+    let finalOfferId = value.offer_id;
+    let finalOfferName = "";
+
+    if (finalOfferId && finalOfferId !== "new" && z.string().uuid().safeParse(finalOfferId).success) {
+      const { data: existingOffer } = await client
+        .from("utm_offers")
+        .select("id,name")
+        .eq("workspace_id", workspace)
+        .eq("id", finalOfferId)
+        .single();
+      if (existingOffer) {
+        finalOfferId = existingOffer.id;
+        finalOfferName = existingOffer.name;
+      }
+    }
+
+    if (!finalOfferName) {
+      const defaultLandingUrl: Record<string, string> = {
+        hotmart: "https://hotmart.com",
+        kiwify: "https://kiwify.com.br",
+        cakto: "https://cakto.com.br",
+      };
+      const landingUrl = defaultLandingUrl[value.provider] || "https://trackbase.com.br";
+
+      const { data: createdOffer, error: offerError } = await service
+        .from("utm_offers")
+        .insert({
+          workspace_id: workspace,
+          name: value.external_product_id,
+          landing_url: landingUrl,
+          currency: value.currency,
+          platform: value.provider,
+          external_product_id: value.external_product_id,
+        })
+        .select("id,name")
+        .single();
+
+      if (offerError || !createdOffer) throw offerError || new Error("Não foi possível criar a oferta.");
+      finalOfferId = createdOffer.id;
+      finalOfferName = createdOffer.name;
+    }
+
     const { data, error } = await service
       .from("utm_integrations")
       .insert({
         workspace_id: workspace,
-        offer_id: offer.id,
+        offer_id: finalOfferId,
         provider: value.provider,
-        name: `${value.provider.toUpperCase()} · ${offer.name}`,
+        name: `${value.provider.toUpperCase()} · ${finalOfferName}`,
         external_product_id: value.external_product_id,
         external_offer_id: value.external_offer_id || null,
         currency: value.currency,

@@ -324,13 +324,18 @@ export function GatewayConnectForm({
 
         <label style={{ marginTop: "1rem" }}>
           Oferta no Trackbase
-          <select name="offer_id" required disabled={loading}>
-            {offers.map((offer) => (
-              <option key={offer.id} value={offer.id}>{offer.name}</option>
-            ))}
+          <select name="offer_id" defaultValue="new" disabled={loading}>
+            <option value="new">✨ Criar nova oferta automaticamente (Recomendado)</option>
+            {offers.length > 0 && (
+              <optgroup label="Ou vincular a uma oferta já existente:">
+                {offers.map((offer) => (
+                  <option key={offer.id} value={offer.id}>{offer.name}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
           <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
-            A qual oferta do Trackbase essas vendas pertencem.
+            Cria uma nova oferta no Trackbase com este produto ou vincula a uma que você já configurou.
           </small>
         </label>
 
