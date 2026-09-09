@@ -53,16 +53,18 @@ export function SalesNotifier({ workspaceId }: Props) {
     setMounted(true);
   }, []);
 
-  const [lastSoundAt, setLastSoundAt] = useState(0);
-
-  // Custom audio is a foreground enhancement. The service worker owns OS push.
+  // Keep the native element as an iOS fallback; Web Audio may be suspended
+  // after a push even when the PWA remains visibly open.
   const playKaching = useCallback(() => {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const now = Date.now();
-    if (now - lastSoundAt < 1500) return;
-    setLastSoundAt(now);
     soundPlayer.play().catch((e) => console.error("Audio play failed:", e));
-  }, [lastSoundAt]);
+    const domAudio = document.getElementById("cash-machine-player") as HTMLAudioElement | null;
+    if (domAudio) {
+      domAudio.currentTime = 0;
+      domAudio.volume = 1;
+      domAudio.play().catch(() => {});
+    }
+  }, []);
 
   // When opened via mobile push notification click (sale_alert=1)
   useEffect(() => {
@@ -87,11 +89,9 @@ export function SalesNotifier({ workspaceId }: Props) {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "TRACKBASE_SALE_EVENT" || event.data?.type === "PLAY_SALE_SOUND") {
         if (event.data?.type === "TRACKBASE_SALE_EVENT" && document.visibilityState === "visible") {
-          navigator.serviceWorker.controller?.postMessage({ type: "TRACKBASE_FOREGROUND_ACK", id: event.data.id });
+          (event.source as ServiceWorker | null)?.postMessage({ type: "TRACKBASE_FOREGROUND_ACK", id: event.data.id });
         }
-        // A push callback is not a user gesture. Audio must have been unlocked
-        // when the user activated or tested alerts while the app was open.
-        playKaching();
+        void soundPlayer.unlockAudio().then(playKaching);
         if (event.data?.data?.title) {
           setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
           setTimeout(() => setToastMessage(null), 7000);
@@ -305,6 +305,8 @@ export function SalesNotifier({ workspaceId }: Props) {
         </div>,
         document.body
       )}
+
+      <audio id="cash-machine-player" src="/cash-machine.mp3" preload="auto" playsInline style={{ display: "none" }} />
 
     </>
   );
