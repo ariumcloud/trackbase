@@ -103,6 +103,7 @@ export function decorateLink(
       ["utm_campaign", attribution.utm_campaign],
       ["utm_term", attribution.utm_term],
       ["utm_content", attribution.utm_content],
+      ["utm_placement", attribution.utm_placement || attribution.placement],
       ["fbclid", attribution.fbclid],
     ];
 

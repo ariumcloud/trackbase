@@ -39,7 +39,7 @@ export function GET() {
         if (raw) current = JSON.parse(raw) || {};
       } catch(e) {}
 
-      var fields = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid'];
+      var fields = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_placement', 'placement', 'fbclid'];
       var fresh = false;
       for (var i = 0; i < fields.length; i++) {
         var f = fields[i];

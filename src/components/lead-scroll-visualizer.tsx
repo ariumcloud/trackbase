@@ -32,6 +32,7 @@ export interface LeadSession {
   device: string;
   source: string;
   campaign: string;
+  placement?: string;
   relativeTime: string;
   maxScroll: number; // 0 a 100
   timeSpentSeconds: number;
@@ -57,6 +58,7 @@ const initialMockLeads: LeadSession[] = [
     device: "iPhone 15 Pro · iOS 18",
     source: "Instagram Stories",
     campaign: "cbo_escala_v2 · Criativo 03",
+    placement: "Instagram Stories",
     relativeTime: "Há 2 min",
     maxScroll: 100,
     timeSpentSeconds: 215,
@@ -124,6 +126,7 @@ const initialMockLeads: LeadSession[] = [
     device: "Samsung Galaxy S24 · Android 14",
     source: "Facebook Feed",
     campaign: "ad_criativo_direto_04",
+    placement: "Facebook Feed (Mobile)",
     relativeTime: "Há 6 min",
     maxScroll: 88,
     timeSpentSeconds: 154,
@@ -176,6 +179,7 @@ const initialMockLeads: LeadSession[] = [
     device: "iPhone 14 · iOS 17",
     source: "TikTok Ads",
     campaign: "spark_ads_autoridade",
+    placement: "TikTok In-Feed",
     relativeTime: "Há 14 min",
     maxScroll: 92,
     timeSpentSeconds: 190,
@@ -525,6 +529,18 @@ export function LeadScrollVisualizer({
         });
       }
 
+      const rawPlacement = (attr.utm_placement || attr.placement || matchingSale?.attribution?.utm_placement || matchingSale?.attribution?.placement || "").trim();
+      let formattedPlacement: string | undefined = undefined;
+      if (rawPlacement) {
+        if (/instagram_stories|ig_stories/i.test(rawPlacement)) formattedPlacement = "Instagram Stories";
+        else if (/instagram_feed|ig_feed/i.test(rawPlacement)) formattedPlacement = "Instagram Feed";
+        else if (/instagram_reels|ig_reels/i.test(rawPlacement)) formattedPlacement = "Instagram Reels";
+        else if (/facebook_mobile_feed|fb_mobile_feed/i.test(rawPlacement)) formattedPlacement = "Facebook Feed (Mobile)";
+        else if (/facebook_stories|fb_stories/i.test(rawPlacement)) formattedPlacement = "Facebook Stories";
+        else if (/facebook_reels|fb_reels/i.test(rawPlacement)) formattedPlacement = "Facebook Reels";
+        else formattedPlacement = rawPlacement;
+      }
+
       result.push({
         id: `session_${sid}`,
         leadNumber: ++leadSeq,
@@ -533,6 +549,7 @@ export function LeadScrollVisualizer({
         device: attr.device || "Mobile",
         source: src,
         campaign: camp,
+        placement: formattedPlacement,
         relativeTime: relTime,
         maxScroll,
         timeSpentSeconds: timeSpent,
@@ -553,6 +570,18 @@ export function LeadScrollVisualizer({
       const camp = s.attribution?.utm_campaign || "Campanha Principal";
       const amt = s.gross_amount || s.amount || 0;
 
+      const rawSalePlacement = (s.attribution?.utm_placement || s.attribution?.placement || "").trim();
+      let formattedSalePlacement: string | undefined = undefined;
+      if (rawSalePlacement) {
+        if (/instagram_stories|ig_stories/i.test(rawSalePlacement)) formattedSalePlacement = "Instagram Stories";
+        else if (/instagram_feed|ig_feed/i.test(rawSalePlacement)) formattedSalePlacement = "Instagram Feed";
+        else if (/instagram_reels|ig_reels/i.test(rawSalePlacement)) formattedSalePlacement = "Instagram Reels";
+        else if (/facebook_mobile_feed|fb_mobile_feed/i.test(rawSalePlacement)) formattedSalePlacement = "Facebook Feed (Mobile)";
+        else if (/facebook_stories|fb_stories/i.test(rawSalePlacement)) formattedSalePlacement = "Facebook Stories";
+        else if (/facebook_reels|fb_reels/i.test(rawSalePlacement)) formattedSalePlacement = "Facebook Reels";
+        else formattedSalePlacement = rawSalePlacement;
+      }
+
       result.unshift({
         id: saleId,
         leadNumber: 9000 + idx,
@@ -561,6 +590,7 @@ export function LeadScrollVisualizer({
         device: "Dispositivo do Comprador",
         source: src,
         campaign: camp,
+        placement: formattedSalePlacement,
         relativeTime: "Venda Real",
         maxScroll: 100,
         timeSpentSeconds: 180,
@@ -1205,11 +1235,17 @@ export function LeadScrollVisualizer({
                     <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{lead.relativeTime}</span>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--muted)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", color: "var(--muted)", flexWrap: "wrap" }}>
                     <MapPin size={11} />
                     <span>{lead.location}</span>
                     <span>·</span>
                     <span>{lead.source}</span>
+                    {lead.placement && (
+                      <>
+                        <span>·</span>
+                        <span style={{ color: "#5B34EA", fontWeight: 700 }}>📱 {lead.placement}</span>
+                      </>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
@@ -1593,9 +1629,25 @@ export function LeadScrollVisualizer({
                       Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
                     </h3>
                   </div>
-                  <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-                    {selectedLead.location} · {selectedLead.source} · {selectedLead.campaign}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                    <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                      {selectedLead.location} · {selectedLead.source} · {selectedLead.campaign}
+                    </span>
+                    {selectedLead.placement && (
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          padding: "1px 8px",
+                          borderRadius: "6px",
+                          background: "rgba(91, 52, 234, 0.12)",
+                          color: "#5B34EA",
+                        }}
+                      >
+                        📱 {selectedLead.placement}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>

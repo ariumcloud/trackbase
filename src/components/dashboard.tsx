@@ -3038,6 +3038,7 @@ const UTM_CHANNEL_PRESETS: {
       utm_campaign: "{{campaign.id}}",
       utm_term: "{{adset.id}}",
       utm_content: "{{ad.id}}",
+      utm_placement: "{{placement}}",
     },
   },
   {
