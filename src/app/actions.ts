@@ -503,6 +503,11 @@ export async function deleteOffer(workspace: string, id: string): Promise<Action
     const ids = (integrations || []).map((item) => item.id);
     if (ids.length) {
       await service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await service.from("utm_insights").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await service.from("utm_ad_entities").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await service.from("utm_sales").delete().eq("workspace_id", workspace).in("integration_id", ids);
       await service.from("utm_integrations").delete().eq("workspace_id", workspace).in("id", ids);
     }
 
@@ -537,6 +542,81 @@ export async function deleteOffer(workspace: string, id: string): Promise<Action
   } catch (err) {
     console.error("deleteOffer failed:", err);
     return { error: "Não foi possível excluir o produto." };
+  }
+}
+
+export async function deleteIntegration(workspace: string, id: string): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    z.string().uuid().parse(id);
+    const service = admin();
+
+    const { data: integration, error: getErr } = await service
+      .from("utm_integrations")
+      .select("id, provider, offer_id, status")
+      .eq("workspace_id", workspace)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (getErr || !integration) {
+      return { error: "Integração não encontrada ou já removida." };
+    }
+
+    // Clean up dependent tables
+    await service.from("utm_credentials").delete().eq("workspace_id", workspace).eq("integration_id", id);
+    await service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).eq("integration_id", id);
+    await service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).eq("integration_id", id);
+    await service.from("utm_insights").delete().eq("workspace_id", workspace).eq("integration_id", id);
+    await service.from("utm_ad_entities").delete().eq("workspace_id", workspace).eq("integration_id", id);
+    await service.from("utm_sales").delete().eq("workspace_id", workspace).eq("integration_id", id);
+
+    // Delete the integration
+    const { error: delErr } = await service
+      .from("utm_integrations")
+      .delete()
+      .eq("workspace_id", workspace)
+      .eq("id", id);
+
+    if (delErr) throw delErr;
+
+    // If an offer was created solely for this integration and has no other integrations/links/sales, clean it up too
+    if (integration.offer_id) {
+      const { count: offerSales } = await service
+        .from("utm_sales")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace)
+        .eq("offer_id", integration.offer_id);
+
+      const { count: offerLinks } = await service
+        .from("utm_links")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace)
+        .eq("offer_id", integration.offer_id);
+
+      const { count: otherIntegrations } = await service
+        .from("utm_integrations")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace)
+        .eq("offer_id", integration.offer_id);
+
+      if (
+        (!offerSales || offerSales === 0) &&
+        (!offerLinks || offerLinks === 0) &&
+        (!otherIntegrations || otherIntegrations === 0)
+      ) {
+        await service
+          .from("utm_offers")
+          .delete()
+          .eq("workspace_id", workspace)
+          .eq("id", integration.offer_id);
+      }
+    }
+
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteIntegration failed:", err);
+    return { error: "Não foi possível excluir a integração." };
   }
 }
 export async function saveLink(

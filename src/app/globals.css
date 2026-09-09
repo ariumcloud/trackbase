@@ -2209,6 +2209,33 @@ tr:hover td {
   cursor: not-allowed;
 }
 
+.integration-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.integration-delete-btn:hover:not(:disabled) {
+  color: #DC2626;
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.integration-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .offer-destination-box {
   display: flex;
   flex-direction: column;

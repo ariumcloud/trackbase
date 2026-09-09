@@ -58,6 +58,7 @@ import {
   saveLink,
   toggleLink,
   deleteOffer,
+  deleteIntegration,
   savePaymentIntegration,
   saveGatewayWebhookSecret,
   removeGatewayWebhookSecret,
@@ -3666,18 +3667,40 @@ function IntegrationCard({
   };
   return (
     <section className="panel connection-row">
-      <div>
-        <h3>{i.name}</h3>
-        <p>
-          {statusText[i.status] || "Aguardando configuração"} ·{" "}
-          {i.currency || "Moeda pendente"}
-        </p>
-        {i.last_synced_at && (
-          <small>
-            Última sincronização:{" "}
-            {new Date(i.last_synced_at).toLocaleString("pt-BR")}
-          </small>
-        )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h3 style={{ wordBreak: "break-word" }}>{i.name}</h3>
+          <p>
+            {statusText[i.status] || "Aguardando configuração"} ·{" "}
+            {i.currency || "Moeda pendente"}
+          </p>
+          {i.last_synced_at && (
+            <small>
+              Última sincronização:{" "}
+              {new Date(i.last_synced_at).toLocaleString("pt-BR")}
+            </small>
+          )}
+        </div>
+        <button
+          type="button"
+          className="integration-delete-btn"
+          disabled={pending}
+          onClick={() => {
+            if (
+              window.confirm(
+                `Tem certeza que deseja excluir a integração "${i.name}"? As configurações associadas a ela serão removidas.`,
+              )
+            ) {
+              run(async () => {
+                const res = await deleteIntegration(workspace, i.id);
+                if (res.error) throw new Error(res.error);
+              });
+            }
+          }}
+          title="Excluir esta integração"
+        >
+          <Trash2 size={13} /> Excluir
+        </button>
       </div>
       {i.provider === "meta" ? (
         <div className="connection-actions">
