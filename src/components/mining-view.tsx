@@ -26,6 +26,11 @@ import {
   Megaphone,
   UserCheck,
   FileText,
+  Play,
+  Pause,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import type { Analysis, MinedOffer, Monitor } from "@/lib/mining/schema";
 import { publicUrl } from "@/lib/mining/schema";
@@ -1020,15 +1025,19 @@ function MonitorHistory({
   workspace: string;
   open: (id: string) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [rows, setRows] = useState<
       (History["runs"][number] & { offer_id?: string })[]
     >([]),
     [error, setError] = useState(""),
     [page, setPage] = useState(0),
     [count, setCount] = useState(0),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(false);
+
   useEffect(() => {
+    if (!isOpen) return;
     let active = true;
+    setLoading(true);
     api<{
       runs: (History["runs"][number] & { offer_id?: string })[];
       count: number;
@@ -1048,46 +1057,102 @@ function MonitorHistory({
     return () => {
       active = false;
     };
-  }, [monitor.id, workspace, page]);
+  }, [isOpen, monitor.id, workspace, page]);
+
   return (
-    <details>
-      <summary>Histórico de verificações e anúncios observados</summary>
-      {loading && <p>Carregando…</p>}
-      {error && <p role="alert">{error}</p>}
-      {!loading && !rows.length && <p>Nenhuma verificação registrada.</p>}
-      {rows.map((r) => (
-        <div className="mining-row" key={r.id}>
-          <p>
-            {date(r.created_at)} ·{" "}
-            {r.status === "observed"
-              ? "Anúncio observado"
-              : `Falha: ${r.error}`}
-          </p>
-          {r.offer_id && (
-            <button
-              className="button secondary"
-              onClick={() => open(r.offer_id!)}
+    <div className="mining-monitor-history-box">
+      <button
+        type="button"
+        className="mining-monitor-history-toggle"
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Clock size={15} style={{ color: "#5b34ea" }} />
+          <span>Histórico de verificações e anúncios observados</span>
+          {count > 0 && (
+            <span
+              style={{
+                fontSize: "11px",
+                background: "rgba(91, 52, 234, 0.1)",
+                color: "#5b34ea",
+                padding: "2px 7px",
+                borderRadius: "9999px",
+                fontWeight: 700,
+              }}
             >
-              Ver anúncio e alterações
-            </button>
+              {count}
+            </span>
+          )}
+        </span>
+        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
+      {isOpen && (
+        <div className="mining-monitor-history-content">
+          {loading && (
+            <p style={{ margin: "8px 0", fontSize: "13px", color: "var(--muted, #64748b)" }}>
+              Carregando histórico…
+            </p>
+          )}
+          {error && (
+            <p role="alert" style={{ color: "#ef4444", fontSize: "13px", margin: "8px 0" }}>
+              {error}
+            </p>
+          )}
+          {!loading && !rows.length && (
+            <p style={{ margin: "8px 0", fontSize: "13px", color: "var(--muted, #64748b)" }}>
+              Nenhuma verificação registrada ainda.
+            </p>
+          )}
+          {rows.map((r) => (
+            <div className="mining-monitor-timeline-item" key={r.id}>
+              <div className="mining-monitor-timeline-left">
+                <span
+                  className={`mining-monitor-timeline-dot ${r.status === "observed" ? "" : "error"}`}
+                />
+                <div>
+                  <span className="mining-monitor-timeline-date">{date(r.created_at)}</span>
+                  <div className="mining-monitor-timeline-status">
+                    {r.status === "observed"
+                      ? "✓ Anúncio observado e ativo"
+                      : `⚠️ Falha: ${r.error}`}
+                  </div>
+                </div>
+              </div>
+              {r.offer_id && (
+                <button
+                  type="button"
+                  className="mining-monitor-btn-inspect"
+                  onClick={() => open(r.offer_id!)}
+                >
+                  <Eye size={13} />
+                  <span>Inspecionar</span>
+                </button>
+              )}
+            </div>
+          ))}
+
+          {count > 30 && (
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <button
+                className="mining-monitor-btn-toggle"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Anterior
+              </button>
+              <button
+                className="mining-monitor-btn-toggle"
+                disabled={(page + 1) * 30 >= count}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Mais verificações
+              </button>
+            </div>
           )}
         </div>
-      ))}
-      <button
-        className="button secondary"
-        disabled={page === 0}
-        onClick={() => setPage((p) => p - 1)}
-      >
-        Anterior
-      </button>
-      <button
-        className="button secondary"
-        disabled={(page + 1) * 30 >= count}
-        onClick={() => setPage((p) => p + 1)}
-      >
-        Mais verificações
-      </button>
-    </details>
+      )}
+    </div>
   );
 }
 function AnalysisView({ analysis }: { analysis: Analysis }) {
@@ -1644,13 +1709,33 @@ export function MiningView({ workspace }: { workspace: string }) {
 
           {tab === "monitors" && (
             <>
-              <div className="mining-panel">
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}>
-                  Acompanhamento de Concorrentes & Páginas
-                </h3>
-                <p style={{ margin: 0, fontSize: "13px", color: "var(--muted, #64748b)", lineHeight: 1.5 }}>
-                  O monitoramento registra alterações nos anúncios que você escolheu inspecionar. Para acompanhar novas ofertas de um concorrente, clique em <strong>“Monitorar anunciante”</strong> nos detalhes de uma oferta com Page ID.
-                </p>
+              {/* Radar Hero Banner */}
+              <div className="mining-monitor-hero">
+                <div>
+                  <div className="mining-radar-badge">
+                    <span className="mining-pulse-dot" />
+                    <span>Radar Ativo</span>
+                  </div>
+                  <h3 style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: 700, color: "var(--text-main, #0f172a)" }}>
+                    Monitoramento de Concorrentes & Anúncios
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "13px", color: "var(--muted, #64748b)", lineHeight: 1.5, maxWidth: "600px" }}>
+                    O radar registra automaticamente alterações em anúncios salvos e descobre novas ofertas de páginas concorrentes cadastradas.
+                  </p>
+                </div>
+
+                <div className="mining-monitor-stats">
+                  <div className="mining-monitor-stat-box">
+                    <div className="mining-monitor-stat-num">{monitors.length}</div>
+                    <div className="mining-monitor-stat-lbl">Rastreados</div>
+                  </div>
+                  <div className="mining-monitor-stat-box">
+                    <div className="mining-monitor-stat-num" style={{ color: "#10b981" }}>
+                      {monitors.filter((m) => m.status === "active").length}
+                    </div>
+                    <div className="mining-monitor-stat-lbl">Ativos</div>
+                  </div>
+                </div>
               </div>
 
               {!loading && !error && !monitors.length && (
@@ -1658,87 +1743,128 @@ export function MiningView({ workspace }: { workspace: string }) {
                   <div className="mining-empty-icon">
                     <Activity size={28} />
                   </div>
-                  <h3>Nenhum monitoramento ativo</h3>
+                  <h3>Nenhum concorrente ou oferta no radar</h3>
                   <p>
-                    Abra uma oferta salva e clique em “Monitorar oferta” ou “Monitorar anunciante” para registrar mudanças automáticas.
+                    Abra qualquer oferta salva e clique em <strong>“Monitorar anunciante”</strong> ou <strong>“Monitorar oferta”</strong> para receber atualizações automáticas.
                   </p>
                 </div>
               )}
 
-              {monitors.map((m) => (
-                <div className="mining-panel" key={m.id}>
-                  <div className="mining-row">
-                    <div>
-                      <h3 style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: 700 }}>
-                        {m.label}
-                      </h3>
-                      <span style={{ fontSize: "12px", color: "var(--muted, #64748b)" }}>
-                        {m.page_id ? `Página ID #${m.page_id}` : "Oferta selecionada"} ·{" "}
-                        <span style={{ color: m.status === "active" ? "#10b981" : "#f59e0b", fontWeight: 700 }}>
-                          {m.status === "active" ? "🟢 Ativo" : "⏸ Pausado"}
-                        </span>
-                      </span>
-                    </div>
+              <div className="mining-monitor-list">
+                {monitors.map((m) => (
+                  <div className="mining-monitor-card" key={m.id}>
+                    <div className="mining-monitor-header">
+                      <div className="mining-monitor-profile">
+                        <div className="mining-monitor-avatar">
+                          {m.label.trim().charAt(0).toUpperCase() || "C"}
+                        </div>
+                        <div className="mining-monitor-info">
+                          <h3>{m.label}</h3>
+                          <div className="mining-monitor-badges">
+                            {m.status === "active" ? (
+                              <span className="mining-monitor-badge-active">
+                                <span className="mining-pulse-dot" />
+                                <span>Ativo em vigilância</span>
+                              </span>
+                            ) : (
+                              <span className="mining-monitor-badge-paused">
+                                <Pause size={11} />
+                                <span>Pausado</span>
+                              </span>
+                            )}
+                            <span className="mining-monitor-badge-type">
+                              {m.page_id ? `🏢 Página ID #${m.page_id}` : "🎯 Oferta selecionada"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                    <div className="mining-actions">
-                      <button
-                        className="button secondary"
-                        disabled={busy}
-                        onClick={() => void changeMonitor(m)}
-                      >
-                        {m.status === "active" ? "Pausar" : "Ativar"}
-                      </button>
-                      <button
-                        className="button secondary"
-                        style={{ color: "#ef4444" }}
-                        disabled={busy}
-                        onClick={() => void changeMonitor(m, true)}
-                      >
-                        Remover
-                      </button>
-                      {m.offer_id && (
+                      <div className="mining-monitor-actions">
+                        {m.offer_id && (
+                          <button
+                            type="button"
+                            className="mining-monitor-btn-view"
+                            onClick={async () => {
+                              try {
+                                const r = await api<{ offer: MinedOffer }>(
+                                  `offers/${m.offer_id}?workspace=${workspace}`,
+                                );
+                                setSelected(r.offer);
+                              } catch (e) {
+                                setError((e as Error).message);
+                              }
+                            }}
+                          >
+                            <Eye size={14} />
+                            <span>Ver oferta</span>
+                          </button>
+                        )}
                         <button
-                          className="button"
-                          onClick={async () => {
-                            try {
-                              const r = await api<{ offer: MinedOffer }>(
-                                `offers/${m.offer_id}?workspace=${workspace}`,
-                              );
-                              setSelected(r.offer);
-                            } catch (e) {
-                              setError((e as Error).message);
-                            }
-                          }}
+                          type="button"
+                          className="mining-monitor-btn-toggle"
+                          disabled={busy}
+                          onClick={() => void changeMonitor(m)}
                         >
-                          Ver oferta
+                          {m.status === "active" ? (
+                            <>
+                              <Pause size={13} />
+                              <span>Pausar</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play size={13} />
+                              <span>Ativar</span>
+                            </>
+                          )}
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          className="mining-monitor-btn-remove"
+                          disabled={busy}
+                          onClick={() => void changeMonitor(m, true)}
+                          title="Remover este monitoramento"
+                        >
+                          <Trash2 size={13} />
+                          <span>Remover</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {m.last_error && (
+                      <div
+                        role="alert"
+                        style={{
+                          marginTop: "12px",
+                          padding: "8px 12px",
+                          background: "rgba(239, 68, 68, 0.08)",
+                          border: "1px solid rgba(239, 68, 68, 0.2)",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          color: "#ef4444",
+                        }}
+                      >
+                        Último erro registrado: {m.last_error}
+                      </div>
+                    )}
+
+                    <MonitorHistory
+                      key={`${m.id}-${revision}`}
+                      monitor={m}
+                      workspace={workspace}
+                      open={async (id) => {
+                        try {
+                          const r = await api<{ offer: MinedOffer }>(
+                            `offers/${id}?workspace=${workspace}`,
+                          );
+                          setSelected(r.offer);
+                        } catch (e) {
+                          setError((e as Error).message);
+                        }
+                      }}
+                    />
                   </div>
-
-                  {m.last_error && (
-                    <p role="alert" style={{ margin: 0, fontSize: "12px", color: "#ef4444" }}>
-                      Último erro: {m.last_error}
-                    </p>
-                  )}
-
-                  <MonitorHistory
-                    key={`${m.id}-${revision}`}
-                    monitor={m}
-                    workspace={workspace}
-                    open={async (id) => {
-                      try {
-                        const r = await api<{ offer: MinedOffer }>(
-                          `offers/${id}?workspace=${workspace}`,
-                        );
-                        setSelected(r.offer);
-                      } catch (e) {
-                        setError((e as Error).message);
-                      }
-                    }}
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
             </>
           )}
         </>

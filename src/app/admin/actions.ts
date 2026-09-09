@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/platform-admin";
 import { adminMutationSchema } from "@/lib/admin-validation";
 import { rateLimit } from "@/lib/security";
+import { invalidateAdminOverviewCache } from "@/lib/admin-data";
 
 export async function adminMutation(
   form: FormData,
@@ -29,6 +30,7 @@ export async function adminMutation(
         error:
           "A alteração não foi salva. Atualize a página e tente novamente.",
       };
+    invalidateAdminOverviewCache();
     revalidatePath("/admin", "layout");
     revalidatePath("/painel");
     return { ok: true };

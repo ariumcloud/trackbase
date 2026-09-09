@@ -102,6 +102,35 @@ export type AdminData = {
   offers: AdminOffer[];
 };
 
+let cachedOverview: { data: AdminOverview; timestamp: number } | null = null;
+const OVERVIEW_CACHE_TTL_MS = 25_000;
+
+export function invalidateAdminOverviewCache() {
+  cachedOverview = null;
+}
+
+async function fetchOverviewWithCache(
+  client: {
+    rpc: (
+      name: string,
+      args?: Record<string, unknown>,
+    ) => PromiseLike<{ data: unknown; error: unknown }>;
+  },
+): Promise<{ data: AdminOverview | null; error: unknown }> {
+  const now = Date.now();
+  if (cachedOverview && now - cachedOverview.timestamp < OVERVIEW_CACHE_TTL_MS) {
+    return { data: cachedOverview.data, error: null };
+  }
+  const res = await client.rpc("utm_admin_overview");
+  if (!res.error && res.data) {
+    cachedOverview = { data: res.data as AdminOverview, timestamp: now };
+  }
+  return {
+    data: (res.data as AdminOverview | null) ?? null,
+    error: res.error,
+  };
+}
+
 export async function getAdminData(
   search: string,
   page: number,
@@ -111,8 +140,8 @@ export async function getAdminData(
   const { client } = await requirePlatformAdmin();
   const emptyList = Promise.resolve({ data: [], error: null });
 
-  // Overview RPC provides platform metrics and badge counts across tabs
-  const overviewPromise = client.rpc("utm_admin_overview");
+  // Overview RPC provides platform metrics and badge counts across tabs (cached in-memory for speed)
+  const overviewPromise = fetchOverviewWithCache(client);
 
   // Directory is only needed on customers tab or overview preview (page 1)
   const directoryPromise =
