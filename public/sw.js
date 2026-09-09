@@ -42,6 +42,15 @@ self.addEventListener("push", (event) => {
           });
         });
       })
+        return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+          clientList.forEach((client) => {
+            client.postMessage({
+              type: "PLAY_SALE_SOUND",
+              data: payload,
+            });
+          });
+        });
+      })
     );
   } catch (err) {
     console.error("Erro ao processar push notification:", err);
@@ -50,13 +59,19 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || "/painel";
+  const rawUrl = event.notification.data?.url || "/painel";
+  const separator = rawUrl.includes("?") ? "&" : "?";
+  const urlToOpen = `${rawUrl}${separator}sale_alert=1`;
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if (client.url.includes("/painel") && "focus" in client) {
+          client.postMessage({
+            type: "PLAY_SALE_SOUND",
+            data: event.notification.data,
+          });
           return client.focus();
         }
       }

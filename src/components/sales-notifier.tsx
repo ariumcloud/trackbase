@@ -33,6 +33,16 @@ function hasSameApplicationServerKey(
   return current.length === expectedKey.length && current.every((value, index) => value === expectedKey[index]);
 }
 
+function isMobileEnvironment() {
+  if (typeof window === "undefined") return false;
+  const userAgent = navigator.userAgent || "";
+  const isTouch = "ontouchstart" in window || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+  return (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) ||
+    (window.innerWidth <= 768 && isTouch)
+  );
+}
+
 export function SalesNotifier({ workspaceId }: Props) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,6 +57,22 @@ export function SalesNotifier({ workspaceId }: Props) {
   const playKaching = useCallback(() => {
     soundPlayer.play().catch((e) => console.error("Audio play failed:", e));
   }, []);
+
+  // When opened via mobile push notification click (sale_alert=1)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("sale_alert") === "1") {
+          url.searchParams.delete("sale_alert");
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+          playKaching();
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [playKaching]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
@@ -108,7 +134,10 @@ export function SalesNotifier({ workspaceId }: Props) {
 
       const handleMessage = (event: MessageEvent) => {
         if (event.data?.type === "PLAY_SALE_SOUND") {
-          playKaching();
+          // Apenas toca o áudio automaticamente em dispositivos móveis (evita susto/som no PC)
+          if (isMobileEnvironment()) {
+            playKaching();
+          }
           if (event.data?.data?.title) {
             setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
             setTimeout(() => setToastMessage(null), 7000);
