@@ -36,6 +36,10 @@ import {
   Radio,
   BookOpen,
   Sparkles,
+  Globe,
+  ExternalLink,
+  Code2,
+  Package,
 } from "lucide-react";
 import { McpSettingsView } from "./mcp-settings-view";
 import { UtmifySummary } from "./utmify-summary";
@@ -210,16 +214,18 @@ const titles: Record<string, [string, string]> = {
 function Clipboard({
   value,
   label = "Copiar",
+  className = "button small",
 }: {
   value: string;
   label?: string;
+  className?: string;
 }) {
   const [copied, setCopied] = useState(false),
     [error, setError] = useState(false);
   return (
     <button
       type="button"
-      className="button small"
+      className={className}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
@@ -231,7 +237,7 @@ function Clipboard({
       }}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}{" "}
-      {error ? "Selecione e copie" : copied ? "Copiado" : label}
+      {error ? "Selecione e copie" : copied ? "Copiado!" : label}
     </button>
   );
 }
@@ -1561,133 +1567,166 @@ export function Dashboard(p: Props) {
                     {p.links.length} {p.links.length === 1 ? "link ativo" : "links ativos"}
                   </span>
                 </div>
-                <button className="button primary offers-create-button" onClick={() => create("offer")}>
-                  <Plus size={15} /> Nova oferta
-                </button>
               </div>
               {p.offers.length ? (
                 <div className="offer-grid">
-                  {p.offers.map((o) => (
-                    <section className="panel offer-card" key={o.id}>
-                      <div className="offer-card-head">
-                        <span className="empty-icon">
-                          <Layers size={23} />
-                        </span>
-                        <button
-                          type="button"
-                          className="button secondary offer-edit-button"
-                          onClick={() => setModal(`offer-edit-${o.id}`)}
-                        >
-                          <Pencil size={12} /> Editar
-                        </button>
-                      </div>
-                      <div className="offer-card-body">
-                        <div className="offer-chips">
-                          <span className="chip">{o.currency}</span>
-                        {o.product_type && (
-                          <span className="chip">
-                            {o.product_type === "main"
-                              ? "Principal"
-                              : o.product_type === "order_bump"
-                                ? "Order Bump"
-                                : o.product_type === "upsell"
-                                  ? "Upsell"
-                                  : o.product_type === "downsell"
-                                    ? "Downsell"
-                                    : o.product_type === "subscription"
-                                      ? "Assinatura"
-                                      : o.product_type === "complementary"
-                                        ? "Complementar"
-                                        : o.product_type === "alternative"
-                                          ? "Alternativo"
-                                          : o.product_type}
-                          </span>
-                        )}
-                        {o.platform && (
-                          <span className="chip offer-platform-chip">
-                            {o.platform}
-                          </span>
-                        )}
-                        </div>
-                        <h2>{o.name}</h2>
-                        <div className="offer-destinations">
-                          <a className="url-text" href={o.landing_url} target="_blank" rel="noreferrer">{o.landing_url}</a>
-                          {o.checkout_url && (
-                            <a className="offer-checkout-url" href={o.checkout_url} target="_blank" rel="noreferrer">
-                              <span>Checkout</span>{o.checkout_url}
+                  {p.offers.map((o) => {
+                    const offerLinksCount = p.links.filter((l) => l.offer_id === o.id).length;
+                    const badgeClass =
+                      o.product_type === "main"
+                        ? "primary"
+                        : ["order_bump", "upsell"].includes(o.product_type || "")
+                          ? "success"
+                          : "neutral";
+                    const badgeLabel =
+                      o.product_type === "main"
+                        ? "Principal"
+                        : o.product_type === "order_bump"
+                          ? "Order Bump"
+                          : o.product_type === "upsell"
+                            ? "Upsell"
+                            : o.product_type === "downsell"
+                              ? "Downsell"
+                              : o.product_type === "subscription"
+                                ? "Assinatura"
+                                : o.product_type === "complementary"
+                                  ? "Complementar"
+                                  : o.product_type === "alternative"
+                                    ? "Alternativo"
+                                    : o.product_type;
+
+                    return (
+                      <section className="offer-card" key={o.id}>
+                        <div>
+                          <div className="offer-card-head">
+                            <div className="offer-card-icon-wrap">
+                              <span className="offer-avatar-badge">
+                                <Package size={20} />
+                              </span>
+                              <div className="offer-title-wrap">
+                                <h2 title={o.name}>{o.name}</h2>
+                                <div className="offer-badges-row">
+                                  {badgeLabel && (
+                                    <span className={`offer-badge ${badgeClass}`}>
+                                      {badgeLabel}
+                                    </span>
+                                  )}
+                                  <span className="offer-badge neutral">{o.currency}</span>
+                                  {o.platform && (
+                                    <span className="offer-badge platform">
+                                      {o.platform}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="offer-edit-btn"
+                              onClick={() => setModal(`offer-edit-${o.id}`)}
+                              title="Editar configurações desta oferta"
+                            >
+                              <Pencil size={12} /> Editar
+                            </button>
+                          </div>
+
+                          <div className="offer-destination-box">
+                            <a
+                              className="offer-dest-link"
+                              href={o.landing_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Abrir página de destino"
+                            >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                                <Globe size={13} style={{ flexShrink: 0, color: "var(--brand-accent)" }} />
+                                <span>{o.landing_url.replace(/^https?:\/\//, "")}</span>
+                              </span>
+                              <ExternalLink size={12} style={{ flexShrink: 0, opacity: 0.6 }} />
                             </a>
+                            {o.checkout_url && (
+                              <a
+                                className="offer-dest-link"
+                                href={o.checkout_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: "11px", color: "var(--muted)" }}
+                              >
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                                  <span style={{ fontWeight: 700, fontSize: "9px", letterSpacing: "0.5px", textTransform: "uppercase", color: "var(--brand-accent)" }}>CHECKOUT</span>
+                                  <span>{o.checkout_url.replace(/^https?:\/\//, "")}</span>
+                                </span>
+                                <ExternalLink size={11} style={{ flexShrink: 0, opacity: 0.5 }} />
+                              </a>
+                            )}
+                            {(Number(o.percent_fee) > 0 || Number(o.fixed_fee) > 0) && (
+                              <div className="offer-fee-text">
+                                <span>Taxas da plataforma:</span>
+                                <strong>
+                                  {Number(o.percent_fee) > 0 ? `${o.percent_fee}% ` : ""}
+                                  {Number(o.fixed_fee) > 0 ? `+ ${money(o.fixed_fee ?? null)} fixa` : ""}
+                                </strong>
+                              </div>
+                            )}
+                          </div>
+
+                          {o.public_key && (
+                            <div className="offer-script-bar">
+                              <div className="offer-script-info">
+                                <Code2 size={18} />
+                                <div className="offer-script-text">
+                                  <strong>Script de Rastreamento</strong>
+                                  <code>tracker.js · key: {o.public_key.slice(0, 8)}...</code>
+                                </div>
+                              </div>
+                              <Clipboard
+                                value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
+                                label="Copiar Script"
+                                className="offer-copy-script-btn"
+                              />
+                            </div>
+                          )}
+
+                          {p.integrations.some(
+                            (integration) =>
+                              integration.offer_id === o.id &&
+                              integration.provider === "cakto" &&
+                              integration.status !== "connected",
+                          ) && (
+                            <div className="offer-activation">
+                              <div>
+                                <strong>Falta ativar as vendas</strong>
+                                <span>
+                                  Configure o webhook da Cakto para receber compras, reembolsos e chargebacks.
+                                </span>
+                              </div>
+                              <button
+                                className="button secondary"
+                                type="button"
+                                onClick={() => selectTab("integracoes")}
+                              >
+                                Configurar webhook
+                              </button>
+                            </div>
                           )}
                         </div>
-                      {(Number(o.percent_fee) > 0 ||
-                        Number(o.fixed_fee) > 0 ||
-                        Number(o.cost_per_sale) > 0) && (
-                        <p className="offer-fees">
-                          Taxas:{" "}
-                          {Number(o.percent_fee) > 0
-                            ? `${o.percent_fee}% `
-                            : ""}
-                          {Number(o.fixed_fee) > 0
-                            ? `+ ${money(o.fixed_fee ?? null)} fixa `
-                            : ""}
-                          {Number(o.cost_per_sale) > 0
-                            ? `· Custo: ${money(o.cost_per_sale ?? null)}`
-                            : ""}
-                        </p>
-                      )}
-                      {o.public_key && (
-                        <div className="offer-script-box">
-                          <div className="offer-script-head">
-                            <small>
-                              Script da Página / Quiz:
-                            </small>
-                            <Clipboard
-                              value={`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
-                              label="Copiar script"
-                            />
-                          </div>
-                          <code>
-                            {`<script src="${p.appUrl}/tracker.js" data-key="${o.public_key}"></script>`}
-                          </code>
-                        </div>
-                      )}
-                      {p.integrations.some(
-                        (integration) =>
-                          integration.offer_id === o.id &&
-                          integration.provider === "cakto" &&
-                          integration.status !== "connected",
-                      ) && (
-                        <div className="offer-activation">
-                          <div>
-                            <strong>Falta ativar as vendas</strong>
-                            <span>
-                              Configure o webhook da Cakto para receber compras,
-                              reembolsos e chargebacks.
-                            </span>
-                          </div>
+
+                        <div className="offer-card-footer">
+                          <span className="offer-links-badge">
+                            <Link2 size={13} />
+                            {offerLinksCount} {offerLinksCount === 1 ? "link criado" : "links criados"}
+                          </span>
                           <button
-                            className="button secondary"
                             type="button"
-                            onClick={() => selectTab("integracoes")}
+                            className="offer-create-link-btn"
+                            onClick={() => create("link")}
                           >
-                            Configurar webhook
+                            + Criar link <ArrowUpRight size={13} />
                           </button>
                         </div>
-                      )}
-                      </div>
-                      <div className="offer-footer">
-                        <span>
-                          {p.links.filter((l) => l.offer_id === o.id).length}{" "}
-                          links criados
-                        </span>
-                        <button
-                          className="text-button"
-                          onClick={() => create("link")}
-                        >
-                          Criar link <ArrowUpRight size={14} />
-                        </button>
-                      </div>
-                    </section>
-                  ))}
+                      </section>
+                    );
+                  })}
                 </div>
               ) : (
                 <section className="panel">
@@ -1709,241 +1748,163 @@ export function Dashboard(p: Props) {
             </>
           )}
           {tab === "links" && (
-            <section className="panel">
-              <div className="panel-heading">
+            <div className="links-container">
+              <div className="links-header-bar">
                 <div>
-                  <h2>Seus links, sempre à mão</h2>
+                  <h2>Seus links de rastreamento</h2>
                   <p>
-                    {p.links.length} links · parâmetros visíveis mesmo depois de
-                    salvar
+                    {p.links.length} {p.links.length === 1 ? "link ativo" : "links cadastrados"} · parâmetros visíveis e prontos para Meta Ads
                   </p>
                 </div>
-                <Link2 size={22} />
+                <Link2 size={22} style={{ color: "var(--brand-accent)" }} />
               </div>
               {p.links.length ? (
                 <div className="link-list">
                   {p.links.map((l) => {
                     const built = buildLink(l.url, l.params);
+                    const offerName = p.offers.find((o) => o.id === l.offer_id)?.name;
                     return (
-                      <article key={l.id} className="saved-link">
-                        <div className="saved-link-heading">
-                          <h3>{l.name}</h3>
-                          <span className={`chip ${l.active ? "green" : ""}`}>
-                            {l.active ? "Ativo" : "Inativo"}
-                          </span>
-                        </div>
-                        <p
-                          style={{
-                            margin: "0 0 10px",
-                            fontSize: "13px",
-                            color: "var(--ink-secondary)",
-                          }}
-                        >
-                          Oferta:{" "}
-                          <strong>
-                            {p.offers.find((o) => o.id === l.offer_id)?.name}
-                          </strong>
-                        </p>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 10,
-                          }}
-                        >
-                          <label>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 4,
-                              }}
+                      <article key={l.id} className="saved-link-card">
+                        {/* Top info and actions */}
+                        <div className="saved-link-top">
+                          <div className="saved-link-info">
+                            <span className="saved-link-avatar">
+                              <Link2 size={18} />
+                            </span>
+                            <div className="saved-link-titles">
+                              <div className="saved-link-title-row">
+                                <h3>{l.name}</h3>
+                                <span className={`status-pill ${l.active ? "active" : "inactive"}`}>
+                                  <span className="status-dot" />
+                                  {l.active ? "Ativo" : "Inativo"}
+                                </span>
+                              </div>
+                              {offerName && (
+                                <span className="offer-tag">
+                                  <Package size={13} /> Oferta: <strong>{offerName}</strong>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="saved-link-actions">
+                            <button
+                              type="button"
+                              className="link-btn-ghost"
+                              disabled={pending}
+                              title="Duplicar este link"
+                              onClick={() =>
+                                run(async () => {
+                                  const r = await saveLink(workspace, {
+                                    name: `${l.name} (cópia)`,
+                                    url: l.url,
+                                    offer_id: l.offer_id,
+                                    params: l.params,
+                                  });
+                                  if (r.error) throw new Error(r.error);
+                                })
+                              }
                             >
-                              <span
-                                style={{ fontSize: "12px", fontWeight: 700 }}
-                              >
-                                1. URL do site (Página de destino limpa para a
-                                Meta)
-                              </span>
+                              <Copy size={13} /> Duplicar
+                            </button>
+                            <button
+                              type="button"
+                              className="link-btn-ghost"
+                              disabled={pending}
+                              onClick={() =>
+                                run(async () => {
+                                  const r = await toggleLink(workspace, l.id, !l.active);
+                                  if (r.error) throw new Error(r.error);
+                                })
+                              }
+                            >
+                              {l.active ? "Desativar" : "Ativar"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* HERO: Link Completo Integrado */}
+                        <div className="hero-tracking-banner">
+                          <div className="hero-tracking-head">
+                            <span className="hero-tracking-head-title">
+                              <Sparkles size={14} /> Link Completo (URL + Parâmetros)
+                            </span>
+                            <Clipboard
+                              value={built.full}
+                              label="Copiar Link Completo"
+                              className="hero-copy-btn"
+                            />
+                          </div>
+                          <div className="hero-tracking-url-box">
+                            <code title={built.full}>{built.full}</code>
+                          </div>
+                        </div>
+
+                        {/* Meta Ads 2-Column Split */}
+                        <div className="meta-ads-split-grid">
+                          <div className="meta-split-box">
+                            <div className="meta-split-head">
+                              <span>1. URL do Site (Página Limpa)</span>
                               <Clipboard
                                 value={l.url}
-                                label="Copiar URL do site"
+                                label="Copiar URL"
+                                className="meta-copy-pill"
                               />
                             </div>
-                            <input
-                              readOnly
-                              value={l.url}
-                              style={{ width: "100%" }}
-                            />
-                          </label>
-                          <label>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 4,
-                              }}
-                            >
-                              <span
-                                style={{ fontSize: "12px", fontWeight: 700 }}
-                              >
-                                2. Parâmetros de URL (Campo da Meta Ads)
-                              </span>
+                            <div className="meta-split-content" title={l.url}>
+                              {l.url}
+                            </div>
+                          </div>
+
+                          <div className="meta-split-box">
+                            <div className="meta-split-head">
+                              <span>2. Parâmetros de URL (Meta Ads)</span>
                               <Clipboard
                                 value={built.parameters}
-                                label="Copiar parâmetros"
+                                label="Copiar Parâmetros"
+                                className="meta-copy-pill"
                               />
                             </div>
-                            <textarea
-                              readOnly
-                              rows={2}
-                              value={built.parameters}
-                              style={{ width: "100%" }}
-                            />
-                          </label>
-                          <label>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 4,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: "12px",
-                                  fontWeight: 600,
-                                  color: "var(--ink-secondary)",
-                                }}
-                              >
-                                3. Link completo integrado (URL + Parâmetros
-                                juntos)
-                              </span>
-                              <Clipboard
-                                value={built.full}
-                                label="Copiar link completo"
-                              />
+                            <div className="meta-split-content" title={built.parameters}>
+                              {built.parameters}
                             </div>
-                            <textarea
-                              readOnly
-                              rows={2}
-                              value={built.full}
-                              style={{ width: "100%", opacity: 0.9 }}
-                            />
-                          </label>
+                          </div>
                         </div>
+
                         {l.public_key && (
-                          <div
-                            style={{
-                              marginTop: "0.5rem",
-                              marginBottom: "0.75rem",
-                              padding: "0.5rem",
-                              background: "var(--surface-subtle, #F9FAFB)",
-                              borderRadius: "6px",
-                              border: "1px solid var(--line, #E5E7EB)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: "0.25rem",
-                              }}
-                            >
-                              <small
-                                style={{
-                                  fontSize: "0.75rem",
-                                  color: "var(--muted, #64748B)",
-                                }}
-                              >
-                                Script individual deste link:
-                              </small>
-                              <Clipboard
-                                value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
-                                label="Copiar script"
-                              />
-                            </div>
-                            <code
-                              style={{
-                                fontSize: "0.7rem",
-                                wordBreak: "break-all",
-                                display: "block",
-                                color: "var(--brand-accent, #5B34EA)",
-                              }}
-                            >
-                              {`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
-                            </code>
+                          <div className="link-script-snippet-bar">
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <Code2 size={14} style={{ color: "var(--brand-accent)" }} />
+                              Script individual deste link (opcional)
+                            </span>
+                            <Clipboard
+                              value={`<script src="${p.appUrl}/tracker.js" data-key="${l.public_key}"></script>`}
+                              label="Copiar script"
+                              className="meta-copy-pill"
+                            />
                           </div>
                         )}
-                        <div className="link-actions">
-                          <Clipboard value={l.url} label="Copiar URL" />
-                          <Clipboard
-                            value={built.parameters}
-                            label="Copiar parâmetros"
-                          />
-                          <Clipboard value={built.full} label="Copiar link" />
-                          <button
-                            className="button small"
-                            disabled={pending}
-                            onClick={() =>
-                              run(async () => {
-                                const r = await saveLink(workspace, {
-                                  name: `${l.name} (cópia)`,
-                                  url: l.url,
-                                  offer_id: l.offer_id,
-                                  params: l.params,
-                                });
-                                if (r.error) throw new Error(r.error);
-                              })
-                            }
-                          >
-                            Duplicar
-                          </button>
-                          <button
-                            className="text-button"
-                            disabled={pending}
-                            onClick={() =>
-                              run(async () => {
-                                const r = await toggleLink(
-                                  workspace,
-                                  l.id,
-                                  !l.active,
-                                );
-                                if (r.error) throw new Error(r.error);
-                              })
-                            }
-                          >
-                            {l.active ? "Desativar" : "Ativar"}
-                          </button>
-                        </div>
-                        <small>
-                          O status organiza o histórico; links diretos já
-                          distribuídos continuam acessíveis.
-                        </small>
                       </article>
                     );
                   })}
                 </div>
               ) : (
-                <Empty
-                  icon={Link2}
-                  title="Nenhum clique perdido no caminho."
-                  description="Gere um link com macros dinâmicas da Meta e identifique sua origem."
-                  action={
-                    <button
-                      className="button primary"
-                      onClick={() => create("link")}
-                    >
-                      Criar primeiro link <Plus size={16} />
-                    </button>
-                  }
-                />
+                <section className="panel">
+                  <Empty
+                    icon={Link2}
+                    title="Nenhum clique perdido no caminho."
+                    description="Gere um link com macros dinâmicas da Meta e identifique sua origem."
+                    action={
+                      <button
+                        className="button primary"
+                        onClick={() => create("link")}
+                      >
+                        Criar primeiro link UTM <ArrowRight size={16} />
+                      </button>
+                    }
+                  />
+                </section>
               )}
-            </section>
+            </div>
           )}
           {tab === "integracoes" && (
             <>
