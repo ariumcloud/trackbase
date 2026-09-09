@@ -219,6 +219,13 @@ export async function deleteWorkspace(
   } catch (e) {
     const err = e as Error & { digest?: string };
     if (err?.message === "NEXT_REDIRECT" || (err?.digest && err.digest.startsWith("NEXT_REDIRECT"))) throw e;
+    console.error("Workspace deletion failed", { message: err?.message });
+    if (err?.message?.includes("Somente o proprietário")) {
+      return { error: "Somente a pessoa proprietária pode excluir este workspace." };
+    }
+    if (err?.message?.includes("utm_delete_workspace") || err?.message?.includes("does not exist")) {
+      return { error: "A função de exclusão ainda não está instalada no Supabase. Aplique a migration mais recente e tente de novo." };
+    }
     return { error: "Não foi possível excluir este workspace." };
   }
 }
