@@ -1,5 +1,5 @@
 /* Bump when push delivery semantics change. */
-const VERSION = "push-audio-20260909-1";
+const VERSION = "push-audio-20260909-2";
 const DEBUG = new URL(self.location.href).searchParams.get("debug") === "1";
 const trace = (stage, id, details = {}) => {
   if (DEBUG) console.info("[Trackbase push]", { stage, id, version: VERSION, ...details });
@@ -16,7 +16,7 @@ self.addEventListener("message", event => {
 function requestSound(client, payload, id) {
   return new Promise(resolve => {
     const channel = new MessageChannel();
-    const timer = setTimeout(() => finish(false, "timeout"), 1000);
+    const timer = setTimeout(() => finish(false, "timeout"), 2500);
     let finished = false;
     function finish(started, status) {
       if (finished) return;
@@ -31,7 +31,7 @@ function requestSound(client, payload, id) {
       finish(event.data.status === "started", event.data.status);
     };
     try {
-      const deadline = Date.now() + 750;
+      const deadline = Date.now() + 3000;
       client.postMessage({ type: "TRACKBASE_PUSH_SOUND", version: VERSION, id, deadline, payload, debug: DEBUG }, [channel.port2]);
       trace("postMessage-sent", id, { clientId: client.id });
     } catch {
@@ -49,8 +49,13 @@ self.addEventListener("push", event => {
     let started = false;
     try {
       const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of clients) {
+        try {
+          client.postMessage({ type: "PLAY_SALE_SOUND", data: payload, id });
+        } catch {}
+      }
       const visible = clients
-        .filter(client => client.visibilityState === "visible" && new URL(client.url).pathname === "/painel")
+        .filter(client => client.visibilityState === "visible")
         .sort((a, b) => Number(b.focused) - Number(a.focused));
       if (visible[0]) started = await requestSound(visible[0], payload, id);
       else trace("no-visible-client", id);

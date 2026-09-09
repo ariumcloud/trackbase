@@ -65,12 +65,20 @@ export function SalesNotifier({ workspaceId }: Props) {
 
     // O worker envia um MessagePort e espera a confirmação real da reprodução.
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type !== "TRACKBASE_PUSH_SOUND") return;
-      void handlePushSound(event, workspaceId).then(() => {
-        const payload = event.data?.payload;
-        setToastMessage(`${payload?.title || "💰 Venda Realizada!"} ${payload?.body ? `— ${payload.body}` : ""}`);
-        setTimeout(() => setToastMessage(null), 7000);
-      });
+      if (event.data?.type === "TRACKBASE_PUSH_SOUND") {
+        void handlePushSound(event, workspaceId).then(() => {
+          const payload = event.data?.payload;
+          setToastMessage(`${payload?.title || "💰 Venda Realizada!"} ${payload?.body ? `— ${payload.body}` : ""}`);
+          setTimeout(() => setToastMessage(null), 7000);
+        });
+      } else if (event.data?.type === "PLAY_SALE_SOUND") {
+        void soundPlayer.play();
+        const payload = event.data?.data;
+        if (payload?.title) {
+          setToastMessage(`${payload.title} ${payload.body ? `— ${payload.body}` : ""}`);
+          setTimeout(() => setToastMessage(null), 7000);
+        }
+      }
     };
 
     navigator.serviceWorker.addEventListener("message", handleMessage);
@@ -277,6 +285,14 @@ export function SalesNotifier({ workspaceId }: Props) {
         document.body
       )}
 
+      {/* Elemento de áudio nativo no DOM para máxima compatibilidade com iOS Safari e Android */}
+      <audio
+        id="cash-machine-player"
+        src="/cash-machine.mp3"
+        preload="auto"
+        playsInline
+        style={{ display: "none" }}
+      />
     </>
   );
 }

@@ -1,12 +1,12 @@
 import { soundPlayer } from "./sound";
 
-export const PUSH_VERSION = "push-audio-20260909-1";
+export const PUSH_VERSION = "push-audio-20260909-2";
 
 export function pushDebugEnabled() {
   try { return localStorage.getItem("trackbase:push-debug") === "1"; } catch { return false; }
 }
 
-export async function handlePushSound(event: MessageEvent, workspaceId: string) {
+export async function handlePushSound(event: MessageEvent, _workspaceId?: string) {
   const message = event.data;
   if (message?.type !== "TRACKBASE_PUSH_SOUND") return null;
   const port = event.ports[0];
@@ -18,9 +18,7 @@ export async function handlePushSound(event: MessageEvent, workspaceId: string) 
   };
   trace("message-received");
   try {
-    const result = message.payload?.workspaceId && message.payload.workspaceId !== workspaceId
-      ? { status: "blocked" as const }
-      : await soundPlayer.play({ id: message.id, deadline: message.deadline });
+    const result = await soundPlayer.play({ id: message.id, deadline: message.deadline });
     trace(result.status === "started" ? "audio-started" : "audio-blocked", result);
     port.postMessage({ id: message.id, version: PUSH_VERSION, ...result });
     return result;
