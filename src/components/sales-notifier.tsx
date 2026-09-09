@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Bell, Volume2, BellRing } from "lucide-react";
 import { soundPlayer } from "@/lib/sound";
 
@@ -36,6 +37,11 @@ export function SalesNotifier({ workspaceId }: Props) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Play sound function
   const playKaching = useCallback(() => {
@@ -245,14 +251,15 @@ export function SalesNotifier({ workspaceId }: Props) {
         </button>
       </div>
 
-      {toastMessage && (
+      {toastMessage && mounted && typeof document !== "undefined" && createPortal(
         <div className="sales-toast" role="status">
           <div className="sales-toast-icon">💰</div>
           <div className="sales-toast-content">
             <div className="sales-toast-title">Trackbase Notificações</div>
             <div className="sales-toast-body">{toastMessage}</div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

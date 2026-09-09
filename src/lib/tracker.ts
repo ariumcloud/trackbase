@@ -69,6 +69,7 @@ export function isAllowedCheckout(targetUrl: string, currentOrigin?: string): bo
       "ticto.app",
       "greenn.com.br",
       "perfectpay.com.br",
+      "stripe.com",
     ];
 
     return allowedSuffixes.some((s) => host === s || host.endsWith("." + s));

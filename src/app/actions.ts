@@ -229,6 +229,8 @@ export async function saveOffer(
             "monetizze",
             "wiapy",
             "lowfy",
+            "greenn",
+            "stripe",
           ])
           .optional()
           .or(z.literal("")),
@@ -277,7 +279,7 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
       product_type: z.enum(["main", "upsell", "downsell", "order_bump", "subscription", "complementary", "alternative"]).optional().default("main"),
       parent_offer_id: z.string().uuid().optional().or(z.literal("")),
       percent_fee: z.coerce.number().min(0).max(100).optional().default(0), fixed_fee: z.coerce.number().min(0).optional().default(0), cost_per_sale: z.coerce.number().min(0).optional().default(0),
-      platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy"]).optional().or(z.literal("")), checkout_url: webUrl.optional().or(z.literal("")),
+      platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn", "stripe"]).optional().or(z.literal("")), checkout_url: webUrl.optional().or(z.literal("")),
     }).parse(Object.fromEntries(form));
     z.string().uuid().parse(id);
     const { error } = await client.from("utm_offers").update({ ...value, parent_offer_id: value.parent_offer_id || null, platform: value.platform || null, checkout_url: value.checkout_url || null }).eq("workspace_id", workspace).eq("id", id);
@@ -396,6 +398,8 @@ export async function savePaymentIntegration(
           "monetizze",
           "wiapy",
           "lowfy",
+          "greenn",
+          "stripe",
         ]),
         offer_id: z.string().uuid(),
         external_product_id: z.string().trim().min(1).max(200),

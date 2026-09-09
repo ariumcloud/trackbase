@@ -696,6 +696,176 @@ export const lowfyAdapter: PaymentAdapter = {
   },
 };
 
+// 9. ADAPTADOR GREENN (https://greenn.com.br/)
+export const greennAdapter: PaymentAdapter = {
+  provider: "greenn",
+  normalize(payload, context) {
+    const root = record(payload);
+    const data = record(root.order || root.data || root);
+    const customer = record(data.client || data.customer || root.client || root.customer);
+    const product = record(data.product || root.product || (Array.isArray(data.products) ? data.products[0] : {}));
+    const tracking = record(data.tracking || data.utms || root.tracking || root.utms || root.custom_fields);
+
+    const rawStatus = str(root.event || data.current_status || data.status || root.status).toLowerCase();
+    const paymentMethod = str(data.payment_method || root.payment_method).toLowerCase();
+    const isBump = Boolean(data.order_bump || data.is_bump || str(data.type).toLowerCase().includes("bump") || str(product.type).toLowerCase().includes("bump"));
+    const isUpsell = Boolean(str(data.type).toLowerCase().includes("upsell") || str(product.type).toLowerCase().includes("upsell"));
+    const isDownsell = Boolean(str(data.type).toLowerCase().includes("downsell") || str(product.type).toLowerCase().includes("downsell"));
+
+    let type: PaymentEventType = "payment_pending";
+    if (["paid", "approved", "order_paid", "order_approved", "success", "completed"].some((s) => rawStatus.includes(s))) {
+      if (isBump) type = "order_bump_approved";
+      else if (isUpsell) type = "upsell_approved";
+      else if (isDownsell) type = "downsell_approved";
+      else type = "purchase_approved";
+    } else if (rawStatus.includes("refund")) {
+      type = "purchase_refunded";
+    } else if (rawStatus.includes("chargeback") || rawStatus.includes("dispute")) {
+      type = "chargeback_created";
+    } else if (rawStatus.includes("cancel")) {
+      type = "purchase_canceled";
+    } else if (rawStatus.includes("wait") || rawStatus.includes("pend")) {
+      if (paymentMethod.includes("pix")) type = "pix_created";
+      else if (paymentMethod.includes("boleto")) type = "boleto_created";
+      else type = "payment_pending";
+    }
+
+    const transaction = str(data.id || data.code || data.order_id || root.id || root.order_id) || "greenn_tx";
+    const rawGross = num(data.amount) ?? num(data.total) ?? num(data.value) ?? num(root.amount) ?? num(root.total) ?? 0;
+    const gross = rawGross;
+    const fee = num(data.fee) ?? num(data.fees) ?? num(data.tax) ?? num(root.fee) ?? 0;
+    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+
+    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
+    const productId = str(product.id || data.product_id || root.product_id || product.name) || "prod";
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "greenn",
+        externalTransactionId: transaction,
+        externalEventId: str(root.event_id || root.id || data.event_id) || null,
+        type,
+        productId,
+        offerId: str(data.offer_id || root.offer_id || product.offer_id) || null,
+        productType,
+        parentProductId: null,
+        parentTransactionId: str(data.parent_id || data.parent_transaction_id || root.parent_id) || null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: cleanCurrency(data.currency || root.currency, context.fallbackCurrency),
+        netCurrency: cleanCurrency(data.currency || root.currency, context.fallbackCurrency),
+        country: cleanCountry(customer.country || data.country),
+        buyer: {
+          name: str(customer.name || customer.full_name || customer.first_name) || null,
+          email: str(customer.email) || null,
+        },
+        attribution: extractAttribution(tracking),
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId: str(tracking.fbclid) || null,
+        occurredAt: parseDate(data.paid_at || data.created_at || root.created_at || root.paid_at, context.receivedAt),
+        receivedAt: context.receivedAt,
+        isTest: Boolean(data.is_test || root.is_test || root.sandbox),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
+// 10. ADAPTADOR STRIPE (https://stripe.com)
+export const stripeAdapter: PaymentAdapter = {
+  provider: "stripe",
+  normalize(payload, context) {
+    const root = record(payload);
+    const dataObj = record(record(root.data).object || root);
+    const metadata = record(dataObj.metadata || root.metadata);
+    const customerDetails = record(dataObj.customer_details || dataObj.billing_details);
+
+    const eventType = str(root.type || root.event).toLowerCase();
+    const status = str(dataObj.status || dataObj.payment_status).toLowerCase();
+
+    const isBump = Boolean(metadata.order_bump || str(metadata.type).toLowerCase().includes("bump"));
+    const isUpsell = Boolean(str(metadata.type).toLowerCase().includes("upsell"));
+    const isDownsell = Boolean(str(metadata.type).toLowerCase().includes("downsell"));
+
+    let type: PaymentEventType = "payment_pending";
+    if (
+      eventType === "checkout.session.completed" ||
+      eventType === "payment_intent.succeeded" ||
+      eventType === "charge.succeeded" ||
+      eventType === "invoice.payment_succeeded" ||
+      status === "paid" ||
+      status === "succeeded"
+    ) {
+      if (isBump) type = "order_bump_approved";
+      else if (isUpsell) type = "upsell_approved";
+      else if (isDownsell) type = "downsell_approved";
+      else type = "purchase_approved";
+    } else if (eventType.includes("refund") || status.includes("refund")) {
+      type = "purchase_refunded";
+    } else if (eventType.includes("dispute") || status.includes("dispute")) {
+      type = "chargeback_created";
+    } else if (eventType.includes("failed") || eventType.includes("canceled") || status.includes("canceled")) {
+      type = "purchase_canceled";
+    } else if (status === "requires_action" || status === "pending" || eventType.includes("pending")) {
+      type = "payment_pending";
+    }
+
+    // No Stripe os valores vêm em centavos (ex: 10000 = $100.00 / R$ 100,00)
+    const rawCents = num(dataObj.amount_total) ?? num(dataObj.amount) ?? num(dataObj.amount_paid) ?? 0;
+    const gross = Math.round(rawCents) / 100;
+    const feeCents = num(dataObj.application_fee_amount) ?? num(dataObj.fee) ?? 0;
+    const fee = Math.round(feeCents) / 100;
+    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+
+    const transaction = str(dataObj.id || dataObj.payment_intent || dataObj.charge || root.id) || "stripe_tx";
+    const productId = str(metadata.product_id || metadata.productId || dataObj.product || dataObj.client_reference_id) || "prod";
+    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
+
+    const tracking = {
+      ...metadata,
+      ...record(dataObj.client_reference_id ? { client_reference_id: dataObj.client_reference_id } : {}),
+    };
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "stripe",
+        externalTransactionId: transaction,
+        externalEventId: str(root.id) || null,
+        type,
+        productId,
+        offerId: str(metadata.offer_id || metadata.offerId) || null,
+        productType,
+        parentProductId: null,
+        parentTransactionId: str(metadata.parent_transaction_id || metadata.parent_id) || null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: cleanCurrency(dataObj.currency || root.currency, context.fallbackCurrency),
+        netCurrency: cleanCurrency(dataObj.currency || root.currency, context.fallbackCurrency),
+        country: cleanCountry(customerDetails.address ? record(customerDetails.address).country : dataObj.country),
+        buyer: {
+          name: str(customerDetails.name || metadata.customer_name) || null,
+          email: str(customerDetails.email || dataObj.customer_email || metadata.customer_email) || null,
+        },
+        attribution: extractAttribution(tracking),
+        campaignId: str(metadata.utm_campaign) || null,
+        adsetId: str(metadata.utm_term) || null,
+        adId: str(metadata.utm_content) || null,
+        creativeId: str(metadata.utm_creative) || null,
+        clickId: str(metadata.fbclid || metadata.click_id) || null,
+        occurredAt: parseDate(dataObj.created ? new Date(Number(dataObj.created) * 1000).toISOString() : root.created ? new Date(Number(root.created) * 1000).toISOString() : null, context.receivedAt),
+        receivedAt: context.receivedAt,
+        isTest: Boolean(root.livemode === false || dataObj.livemode === false),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
 export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   hotmart: hotmartAdapter,
   kiwify: kiwifyAdapter,
@@ -705,4 +875,6 @@ export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   monetizze: monetizzeAdapter,
   wiapy: wiapyAdapter,
   lowfy: lowfyAdapter,
+  greenn: greennAdapter,
+  stripe: stripeAdapter,
 };

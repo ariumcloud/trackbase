@@ -1786,6 +1786,20 @@ export function Dashboard(p: Props) {
                     text: "Checkout e pagamentos para infoprodutos e vendas digitais.",
                     color: "purple",
                   },
+                  {
+                    id: "greenn",
+                    name: "Greenn",
+                    letter: "G",
+                    text: "Plataforma de infoprodutos, cursos e checkout de alta conversão.",
+                    color: "green",
+                  },
+                  {
+                    id: "stripe",
+                    name: "Stripe",
+                    letter: "S",
+                    text: "Infraestrutura global de pagamentos em múltiplas moedas (USD, EUR, BRL).",
+                    color: "blue",
+                  },
                 ].map((i) => (
                   <section className="panel integration-card" key={i.id}>
                     <div className={`provider-logo ${i.color}`}>{i.letter}</div>
@@ -2401,7 +2415,11 @@ export function Dashboard(p: Props) {
                                         ? "Wiapy"
                                         : modal === "lowfy"
                                           ? "Lowfy"
-                                          : modal
+                                          : modal === "greenn"
+                                            ? "Greenn"
+                                            : modal === "stripe"
+                                              ? "Stripe"
+                                              : modal
                       }`}
             </h2>
             {modal === "workspace" ? (
@@ -2503,7 +2521,11 @@ export function Dashboard(p: Props) {
                                 ? "Token de webhook Wiapy"
                                 : modal === "lowfy"
                                   ? "Token / Secret de webhook Lowfy"
-                                  : "Secret / Token do webhook"}
+                                  : modal === "greenn"
+                                    ? "Token de autenticação Greenn"
+                                    : modal === "stripe"
+                                      ? "Signing Secret Stripe (whsec_...) ou Token"
+                                      : "Secret / Token do webhook"}
                   <input
                     name="secret"
                     type="password"
@@ -2529,6 +2551,10 @@ export function Dashboard(p: Props) {
                     "Na Wiapy (Webhooks), insira a URL da Trackbase e o token gerado."}
                   {modal === "lowfy" &&
                     "Na Lowfy (Webhooks), insira a URL do webhook gerada e o token de autenticação (ou defina uma chave segura)."}
+                  {modal === "greenn" &&
+                    "Na Greenn (Ferramentas > Webhooks), insira a URL da Trackbase e seu token de validação."}
+                  {modal === "stripe" &&
+                    "No Stripe Dashboard (Developers > Webhooks), adicione a URL e copie o Signing Secret (whsec_...) ou token de segurança."}
                   O token será armazenado como hash seguro para autenticar cada webhook.
                 </p>
               </ActionForm>
@@ -3123,6 +3149,8 @@ function IntegrationCard({
             {i.provider === "monetizze" && "Configure em Ferramentas > Postback na Monetizze com a Chave Única."}
             {i.provider === "wiapy" && "Configure na aba Webhooks da Wiapy com seu token de autenticação."}
             {i.provider === "lowfy" && "Configure na área de Webhooks da Lowfy com o token cadastrado."}
+            {i.provider === "greenn" && "Configure em Ferramentas > Webhooks na Greenn com seu token de autenticação."}
+            {i.provider === "stripe" && "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
           </small>
           {["cakto", "kiwify", "hotmart"].includes(i.provider) && (i.status !== "connected" || editingWebhookSecret) && (
             <form

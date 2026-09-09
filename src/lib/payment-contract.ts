@@ -8,6 +8,8 @@ export const paymentProviders = [
   "monetizze",
   "wiapy",
   "lowfy",
+  "greenn",
+  "stripe",
 ] as const;
 export type PaymentProvider = (typeof paymentProviders)[number];
 export const paymentEventTypes = [

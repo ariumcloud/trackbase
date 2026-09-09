@@ -92,12 +92,12 @@ export function LockedFeatureCard({ feature }: LockedFeatureCardProps) {
         style={{
           position: "absolute",
           top: 0,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "360px",
-          height: "6px",
-          background: "linear-gradient(90deg, #5B34EA, #3B82F6, #10B981)",
-          borderRadius: "0 0 8px 8px",
+          left: 0,
+          right: 0,
+          height: "5px",
+          background: "linear-gradient(90deg, #5B34EA 0%, #3B82F6 50%, #10B981 100%)",
+          borderTopLeftRadius: "15px",
+          borderTopRightRadius: "15px",
         }}
       />
 

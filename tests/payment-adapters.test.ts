@@ -245,3 +245,65 @@ test("Status desconhecido não é contabilizado como compra aprovada", () => {
   );
   assert.equal(event.type, "payment_pending");
 });
+
+test("Greenn: normaliza compra aprovada, order bump e comprador", () => {
+  const payload = {
+    event: "order_approved",
+    order: {
+      id: "GN-8877",
+      amount: 197.0,
+      fee: 19.7,
+      currency: "BRL",
+      payment_method: "credit_card",
+      product: { id: "gn_prod_1", name: "Curso Avançado" },
+      client: { name: "Cliente Greenn", email: "greenn@example.com", country: "BR" },
+      tracking: { utm_source: "instagram", utm_campaign: "feed_leads" },
+    },
+  };
+
+  const [event] = paymentAdapters.greenn.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "greenn");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.grossAmount, 197);
+  assert.equal(event.netAmount, 177.3);
+  assert.equal(event.buyer?.name, "Cliente Greenn");
+  assert.equal(event.attribution.utm_source, "instagram");
+});
+
+test("Stripe: normaliza checkout.session.completed, conversão de centavos e metadata", () => {
+  const payload = {
+    type: "checkout.session.completed",
+    id: "evt_123456",
+    data: {
+      object: {
+        id: "cs_test_abc123",
+        payment_intent: "pi_test_789",
+        amount_total: 9700,
+        application_fee_amount: 970,
+        currency: "usd",
+        payment_status: "paid",
+        customer_details: {
+          name: "John Stripe",
+          email: "john@stripe.test",
+          address: { country: "US" },
+        },
+        metadata: {
+          product_id: "prod_stripe_1",
+          utm_source: "google_ads",
+          utm_campaign: "scale_global",
+        },
+      },
+    },
+  };
+
+  const [event] = paymentAdapters.stripe.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "stripe");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.grossAmount, 97);
+  assert.equal(event.fees, 9.7);
+  assert.equal(event.netAmount, 87.3);
+  assert.equal(event.grossCurrency, "USD");
+  assert.equal(event.buyer?.name, "John Stripe");
+  assert.equal(event.attribution.utm_source, "google_ads");
+});
+

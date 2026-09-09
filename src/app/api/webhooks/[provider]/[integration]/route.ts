@@ -83,6 +83,33 @@ function extractWebhookToken(
       )
     );
   }
+  if (provider === "greenn") {
+    return (
+      request.headers.get("x-greenn-token") ||
+      request.headers.get("x-greenn-signature") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(
+        p.token ||
+        p.secret ||
+        url.searchParams.get("token") ||
+        url.searchParams.get("secret") ||
+        ""
+      )
+    );
+  }
+  if (provider === "stripe") {
+    return (
+      request.headers.get("stripe-signature") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(
+        p.token ||
+        p.secret ||
+        url.searchParams.get("token") ||
+        url.searchParams.get("secret") ||
+        ""
+      )
+    );
+  }
   return "";
 }
 

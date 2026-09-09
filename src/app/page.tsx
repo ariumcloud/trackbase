@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Check,
   MousePointer2,
-  Play,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -209,9 +208,6 @@ export default function Home() {
           <a href="#comparativo">Comparativo</a>
           <a href="#planos">Planos</a>
           <a href="#faq">FAQ</a>
-          <Link href="/demo" className="nav-demo">
-            Ver demo <Play size={13} fill="currentColor" />
-          </Link>
           <Link href="/login" className="button small primary">
             Entrar
           </Link>
@@ -241,9 +237,9 @@ export default function Home() {
             <a href="#planos" className="button primary large">
               Começar a lucrar agora <ArrowRight size={17} />
             </a>
-            <Link href="/demo" className="button ghost large">
-              Ver demonstração ao vivo <Play size={14} fill="currentColor" />
-            </Link>
+            <a href="#como-funciona" className="button ghost large">
+              Ver como funciona
+            </a>
           </div>
           <div className="landing-trust">
             <ShieldCheck size={16} /> Mais de R$ 4.8M rastreados · Multi-moeda (BRL, USD, EUR) · Setup em 3 minutos
@@ -545,13 +541,12 @@ export default function Home() {
           <div>
             <h2>Menos custo. Mais clareza. Paz no bolso.</h2>
             <p>
-              Acesse a demonstração interativa e descubra em 2 minutos como ter
-              controle absoluto da sua operação.
+              Crie sua conta em 2 minutos e tenha controle absoluto da sua operação com rastreamento server-side e anti-bloqueio.
             </p>
           </div>
         </div>
-        <Link href="/demo" className="button primary large">
-          Abrir a demo agora <ArrowRight size={17} />
+        <Link href="/login" className="button primary large">
+          Criar minha conta grátis <ArrowRight size={17} />
         </Link>
       </section>
 
