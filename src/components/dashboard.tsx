@@ -1,5 +1,5 @@
 "use client";
-import { plans, normalizePlan } from "@/lib/plans";
+import { plans, canUse, normalizePlan } from "@/lib/plans";
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -39,6 +39,7 @@ import { UtmifySummary } from "./utmify-summary";
 import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
 import { GuideModal } from "./guide-modal";
+import { LockedFeatureCard } from "./locked-feature-card";
 import {
   saveLink,
   toggleLink,
@@ -252,6 +253,12 @@ export function Dashboard(p: Props) {
     timezone = p.workspace?.timezone ?? "America/Sao_Paulo";
   const today = dayInZone(new Date(), timezone);
 
+  const currentPlan = normalizePlan(p.workspace?.plan || "devedor");
+  const isFreePlan = currentPlan === "devedor";
+  const hasShieldAccess = canUse(currentPlan, "shield");
+  const hasRadarAccess = canUse(currentPlan, "radar");
+  const hasDiagnosticoAccess = canUse(currentPlan, "diagnostico");
+
   let since: string;
   let until: string;
 
@@ -373,9 +380,10 @@ export function Dashboard(p: Props) {
   const money = (v: number | null) =>
     v === null
       ? "—"
-      : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(
-          v,
-        );
+      : new Intl.NumberFormat(currency === "USD" ? "en-US" : "pt-BR", {
+          style: "currency",
+          currency,
+        }).format(v);
 
   const changePeriod = (val: string) => {
     setPeriod(val);
@@ -542,6 +550,22 @@ export function Dashboard(p: Props) {
             >
               <t.icon size={19} />
               {t.name}
+              {isFreePlan && ["shield", "diagnostico", "radar"].includes(t.id) && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: "0.68rem",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    background: "rgba(91, 52, 234, 0.12)",
+                    color: "var(--brand-accent, #5B34EA)",
+                    fontWeight: 700,
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  PRO
+                </span>
+              )}
               {t.id === "links" && p.links.length > 0 && (
                 <span className="nav-count">{p.links.length}</span>
               )}
@@ -2056,6 +2080,7 @@ export function Dashboard(p: Props) {
               offers={p.offers}
               integrations={p.integrations}
               currency={currency}
+              changeCurrency={changeCurrency}
               pending={pending}
               period={period}
               changePeriod={changePeriod}
@@ -2065,18 +2090,26 @@ export function Dashboard(p: Props) {
             />
           )}
           {tab === "diagnostico" && (
-            <DiagnosticoViewLazy
-              workspace={workspace}
-              offers={p.offers}
-              metrics={metrics}
-              hasCapi={p.pixels.some((pixel) => pixel.active)}
-              diagnostics={p.diagnostics || []}
-              currency={currency}
-              selectTab={selectTab}
-            />
+            !hasDiagnosticoAccess ? (
+              <LockedFeatureCard feature="diagnostico" />
+            ) : (
+              <DiagnosticoViewLazy
+                workspace={workspace}
+                offers={p.offers}
+                metrics={metrics}
+                hasCapi={p.pixels.some((pixel) => pixel.active)}
+                diagnostics={p.diagnostics || []}
+                currency={currency}
+                selectTab={selectTab}
+              />
+            )
           )}
           {(tab === "radar" || tab === "simulador") && (
-            <LeadScrollVisualizer sales={p.sales} />
+            !hasRadarAccess ? (
+              <LockedFeatureCard feature="radar" />
+            ) : (
+              <LeadScrollVisualizer sales={p.sales} />
+            )
           )}
           {tab === "assistente" && (
             <AssistenteTrackbase
@@ -2303,13 +2336,17 @@ export function Dashboard(p: Props) {
           </>
           )}
           {tab === "shield" && (
-            <ShieldView
-              workspaceId={workspace}
-              offers={p.offers}
-              shields={p.shields ?? []}
-              logs={p.shieldLogs ?? []}
-              appUrl={p.appUrl}
-            />
+            !hasShieldAccess ? (
+              <LockedFeatureCard feature="shield" />
+            ) : (
+              <ShieldView
+                workspaceId={workspace}
+                offers={p.offers}
+                shields={p.shields ?? []}
+                logs={p.shieldLogs ?? []}
+                appUrl={p.appUrl}
+              />
+            )
           )}
         </main>
       </div>

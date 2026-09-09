@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, UserRound } from "lucide-react";
 import type { getAdminCustomer } from "@/lib/admin-data";
 import { plans, normalizePlan } from "@/lib/plans";
-import { PlanForm, NewTicketForm, TicketStatusForm } from "./forms";
+import { PlanForm, QuickGrantPremiumButton, NewTicketForm, TicketStatusForm } from "./forms";
 import { Metric, Status, Empty, WebhookTable, date, label } from "./shared";
 
 export function AdminCustomerView({
@@ -103,13 +103,18 @@ export function AdminCustomerView({
                     · {w.timezone}
                   </p>
                 </div>
-                <span className="admin-status neutral">
-                  {plans[normalizePlan(w.plan)].name}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span className={`admin-status ${normalizePlan(w.plan) === "vorcaro" ? "good" : "neutral"}`}>
+                    {plans[normalizePlan(w.plan)].name}
+                  </span>
+                  {normalizePlan(w.plan) !== "vorcaro" && (
+                    <QuickGrantPremiumButton id={w.id} name={w.name} />
+                  )}
+                </div>
               </div>
               <p className="admin-hint admin-mono">{w.id}</p>
-              <details className="admin-details">
-                <summary>Gerenciar plano</summary>
+              <details className="admin-details" open={normalizePlan(w.plan) !== "vorcaro"}>
+                <summary>Alterar plano manualmente</summary>
                 <PlanForm id={w.id} name={w.name} plan={w.plan} />
               </details>
             </section>

@@ -7,10 +7,9 @@ import {
   Play,
   ShieldCheck,
   Sparkles,
-  Wallet,
   TrendingUp,
-  TrendingDown,
   Bot,
+  Radio,
 } from "lucide-react";
 import { FaqAccordion } from "@/components/faq-accordion";
 
@@ -19,79 +18,91 @@ const plans = [
     name: "Plano Free",
     price: "Grátis",
     suffix: "",
-    description: "Para conhecer o fluxo e organizar sua primeira operação.",
-    cta: "Criar workspace",
+    description: "Para conhecer a plataforma e organizar seus primeiros links de rastreamento.",
+    cta: "Criar conta grátis",
     href: "/login",
     featured: false,
     items: [
-      "1 workspace",
-      "1 oferta e até 10 links UTM",
-      "Até 50 vendas",
-      "Dashboard básico em tempo real",
-      "Demo pública com dados fictícios",
+      "1 workspace e 1 oferta",
+      "Até 10 links com UTMs rastreadas",
+      "Até 50 vendas registradas",
+      "Painel em tempo real (BRL, USD, EUR)",
+      "Webhooks de checkouts integrados",
+      "Demo pública com dados de teste",
+      "*(Shield, Diagnóstico e Radar bloqueados)*",
     ],
   },
   {
     name: "Plano Básico",
     price: "R$ 79",
     suffix: "/mês",
-    description: "Para operar suas próprias campanhas com clareza, controle e escala.",
-    cta: "Começar agora",
+    description: "Para anunciantes e afiliados que querem parar de queimar dinheiro e escalar com lucro real.",
+    cta: "Começar a lucrar agora",
     href: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03",
     featured: true,
     items: [
-      "Meta Ads e 7 plataformas de checkout",
-      "Até 1.000 vendas",
-      "Envio de vendas via Servidor (imune ao AdBlock e iOS 14+)",
-      "Diagnóstico de gargalos com cálculo de perda financeira",
+      "Meta Ads + 7 plataformas de checkout",
+      "Até 1.000 vendas por mês",
+      "Recupere até 35% das vendas que o Facebook não marca",
+      "Radar de Leads: mapa de calor de rolagem e visitantes ao vivo",
+      "Diagnóstico de gargalos com cálculo de perda em R$",
       "Assistente Trackbase IA para análise de ROAS e CPA",
+      "Alertas com som de caixa registradora e Web Push no celular",
+      "Suporte multi-moeda: Dólar ($), Euro (€) e Real (R$)",
       "Upsell, downsell e order bump separados",
-      "Alertas inteligentes e exportação CSV",
     ],
   },
   {
     name: "Plano Premium",
     price: "R$ 197",
     suffix: "/mês",
-    description: "Para operadores avançados, alta escala, agências e múltiplos produtos.",
+    description: "Para operações de alta escala, agências, co-produções e múltiplos produtos.",
     cta: "Assinar Premium",
     href: "https://buy.stripe.com/4gMeVfeB86sRbV3cAP9IQ04",
     featured: false,
     items: [
-      "Tudo do Plano Básico",
-      "Até 5.000 vendas",
-      "Até 25 workspaces e múltiplos acessos",
-      "Relatórios consolidados para múltiplos sócios",
-      "Suporte prioritário e onboarding assistido",
+      "Tudo do Plano Básico incluso",
+      "Shield Anti-Bloqueio & Cloaker Profissional (White/Black/Gray page)",
+      "Apontamento de domínio próprio CNAME (Cloudflare/Hostinger)",
+      "Bloqueio de robôs espiões do AdHeart e concorrentes",
+      "Até 5.000 vendas por mês",
+      "Até 25 workspaces e múltiplos acessos de equipe",
+      "Exportação completa de vendas e campanhas em CSV",
+      "Suporte VIP prioritário no WhatsApp e onboarding assistido",
     ],
   },
 ];
 
 const faqs = [
   {
-    question: "Minhas vendas correm risco de duplicar no Facebook?",
+    question: "Como o Trackbase me ajuda a lucrar mais com tráfego pago?",
     answer:
-      "Não! O Trackbase possui tecnologia de desduplicação automática e enriquecimento de dados. O Facebook unifica o sinal do navegador com o sinal seguro do servidor em uma única venda confirmada. Isso eleva a nota de qualidade no Gerenciador de Eventos e ensina o algoritmo a encontrar novos compradores pagando menos por venda.",
+      "O Facebook mente no gerenciador de anúncios e costuma perder até 35% das vendas por causa do iOS 14+ e navegadores bloqueadores. O Trackbase conecta direto no seu checkout e envia as compras aprovadas de volta para a Meta de forma instantânea e segura. Seu pixel aprende quem compra de verdade, seu custo por venda (CPA) despenca e você sabe no centavo qual anúncio está botando dinheiro no seu bolso para escalar sem medo.",
   },
   {
-    question: "Quais plataformas de checkout são suportadas?",
+    question: "O que é o Radar de Leads e como ele salva vendas perdidas?",
     answer:
-      "O Trackbase suporta nativamente todas as principais plataformas de direct response do Brasil: Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, além de validação estrita de domínios para Braip, Ticto, Perfect Pay e Greenn. Suas vendas são processadas via webhooks criptografados com separação de produto principal, order bump e upsell.",
+      "O Radar de Leads monitora os visitantes da sua página ao vivo. Você vê exatamente até qual dobra eles rolaram a página (topo, apresentação do produto, oferta ou checkout). Isso permite identificar onde as pessoas desistem da sua oferta e criar campanhas de remarketing cirúrgicas para quem quase comprou.",
+  },
+  {
+    question: "O que é o Shield Anti-Bloqueio & Cloaker e por que ele é essencial?",
+    answer:
+      "O Shield é a ferramenta que protege suas páginas milionárias contra dois grandes vilões: bloqueios repentinos da Meta e concorrentes que copiam sua página no AdHeart. Ele entrega uma White Page educativa para analistas/robôs e entrega a sua página de vendas apenas para o lead humano real que clicou no seu anúncio, tudo no seu próprio domínio CNAME.",
+  },
+  {
+    question: "Minhas contas de anúncio estão em Dólar ou Euro. O Trackbase funciona?",
+    answer:
+      "Sim! O Trackbase possui suporte nativo multi-moeda. Você pode alternar a exibição das suas métricas e campanhas entre Real (BRL), Dólar (USD) e Euro (EUR) com um clique, visualizando seus gastos e lucros na moeda exata da sua operação.",
+  },
+  {
+    question: "Quais plataformas de checkout são integradas em 1 clique?",
+    answer:
+      "O Trackbase integra nativamente com todas as principais plataformas: Hotmart, Kiwify, Cakto, Kirvano, Eduzz, Monetizze, Wiapy, além de validação estrita para Braip e Ticto. Suas vendas são processadas automaticamente via webhooks com separação inteligente de produto principal, order bump e upsell.",
   },
   {
     question: "O que é o Diagnóstico de Gargalos e Auditoria Financeira?",
     answer:
-      "O Diagnóstico analisa cada etapa da jornada: Cliques na Meta → PageViews carregados → Cliques no botão CTA → Checkouts iniciados → Vendas aprovadas. Se sua página perde 40% das visitas antes de abrir, o Trackbase calcula exatamente quantos Reais (R$) você perdeu no período e aponta recomendações práticas para estancar o sangramento.",
-  },
-  {
-    question: "O que o Assistente Trackbase IA consegue fazer?",
-    answer:
-      "O Assistente IA tem acesso contextual aos dados consolidados do seu workspace: receita, investimento em mídia, lucro, ROAS, CPA e gargalos. Ele responde perguntas analíticas como 'Qual meu ROAS real hoje?', 'Qual campanha devo pausar?', 'Onde está meu maior gargalo?' e também fornece orientações táticas sobre esteiras de produto e contingência.",
-  },
-  {
-    question: "Posso adquirir o código-fonte para rodar na minha própria nuvem?",
-    answer:
-      "Sim! Oferecemos a opção de compra do código-fonte completo: R$ 297 (código com documentação para auto-instalação) ou R$ 397 (código com instalação assistida pela nossa equipe). Você roda tudo no seu próprio Supabase e Vercel com zero mensalidade.",
+      "O Diagnóstico analisa todo o funil (Cliques Meta → Visitas na Página → Cliques no Botão → Checkouts → Compras) e calcula na hora: 'Você perdeu R$ 1.840 este mês com lentidão de página ou desistência no checkout'. Ele aponta a solução prática imediata para você estancar o sangramento do tráfego e lucrar muito mais com a mesma verba.",
   },
 ];
 
@@ -216,26 +227,26 @@ export default function Home() {
       <section className="landing-hero">
         <div className="landing-copy">
           <span className="eyebrow">
-            A PLATAFORMA DEFINITIVA DE DIRECT RESPONSE
+            A PLATAFORMA QUE OS MAIORES PLAYERS DE DIRECT RESPONSE USAM
           </span>
           <h1>
-            Rastreamento &amp; Lucro Real
+            Pare de Queimar Dinheiro no Escuro
             <br />
-            <em>sem pagar fortunas.</em>
+            <em>e escale com lucro real na mão.</em>
           </h1>
           <p>
-            Trackbase une rastreamento imune ao iOS, envio de vendas via servidor, diagnóstico de gargalos com cálculo de perda financeira e proteção de ofertas em uma única central por <strong>R$ 79/mês</strong>.
+            O Facebook mente no gerenciador e esconde suas vendas. O Trackbase recupera até 35% das vendas invisíveis direto do servidor, blinda suas páginas contra bloqueios da Meta e te mostra exatamente qual criativo bota lucro no seu bolso por apenas <strong>R$ 79/mês</strong>.
           </p>
           <div className="landing-actions">
-            <Link href="/demo" className="button primary large">
-              Testar a demo grátis <ArrowRight size={17} />
-            </Link>
-            <a href="#planos" className="button ghost large">
-              Ver planos &amp; preços
+            <a href="#planos" className="button primary large">
+              Começar a lucrar agora <ArrowRight size={17} />
             </a>
+            <Link href="/demo" className="button ghost large">
+              Ver demonstração ao vivo <Play size={14} fill="currentColor" />
+            </Link>
           </div>
           <div className="landing-trust">
-            <ShieldCheck size={16} /> Isolamento total por workspace e tokens criptografados com AES-256
+            <ShieldCheck size={16} /> Mais de R$ 4.8M rastreados · Multi-moeda (BRL, USD, EUR) · Setup em 3 minutos
           </div>
         </div>
         <div className="landing-visual">
@@ -248,16 +259,16 @@ export default function Home() {
       {/* Proof Strip */}
       <section className="proof-strip">
         <span>
-          <strong>Meta Ads Server-Side</strong> rastreamento à prova de bloqueadores e iOS
+          <strong>+35% Vendas Recuperadas</strong> compras que o Facebook não enxerga
         </span>
         <span>
-          <strong>Hotmart, Kiwify &amp; Cakto</strong> webhooks ponta a ponta
+          <strong>Zero Bloqueios</strong> com Shield Cloaker e proteção de domínio
         </span>
         <span>
-          <strong>Kirvano, Eduzz &amp; Monetizze</strong> order bumps e taxas líquidas
+          <strong>Hotmart, Kiwify &amp; Cakto</strong> webhooks integrados em 1 clique
         </span>
         <span>
-          <strong>Wiapy, Braip &amp; Ticto</strong> checkouts seguros e integrados
+          <strong>Multi-Moeda</strong> opere em Real (R$), Dólar ($) e Euro (€)
         </span>
       </section>
 
@@ -265,7 +276,7 @@ export default function Home() {
       <section id="como-funciona" className="landing-section">
         <div className="section-intro">
           <span className="eyebrow">DO CLIQUE AO LUCRO REAL</span>
-          <h2>A visão completa da sua operação de tráfego.</h2>
+          <h2>A visão cirúrgica para dobrar o seu ROI de tráfego.</h2>
           <p>
             Chega de abrir cinco abas diferentes para descobrir que o anúncio gastou, a landing não carregou ou as taxas comeram todo o seu lucro.
           </p>
@@ -275,27 +286,27 @@ export default function Home() {
             <span className="feature-icon">
               <MousePointer2 />
             </span>
-            <h3>Atribuição precisa por criativo</h3>
+            <h3>Atribuição no Centavo (Descubra o Criativo Campeão)</h3>
             <p>
-              Gere links com parâmetros dinâmicos da Meta e decore o checkout automaticamente preservando a sessão do comprador com cookies fbp e fbc.
-            </p>
-          </article>
-          <article>
-            <span className="feature-icon alert-icon">
-              <TrendingDown />
-            </span>
-            <h3>Identifique gargalos e quedas</h3>
-            <p>
-              Veja exatamente onde o lead abandona a jornada: no carregamento lento da página, no clique do botão ou na etapa de pagamento do checkout.
+              Saiba na hora qual anúncio está gerando compras com ROAS alto. Pause imediatamente os criativos que só comem o seu caixa e escale os vencedores com total segurança.
             </p>
           </article>
           <article>
             <span className="feature-icon">
-              <Wallet />
+              <Radio />
             </span>
-            <h3>Lucro líquido de verdade</h3>
+            <h3>Radar de Leads &amp; Mapa de Rolagem ao Vivo</h3>
             <p>
-              Deduza investimento de mídia e taxas de processamento automaticamente. Veja seu lucro operacional e margem percentual em tempo real.
+              Veja os visitantes navegando na sua página em tempo real. Saiba exatamente até qual dobra eles rolam (topo, vídeo ou oferta) e salve vendas antes do abandono.
+            </p>
+          </article>
+          <article>
+            <span className="feature-icon">
+              <ShieldCheck />
+            </span>
+            <h3>Blindagem Shield Anti-Bloqueio &amp; Anti-Espião</h3>
+            <p>
+              Cloaker profissional que entrega página segura para robôs da Meta e bloqueia concorrentes que usam AdHeart para copiar sua oferta. Seus anúncios rodam livres de surpresas.
             </p>
           </article>
         </div>
@@ -389,6 +400,21 @@ export default function Home() {
                 <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Mensalidade Acessível</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>R$ 79 / mês</td>
                 <td style={{ padding: "0.9rem 1.25rem", color: "#EF3340" }}>R$ 197 a R$ 497 / mês</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
+                <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Radar de Leads &amp; Heatmap de Rolagem</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>✅ Incluso</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#EF3340" }}>❌ Não possui ou cobra à parte</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
+                <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Shield Anti-Bloqueio &amp; Cloaker</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>✅ Incluso no Premium</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#EF3340" }}>❌ Ferramenta externa (R$ 297/mês)</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
+                <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Painel Multi-Moeda (Real, Dólar, Euro)</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#10B981", fontWeight: 600 }}>✅ 1-Clique (BRL, USD, EUR)</td>
+                <td style={{ padding: "0.9rem 1.25rem", color: "#94A3B8" }}>❌ Travado em BRL</td>
               </tr>
               <tr style={{ borderBottom: "1px solid #E2E8F0" }}>
                 <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600 }}>Diagnóstico de Gargalos &amp; Perda em R$</td>

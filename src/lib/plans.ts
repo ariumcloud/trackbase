@@ -10,6 +10,9 @@ export const planFeatures = [
   "jeen",
   "export",
   "audit",
+  "shield",
+  "radar",
+  "diagnostico",
 ] as const;
 export type PlanFeature = (typeof planFeatures)[number];
 export type PlanId = "devedor" | "liso" | "vorcaro";
@@ -38,6 +41,8 @@ export const plans = {
       "integrations",
       "capi",
       "alerts",
+      "radar",
+      "diagnostico",
     ] as readonly PlanFeature[],
   },
   vorcaro: {
@@ -51,15 +56,18 @@ export const plans = {
     features: planFeatures,
   },
 } as const;
+
 /** Compatibilidade com registros históricos; novas gravações usam os três IDs oficiais. */
 export function normalizePlan(value: string): PlanId {
   if (value === "classe_media" || value === "rico" || value === "vorcaro")
     return "vorcaro";
   return value === "liso" ? "liso" : "devedor";
 }
+
 export function canUse(plan: string, feature: PlanFeature): boolean {
   return plans[normalizePlan(plan)].features.includes(feature);
 }
+
 export function assertFeature(plan: string, feature: PlanFeature): void {
   if (!canUse(plan, feature))
     throw new Error("Este recurso não está incluído no seu plano.");

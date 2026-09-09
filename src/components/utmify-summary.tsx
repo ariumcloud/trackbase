@@ -47,6 +47,7 @@ export function UtmifySummary({
   offers,
   integrations,
   currency,
+  changeCurrency,
   period,
   changePeriod,
   selectedOffer,
@@ -64,7 +65,8 @@ export function UtmifySummary({
 
   const formatMoney = (val: number | null | undefined) => {
     if (val === null || val === undefined) return "—";
-    return new Intl.NumberFormat("pt-BR", {
+    const locale = currency === "USD" ? "en-US" : "pt-BR";
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currency || "BRL",
     }).format(val);
@@ -423,6 +425,24 @@ export function UtmifySummary({
             ))}
           </select>
         </div>
+
+        {/* 5. Moeda */}
+        {changeCurrency && (
+          <div className="utmify-filter-field">
+            <label>Moeda</label>
+            <select
+              className="utmify-select-styled"
+              value={currency || "BRL"}
+              onChange={(e) => changeCurrency(e.target.value)}
+              aria-label="Moeda"
+              title="Moeda de exibição (BRL, USD ou EUR)"
+            >
+              <option value="BRL">🇧🇷 Real (BRL)</option>
+              <option value="USD">🇺🇸 Dólar (USD)</option>
+              <option value="EUR">🇪🇺 Euro (EUR)</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* 3. Layout: Donut à Esquerda + 12 KPIs à Direita */}

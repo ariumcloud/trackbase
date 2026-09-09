@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   BarChart3,
   Layers,
@@ -72,6 +72,7 @@ export function CampaignsView({
   offers = [],
   integrations = [],
   currency = "BRL",
+  changeCurrency,
   pending,
   period = "7",
   changePeriod,
@@ -85,6 +86,7 @@ export function CampaignsView({
   offers?: Offer[];
   integrations?: Integration[];
   currency?: string;
+  changeCurrency?: (val: string) => void;
   pending: boolean;
   period?: string;
   changePeriod?: (val: string) => void;
@@ -97,12 +99,17 @@ export function CampaignsView({
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState("all");
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(currency || "BRL");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const latestMetaSync = integrations
     .filter((integration) => integration.provider === "meta" && integration.last_synced_at)
     .sort((a, b) => new Date(b.last_synced_at!).getTime() - new Date(a.last_synced_at!).getTime())[0]?.last_synced_at;
+
+  useEffect(() => {
+    if (currency) setSelectedCurrency(currency);
+  }, [currency]);
 
   // Ordenação por colunas (crescente / decrescente)
   const [sortKey, setSortKey] = useState<ColumnKey | null>("profit");
@@ -152,18 +159,17 @@ export function CampaignsView({
     }
   };
 
-  // Moeda detectada dinamicamente da conta Meta / insights
-  const detectedCurrency =
-    insights.find((i) => i.currency)?.currency ||
-    integrations.find((i) => i.provider === "meta" && i.currency)?.currency ||
-    currency ||
-    "BRL";
+  const handleCurrencyChange = (newCurr: string) => {
+    setSelectedCurrency(newCurr);
+    if (changeCurrency) changeCurrency(newCurr);
+  };
 
   const formatMoney = (val: number | null | undefined) => {
     if (val === null || val === undefined) return "—";
-    return new Intl.NumberFormat("pt-BR", {
+    const locale = selectedCurrency === "USD" ? "en-US" : "pt-BR";
+    return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: detectedCurrency,
+      currency: selectedCurrency,
     }).format(val);
   };
 
@@ -774,6 +780,21 @@ export function CampaignsView({
                 {o.name}
               </option>
             ))}
+          </select>
+        </div>
+
+        {/* 6. Moeda */}
+        <div>
+          <select
+            className="utmify-input-styled"
+            value={selectedCurrency}
+            onChange={(e) => handleCurrencyChange(e.target.value)}
+            aria-label="Moeda das métricas"
+            title="Moeda de exibição das campanhas (BRL, USD ou EUR)"
+          >
+            <option value="BRL">🇧🇷 Real (BRL)</option>
+            <option value="USD">🇺🇸 Dólar (USD)</option>
+            <option value="EUR">🇪🇺 Euro (EUR)</option>
           </select>
         </div>
       </div>

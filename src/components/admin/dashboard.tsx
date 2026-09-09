@@ -497,8 +497,9 @@ function CustomerTable({ users }: { users: AdminData["directory"]["users"] }) {
                 <Link
                   className="admin-text-link"
                   href={`/admin/clientes/${u.id}`}
+                  style={{ fontWeight: 600 }}
                 >
-                  Abrir ficha →
+                  Abrir ficha & Plano →
                 </Link>
               </td>
             </tr>

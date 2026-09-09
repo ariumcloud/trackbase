@@ -72,6 +72,73 @@ function AdminForm({
   );
 }
 
+export function QuickGrantPremiumButton({
+  id,
+  name,
+}: {
+  id: string;
+  name: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleGrant = () => {
+    if (
+      !window.confirm(
+        `Liberar Plano Premium (Acesso Total para Teste) para a operação "${name}"?`,
+      )
+    )
+      return;
+    setMessage(null);
+    start(async () => {
+      const form = new FormData();
+      form.append("action", "plan");
+      form.append("target", id);
+      form.append("plan", "vorcaro");
+      form.append("reason", "Liberação de teste VIP Premium para lead/cliente");
+      const res = await adminMutation(form);
+      if (res.ok) {
+        setMessage("⭐ Plano Premium ativado com sucesso!");
+        router.refresh();
+      } else {
+        setMessage(res.error || "Não foi possível salvar o plano.");
+      }
+    });
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+      <button
+        type="button"
+        className="button primary small"
+        disabled={pending}
+        onClick={handleGrant}
+        style={{
+          fontWeight: 700,
+          background: "linear-gradient(135deg, #5B34EA, #3B82F6)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+        }}
+      >
+        {pending ? "Ativando..." : "⭐ Dar Plano Premium (Teste VIP Lead)"}
+      </button>
+      {message && (
+        <span
+          style={{
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            color: message.startsWith("⭐") ? "#10B981" : "#EF3340",
+          }}
+        >
+          {message}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function PlanForm({
   id,
   plan,
@@ -105,11 +172,12 @@ export function PlanForm({
           required
           minLength={3}
           maxLength={5000}
-          placeholder="Ex.: ajuste combinado no atendimento"
+          defaultValue="Liberação de teste VIP / ajuste comercial"
+          placeholder="Ex.: liberação de teste VIP ou ajuste comercial"
         />
       </label>
       <p className="admin-hint">
-        Altera o acesso e os limites deste workspace. Não realiza cobrança.
+        Altera o acesso e os limites deste workspace imediatamente. Não realiza cobrança no cartão.
       </p>
     </AdminForm>
   );
