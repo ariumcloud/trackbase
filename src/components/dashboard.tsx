@@ -2692,383 +2692,6 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 </div>
               </section>
 
-              {viewingPixelSnippet && (() => {
-                const px =
-                  viewingPixelSnippet === "universal"
-                    ? p.pixels[0] || null
-                    : p.pixels.find((x) => x.id === viewingPixelSnippet) || null;
-                const linkedOffer = px ? p.offers.find((o) => o.id === px.offer_id) : null;
-                const trackerKey =
-                  linkedOffer?.public_key || universalKey;
-                const pixelId = px ? px.pixel_id : "SEU_PIXEL_ID";
-
-                const trackbasePixelCode = `<!-- Trackbase Pixel Code -->
-<script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${pixelId}');
-fbq('track', 'PageView');
-</script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Trackbase Pixel Code -->`;
-
-                const trackbaseTrackerCode = trackerKey
-                  ? `<script src="${p.appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`
-                  : `<script src="${p.appUrl}/tracker.js" defer></script>`;
-
-                const fullCombinedCode = `<!-- Trackbase Pixel Code -->
-<script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${pixelId}');
-fbq('track', 'PageView');
-</script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
-/></noscript>
-${trackbaseTrackerCode}
-<!-- End Trackbase Pixel Code -->`;
-
-                return (
-                  <div
-                    className="modal-backdrop"
-                    style={{
-                      position: "fixed",
-                      inset: 0,
-                      background: "rgba(15, 23, 42, 0.75)",
-                      backdropFilter: "blur(5px)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      zIndex: 9999,
-                      padding: "1rem",
-                    }}
-                    onClick={() => setViewingPixelSnippet(null)}
-                  >
-                    <div
-                      className="modal"
-                      role="dialog"
-                      aria-modal="true"
-                      style={{
-                        width: "min(100%, 680px)",
-                        maxHeight: "90vh",
-                        background: "var(--surface, #FFFFFF)",
-                        borderRadius: "16px",
-                        border: "1px solid var(--line, #E2E8F0)",
-                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-                        display: "flex",
-                        flexDirection: "column",
-                        overflow: "hidden",
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Header */}
-                      <div
-                        style={{
-                          padding: "1.25rem 1.5rem",
-                          borderBottom: "1px solid var(--line, #E2E8F0)",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: "var(--surface-subtle, #F8FAFC)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.75rem",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: "10px",
-                              background:
-                                "linear-gradient(135deg, #5B34EA, #7C3AED)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#FFFFFF",
-                            }}
-                          >
-                            <Code2 size={20} />
-                          </div>
-                          <div>
-                            <h3
-                              style={{
-                                margin: 0,
-                                fontSize: "1.1rem",
-                                fontWeight: 700,
-                                color: "var(--ink, #0F172A)",
-                              }}
-                            >
-                              Trackbase Pixel Code
-                            </h3>
-                            <p
-                              style={{
-                                margin: "2px 0 0",
-                                fontSize: "0.8rem",
-                                color: "var(--muted, #64748B)",
-                              }}
-                            >
-                              Pixel: {px ? px.pixel_id : "Universal (Workspace)"} · Escopo:{" "}
-                              {linkedOffer
-                                ? linkedOffer.name
-                                : "Global (Workspace)"}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => setViewingPixelSnippet(null)}
-                          aria-label="Fechar"
-                        >
-                          <X size={20} />
-                        </button>
-                      </div>
-
-                      {/* Modal Body */}
-                      <div
-                        style={{
-                          padding: "1.25rem 1.5rem",
-                          overflowY: "auto",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "1.25rem",
-                        }}
-                      >
-                        {/* Hero: Copiar tudo de uma vez */}
-                        <div
-                          style={{
-                            padding: "1rem 1.25rem",
-                            borderRadius: "10px",
-                            background:
-                              "linear-gradient(135deg, rgba(91, 52, 234, 0.08) 0%, rgba(124, 58, 237, 0.12) 100%)",
-                            border: "1px solid rgba(91, 52, 234, 0.25)",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: "0.75rem",
-                          }}
-                        >
-                          <div>
-                            <strong
-                              style={{
-                                fontSize: "0.95rem",
-                                color: "var(--brand-accent, #5B34EA)",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.4rem",
-                              }}
-                            >
-                              <Sparkles size={16} /> Instalação Completa em 1
-                              Clique
-                            </strong>
-                            <p
-                              style={{
-                                margin: "4px 0 0",
-                                fontSize: "0.8rem",
-                                color: "var(--muted, #64748B)",
-                              }}
-                            >
-                              Copia o <strong>Trackbase Pixel Code</strong> +{" "}
-                              <strong>Script do Trackbase</strong> juntos para
-                              colar direto no <code>&lt;head&gt;</code>.
-                            </p>
-                          </div>
-                          <Clipboard
-                            value={fullCombinedCode}
-                            label="Copiar Código Completo"
-                            className="button primary"
-                          />
-                        </div>
-
-                        {/* Bloco 1: Trackbase Pixel Code */}
-                        <div
-                          style={{
-                            padding: "1rem",
-                            background: "var(--surface-subtle, #F8FAFC)",
-                            borderRadius: "10px",
-                            border: "1px solid var(--line, #E2E8F0)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              flexWrap: "wrap",
-                              gap: "0.5rem",
-                              marginBottom: "0.5rem",
-                            }}
-                          >
-                            <strong
-                              style={{
-                                color: "var(--ink, #0F172A)",
-                                fontSize: "0.9rem",
-                              }}
-                            >
-                              1. Trackbase Pixel Code (Meta Pixel &amp;
-                              PageView)
-                            </strong>
-                            <Clipboard
-                              value={trackbasePixelCode}
-                              label="Copiar Pixel"
-                              className="button small"
-                            />
-                          </div>
-                          <p
-                            style={{
-                              color: "var(--muted, #64748B)",
-                              fontSize: "0.78rem",
-                              margin: "0 0 0.5rem",
-                            }}
-                          >
-                            Cole na tag <code>&lt;head&gt;</code> para registrar
-                            o PageView no Facebook:
-                          </p>
-                          <pre
-                            style={{
-                              padding: "0.75rem 1rem",
-                              background: "#0f172a",
-                              color: "#f8fafc",
-                              borderRadius: "8px",
-                              overflowX: "auto",
-                              fontSize: "0.78rem",
-                              lineHeight: "1.45",
-                              margin: 0,
-                              maxHeight: "160px",
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            <code>{trackbasePixelCode}</code>
-                          </pre>
-                        </div>
-
-                        {/* Bloco 2: Script do Trackbase */}
-                        <div
-                          style={{
-                            padding: "1rem",
-                            background: "var(--surface-subtle, #F8FAFC)",
-                            borderRadius: "10px",
-                            border: "1px solid var(--line, #E2E8F0)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              flexWrap: "wrap",
-                              gap: "0.5rem",
-                              marginBottom: "0.5rem",
-                            }}
-                          >
-                            <strong
-                              style={{
-                                color: "var(--ink, #0F172A)",
-                                fontSize: "0.9rem",
-                              }}
-                            >
-                              2. Script do Trackbase (Captura de UTMs, IP &amp;
-                              CAPI)
-                            </strong>
-                            <Clipboard
-                              value={trackbaseTrackerCode}
-                              label="Copiar Script"
-                              className="button small"
-                            />
-                          </div>
-                          <p
-                            style={{
-                              color: "var(--muted, #64748B)",
-                              fontSize: "0.78rem",
-                              margin: "0 0 0.5rem",
-                            }}
-                          >
-                            Cole também no <code>&lt;head&gt;</code> para
-                            capturar UTMs e cookies para o checkout e CAPI:
-                          </p>
-                          <pre
-                            style={{
-                              padding: "0.75rem 1rem",
-                              background: "#0f172a",
-                              color: "#f8fafc",
-                              borderRadius: "8px",
-                              overflowX: "auto",
-                              fontSize: "0.78rem",
-                              lineHeight: "1.45",
-                              margin: 0,
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            <code>{trackbaseTrackerCode}</code>
-                          </pre>
-                        </div>
-
-                        {/* Dica de Instalação */}
-                        <div
-                          style={{
-                            padding: "0.85rem 1rem",
-                            borderRadius: "8px",
-                            background: "rgba(99, 102, 241, 0.05)",
-                            border: "1px solid rgba(99, 102, 241, 0.16)",
-                            fontSize: "0.8rem",
-                            color: "var(--muted, #64748B)",
-                            lineHeight: "1.45",
-                          }}
-                        >
-                          💡 <strong>Dica de Instalação:</strong> Cole o código
-                          na tag <code>&lt;head&gt;</code> da sua página de
-                          vendas, advertorial ou presell. As compras aprovadas
-                          serão enviadas automaticamente via CAPI para este
-                          Pixel pelo servidor do Trackbase!
-                        </div>
-                      </div>
-
-                      {/* Modal Footer */}
-                      <div
-                        style={{
-                          padding: "1rem 1.5rem",
-                          borderTop: "1px solid var(--line, #E2E8F0)",
-                          display: "flex",
-                          justifyContent: "flex-end",
-                          background: "var(--surface-subtle, #F8FAFC)",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className="button"
-                          onClick={() => setViewingPixelSnippet(null)}
-                        >
-                          Fechar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
               <section className="panel" style={{ background: "linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.08) 100%)", border: "1px solid var(--brand-border, #C7D2FE)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
                   <div>
@@ -3677,6 +3300,374 @@ ${trackbaseTrackerCode}
         onOpenMenu={() => setMobile(true)}
         unreadAlertsCount={p.alerts.filter((a) => !a.read).length}
       />
+      {viewingPixelSnippet && (() => {
+        const px =
+          viewingPixelSnippet === "universal"
+            ? p.pixels[0] || null
+            : p.pixels.find((x) => x.id === viewingPixelSnippet) || null;
+        const linkedOffer = px ? p.offers.find((o) => o.id === px.offer_id) : null;
+        const trackerKey = linkedOffer?.public_key || universalKey;
+        const pixelId = px ? px.pixel_id : "SEU_PIXEL_ID";
+
+        const trackbasePixelCode = `<!-- Trackbase Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${pixelId}');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Trackbase Pixel Code -->`;
+
+        const trackbaseTrackerCode = trackerKey
+          ? `<script src="${p.appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`
+          : `<script src="${p.appUrl}/tracker.js" defer></script>`;
+
+        const fullCombinedCode = `<!-- Trackbase Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${pixelId}');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
+/></noscript>
+${trackbaseTrackerCode}
+<!-- End Trackbase Pixel Code -->`;
+
+        return (
+          <div
+            className="modal-backdrop"
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.75)",
+              backdropFilter: "blur(5px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: "1rem",
+            }}
+            onClick={() => setViewingPixelSnippet(null)}
+          >
+            <div
+              className="modal"
+              role="dialog"
+              aria-modal="true"
+              style={{
+                width: "min(100%, 680px)",
+                maxHeight: "90vh",
+                background: "var(--surface, #FFFFFF)",
+                borderRadius: "16px",
+                border: "1px solid var(--line, #E2E8F0)",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  padding: "1.25rem 1.5rem",
+                  borderBottom: "1px solid var(--line, #E2E8F0)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "var(--surface-subtle, #F8FAFC)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "10px",
+                      background: "linear-gradient(135deg, #5B34EA, #7C3AED)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#FFFFFF",
+                    }}
+                  >
+                    <Code2 size={20} />
+                  </div>
+                  <div>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "1.1rem",
+                        fontWeight: 700,
+                        color: "var(--ink, #0F172A)",
+                      }}
+                    >
+                      Trackbase Pixel Code
+                    </h3>
+                    <p
+                      style={{
+                        margin: "2px 0 0",
+                        fontSize: "0.8rem",
+                        color: "var(--muted, #64748B)",
+                      }}
+                    >
+                      Pixel: {px ? px.pixel_id : "Universal (Workspace)"} · Escopo:{" "}
+                      {linkedOffer ? linkedOffer.name : "Global (Workspace)"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setViewingPixelSnippet(null)}
+                  aria-label="Fechar"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div
+                style={{
+                  padding: "1.25rem 1.5rem",
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1.25rem",
+                }}
+              >
+                {/* Hero: Copiar tudo de uma vez */}
+                <div
+                  style={{
+                    padding: "1rem 1.25rem",
+                    borderRadius: "10px",
+                    background:
+                      "linear-gradient(135deg, rgba(91, 52, 234, 0.08) 0%, rgba(124, 58, 237, 0.12) 100%)",
+                    border: "1px solid rgba(91, 52, 234, 0.25)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "0.75rem",
+                  }}
+                >
+                  <div>
+                    <strong
+                      style={{
+                        fontSize: "0.95rem",
+                        color: "var(--brand-accent, #5B34EA)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                      }}
+                    >
+                      <Sparkles size={16} /> Instalação Completa em 1 Clique
+                    </strong>
+                    <p
+                      style={{
+                        margin: "4px 0 0",
+                        fontSize: "0.8rem",
+                        color: "var(--muted, #64748B)",
+                      }}
+                    >
+                      Copia o <strong>Trackbase Pixel Code</strong> +{" "}
+                      <strong>Script do Trackbase</strong> juntos para colar
+                      direto no <code>&lt;head&gt;</code>.
+                    </p>
+                  </div>
+                  <Clipboard
+                    value={fullCombinedCode}
+                    label="Copiar Código Completo"
+                    className="button primary"
+                  />
+                </div>
+
+                {/* Bloco 1: Trackbase Pixel Code */}
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--surface-subtle, #F8FAFC)",
+                    borderRadius: "10px",
+                    border: "1px solid var(--line, #E2E8F0)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "0.5rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        color: "var(--ink, #0F172A)",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      1. Trackbase Pixel Code (Meta Pixel &amp; PageView)
+                    </strong>
+                    <Clipboard
+                      value={trackbasePixelCode}
+                      label="Copiar Pixel"
+                      className="button small"
+                    />
+                  </div>
+                  <p
+                    style={{
+                      color: "var(--muted, #64748B)",
+                      fontSize: "0.78rem",
+                      margin: "0 0 0.5rem",
+                    }}
+                  >
+                    Cole na tag <code>&lt;head&gt;</code> para registrar o
+                    PageView no Facebook:
+                  </p>
+                  <pre
+                    style={{
+                      padding: "0.75rem 1rem",
+                      background: "#0f172a",
+                      color: "#f8fafc",
+                      borderRadius: "8px",
+                      overflowX: "auto",
+                      fontSize: "0.78rem",
+                      lineHeight: "1.45",
+                      margin: 0,
+                      maxHeight: "160px",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    <code>{trackbasePixelCode}</code>
+                  </pre>
+                </div>
+
+                {/* Bloco 2: Script do Trackbase */}
+                <div
+                  style={{
+                    padding: "1rem",
+                    background: "var(--surface-subtle, #F8FAFC)",
+                    borderRadius: "10px",
+                    border: "1px solid var(--line, #E2E8F0)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "0.5rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        color: "var(--ink, #0F172A)",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      2. Script do Trackbase (Captura de UTMs, IP &amp; CAPI)
+                    </strong>
+                    <Clipboard
+                      value={trackbaseTrackerCode}
+                      label="Copiar Script"
+                      className="button small"
+                    />
+                  </div>
+                  <p
+                    style={{
+                      color: "var(--muted, #64748B)",
+                      fontSize: "0.78rem",
+                      margin: "0 0 0.5rem",
+                    }}
+                  >
+                    Cole também no <code>&lt;head&gt;</code> para capturar UTMs
+                    e cookies para o checkout e CAPI:
+                  </p>
+                  <pre
+                    style={{
+                      padding: "0.75rem 1rem",
+                      background: "#0f172a",
+                      color: "#f8fafc",
+                      borderRadius: "8px",
+                      overflowX: "auto",
+                      fontSize: "0.78rem",
+                      lineHeight: "1.45",
+                      margin: 0,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    <code>{trackbaseTrackerCode}</code>
+                  </pre>
+                </div>
+
+                {/* Dica de Instalação */}
+                <div
+                  style={{
+                    padding: "0.85rem 1rem",
+                    borderRadius: "8px",
+                    background: "rgba(99, 102, 241, 0.05)",
+                    border: "1px solid rgba(99, 102, 241, 0.16)",
+                    fontSize: "0.8rem",
+                    color: "var(--muted, #64748B)",
+                    lineHeight: "1.45",
+                  }}
+                >
+                  💡 <strong>Dica de Instalação:</strong> Cole o código na tag{" "}
+                  <code>&lt;head&gt;</code> da sua página de vendas, advertorial
+                  ou presell. As compras aprovadas serão enviadas automaticamente
+                  via CAPI para este Pixel pelo servidor do Trackbase!
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: "1rem 1.5rem",
+                  borderTop: "1px solid var(--line, #E2E8F0)",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  background: "var(--surface-subtle, #F8FAFC)",
+                }}
+              >
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => setViewingPixelSnippet(null)}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <GuideModal
         isOpen={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
