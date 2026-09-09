@@ -2410,12 +2410,14 @@ export function Dashboard(p: Props) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
                     gap: "1.5rem",
                     marginTop: "1rem",
+                    width: "100%",
+                    maxWidth: "100%",
                   }}
                 >
-                  <div>
+                  <div style={{ minWidth: 0, maxWidth: "100%" }}>
                     <ActionForm
                       action={(f) => savePixel(workspace, f)}
                       label="Conectar Envio ao Facebook"
@@ -2478,6 +2480,7 @@ export function Dashboard(p: Props) {
                         border: "1px solid rgba(99, 102, 241, 0.16)",
                         fontSize: "0.82rem",
                         lineHeight: "1.45",
+                        boxSizing: "border-box",
                       }}
                     >
                       <div
@@ -2498,12 +2501,12 @@ export function Dashboard(p: Props) {
                     </div>
                   </div>
 
-                  <div>
+                  <div style={{ minWidth: 0, maxWidth: "100%" }}>
                     <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
                       Pixels Ativos
                     </h3>
                     {p.pixels && p.pixels.length > 0 ? (
-                      <div style={{ display: "grid", gap: "0.75rem" }}>
+                      <div style={{ display: "grid", gap: "0.75rem", minWidth: 0, maxWidth: "100%" }}>
                         {p.pixels.map((px) => {
                           const linkedOffer = p.offers.find(
                             (o) => o.id === px.offer_id,
@@ -2547,6 +2550,9 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                 display: "flex",
                                 flexDirection: "column",
                                 gap: "0.75rem",
+                                minWidth: 0,
+                                maxWidth: "100%",
+                                boxSizing: "border-box",
                               }}
                             >
                               <div
@@ -2556,13 +2562,15 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                   alignItems: "center",
                                   flexWrap: "wrap",
                                   gap: "0.5rem",
+                                  minWidth: 0,
                                 }}
                               >
-                                <div>
+                                <div style={{ minWidth: 0, flex: "1 1 180px" }}>
                                   <strong
                                     style={{
                                       display: "block",
                                       fontSize: "0.95rem",
+                                      wordBreak: "break-all",
                                     }}
                                   >
                                     Pixel: {px.pixel_id}
@@ -2571,7 +2579,11 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                     style={{
                                       color: "var(--muted, #64748B)",
                                       display: "block",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
                                     }}
+                                    title={linkedOffer ? linkedOffer.name : "Global (Workspace)"}
                                   >
                                     Escopo:{" "}
                                     {linkedOffer
@@ -2647,14 +2659,19 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                     borderRadius: "6px",
                                     border: "1px solid var(--line, #E2E8F0)",
                                     fontSize: "0.82rem",
+                                    minWidth: 0,
+                                    maxWidth: "100%",
+                                    boxSizing: "border-box",
                                   }}
                                 >
-                                  <div style={{ marginBottom: "0.85rem" }}>
+                                  <div style={{ marginBottom: "0.85rem", minWidth: 0 }}>
                                     <div
                                       style={{
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "center",
+                                        flexWrap: "wrap",
+                                        gap: "0.5rem",
                                         marginBottom: "0.35rem",
                                       }}
                                     >
@@ -2695,7 +2712,11 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                         borderRadius: "6px",
                                         overflowX: "auto",
                                         fontSize: "0.75rem",
-                                        lineHeight: "1.35",
+                                        lineHeight: "1.4",
+                                        maxWidth: "100%",
+                                        boxSizing: "border-box",
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "break-all",
                                         maxHeight: "140px",
                                       }}
                                     >
@@ -2703,12 +2724,14 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                     </pre>
                                   </div>
 
-                                  <div>
+                                  <div style={{ minWidth: 0 }}>
                                     <div
                                       style={{
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "center",
+                                        flexWrap: "wrap",
+                                        gap: "0.5rem",
                                         marginBottom: "0.35rem",
                                       }}
                                     >
@@ -2749,7 +2772,11 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                         borderRadius: "6px",
                                         overflowX: "auto",
                                         fontSize: "0.75rem",
-                                        lineHeight: "1.35",
+                                        lineHeight: "1.4",
+                                        maxWidth: "100%",
+                                        boxSizing: "border-box",
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "break-all",
                                       }}
                                     >
                                       <code>{trackbaseCode}</code>
