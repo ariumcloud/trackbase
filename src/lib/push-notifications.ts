@@ -122,11 +122,14 @@ export async function notifySalePush(
       .replace(/\{provedor\}/gi, providerUpper)
       .replace(/\{comprador\}/gi, buyerName);
 
+    const id = crypto.randomUUID();
     const payload = JSON.stringify({
+      id,
+      workspaceId,
       title,
       body,
       url: `/painel?workspace=${workspaceId}&tab=visao`,
-      tag: `sale-${Date.now()}`,
+      tag: `sale-${id}`,
       timestamp: Date.now(),
     });
 
@@ -179,7 +182,7 @@ export async function notifySalePush(
     if (sentCount === 0 && failedCount > 0) {
       return { ok: false, count: 0, total: activeSubs.length, reason: "push_delivery_failed" };
     }
-    return { ok: true, count: sentCount, total: activeSubs.length };
+    return { ok: true, count: sentCount, total: activeSubs.length, id };
   } catch (err) {
     console.error("notifySalePush error:", err);
     return { ok: false, count: 0, reason: String(err) };

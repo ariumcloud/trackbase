@@ -987,7 +987,7 @@ export async function savePushSettings(
 
 export async function sendTestPushAction(
   workspace: string,
-): Promise<ActionResult & { count?: number }> {
+): Promise<ActionResult & { count?: number; eventId?: string }> {
   try {
     await authorize(workspace, true);
     const { notifySalePush } = await import("@/lib/push-notifications");
@@ -1011,7 +1011,7 @@ export async function sendTestPushAction(
       };
     }
 
-    return { ok: true, count: result?.count ?? 1 };
+    return { ok: true, count: result?.count ?? 1, eventId: result?.id };
   } catch (err) {
     console.error("sendTestPushAction error:", err);
     return { error: "Não foi possível disparar o teste de notificação." };

@@ -3364,9 +3364,9 @@ function PushSettingsCard({
     }
   }, [pushSettings]);
 
-  // Play test notification sound
+  // Manual preview is the only path that is initiated by a user gesture.
   const playSound = () => {
-    soundPlayer.play().catch((err) => console.log("Audio blocked:", err));
+    void soundPlayer.play();
   };
 
   const previewTitle = title
@@ -3413,8 +3413,8 @@ function PushSettingsCard({
         type: "success",
         message:
           res.count === 1
-            ? "Notificação enviada com sucesso para o seu celular! Verifique a tela do seu aparelho."
-            : `Notificação enviada com sucesso para ${res.count ?? 1} aparelho(s)! Verifique sua tela.`,
+            ? "Push aceito pelo serviço e enviado ao seu aparelho. A confirmação visual/sonora aparece quando ele chegar."
+            : `Push aceito pelo serviço para ${res.count ?? 1} aparelho(s). A confirmação aparece quando chegar.`,
       });
       setTimeout(() => setStatusFeedback(null), 5000);
     });
@@ -3438,7 +3438,7 @@ function PushSettingsCard({
             </span>
           </div>
           <p>
-            Personalize exatamente a mensagem que toca no seu celular a cada venda aprovada.
+            Personalize a mensagem visual da venda. Com o painel aberto, o Trackbase tenta tocar o som personalizado; em segundo plano, o iOS controla o som da notificação.
           </p>
         </div>
       </div>
