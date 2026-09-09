@@ -105,6 +105,7 @@ export function CampaignsView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [budgetEditor, setBudgetEditor] = useState<{ integration: string; id: string; kind: "campaign" | "adset"; name: string; amount: number | null; currency: string; type: "daily" | "lifetime" | null } | null>(null);
   const [exchangeRates, setExchangeRates] = useState<Record<string, number> | null>(null);
   const latestMetaSync = integrations
     .filter((integration) => integration.provider === "meta" && integration.last_synced_at)
@@ -517,9 +518,6 @@ export function CampaignsView({
 
   return (
     <div className="utmify-campanhas-wrap">
-      <p className="form-help" style={{ margin: "0 0 0.75rem" }}>
-        Meta Ads: leitura de métricas e controle de status. Pausar exige confirmação; para controlar status, reconecte a conta e aceite a permissão solicitada.
-      </p>
       {/* 1. Subtabs Meta / UTMify com Seleção e Badges */}
       <div className="utmify-tabs-header">
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
@@ -1168,13 +1166,7 @@ export function CampaignsView({
                           {formatMoney(row.budget, row.budgetCurrency)}{" "}
                           <small style={{ color: "var(--muted)" }}>{row.budgetType === "lifetime" ? "Vitalício" : "Diário"}</small>
                           {row.entity.kind !== "ad" && (
-                            <button type="button" className="icon-button" aria-label={`Editar orçamento de ${row.entity.name}`} title="Editar orçamento na Meta" disabled={pending} onClick={() => {
-                              const value = window.prompt(`Novo orçamento ${row.budgetType === "lifetime" ? "vitalício" : "diário"} (${row.budgetCurrency}):`, String(row.budget ?? ""));
-                              if (!value) return;
-                              const amount = Number(value.replace(",", "."));
-                              if (!Number.isFinite(amount) || amount <= 0) return window.alert("Informe um valor maior que zero.");
-                              run(() => request("/api/meta/budget", { workspace, integration: row.entity.integration_id, id: row.entity.external_id, kind: row.entity.kind, amount }));
-                            }}><Pencil size={11} /></button>
+                            <button type="button" className="icon-button" aria-label={`Editar orçamento de ${row.entity.name}`} title="Editar orçamento na Meta" disabled={pending} onClick={() => setBudgetEditor({ integration: row.entity.integration_id, id: row.entity.external_id, kind: row.entity.kind as "campaign" | "adset", name: row.entity.name, amount: row.budget, currency: row.budgetCurrency, type: row.budgetType })}><Pencil size={11} /></button>
                           )}
                         </span>
                       </td>
@@ -1477,6 +1469,24 @@ export function CampaignsView({
               </button>
             }
           />
+        </div>
+      )}
+      {budgetEditor && (
+        <div className="budget-editor-backdrop" role="presentation" onMouseDown={() => setBudgetEditor(null)}>
+          <form className="budget-editor" onMouseDown={(event) => event.stopPropagation()} onSubmit={(event) => {
+            event.preventDefault();
+            const amount = Number(new FormData(event.currentTarget).get("amount"));
+            if (!Number.isFinite(amount) || amount <= 0) return;
+            run(async () => {
+              await request("/api/meta/budget", { workspace, integration: budgetEditor.integration, id: budgetEditor.id, kind: budgetEditor.kind, amount });
+              setBudgetEditor(null);
+            });
+          }}>
+            <div className="budget-editor-heading"><div><span>ORÇAMENTO NA META</span><h3>{budgetEditor.name}</h3></div><button type="button" className="icon-button" onClick={() => setBudgetEditor(null)} aria-label="Fechar"><X size={17} /></button></div>
+            <p>Altere o orçamento {budgetEditor.type === "lifetime" ? "vitalício" : "diário"}. O valor será enviado direto para a Meta.</p>
+            <label>Valor em {budgetEditor.currency}<input name="amount" type="number" min="0.01" step="0.01" defaultValue={budgetEditor.amount ?? ""} autoFocus required /></label>
+            <div className="budget-editor-actions"><button type="button" className="button ghost" onClick={() => setBudgetEditor(null)}>Cancelar</button><button className="button primary" disabled={pending}>Salvar orçamento</button></div>
+          </form>
         </div>
       )}
     </div>

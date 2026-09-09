@@ -3263,6 +3263,10 @@ textarea {
 .columns-picker-list .columns-picker-item { border: 1px solid transparent; background: var(--surface-subtle); }
 .columns-picker-list .columns-picker-item:hover { border-color: var(--brand-border); background: var(--brand-soft); }
 
+.budget-editor-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 20px; background: rgba(14, 19, 36, .48); backdrop-filter: blur(3px); }
+.budget-editor { width: min(100%, 440px); display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 24px 72px rgba(11, 18, 38, .28); }
+.budget-editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }.budget-editor-heading span { color: var(--brand-text); font-size: 10px; font-weight: 800; letter-spacing: 1.1px; }.budget-editor-heading h3 { margin: 5px 0 0; font-size: 18px; }.budget-editor p { margin: -6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }.budget-editor label { display: grid; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 700; }.budget-editor input { height: 46px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 9px; font: inherit; font-size: 16px; }.budget-editor-actions { display: flex; justify-content: flex-end; gap: 9px; }.budget-editor-actions .button { min-height: 40px; }
+
 .columns-picker-item:hover {
   background: rgba(255, 255, 255, 0.05);
 }

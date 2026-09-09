@@ -102,6 +102,7 @@ type Props = {
   summary?: DashboardSummary | null;
   initialTab?: string;
   initialPeriod?: string;
+  initialCurrency?: string;
   appUrl: string;
   error?: string;
   shields?: ShieldRow[];
@@ -223,7 +224,7 @@ export function Dashboard(p: Props) {
     [mobile, setMobile] = useState(false),
     [modal, setModal] = useState<string | null>(null),
     [period, setPeriod] = useState(p.initialPeriod || "7"),
-    [currency, setCurrency] = useState("BRL"),
+    [currency, setCurrency] = useState(p.initialCurrency || "BRL"),
     [offer, setOffer] = useState("all"),
     [provider, setProvider] = useState("all"),
     [notice, setNotice] = useState(""),
@@ -232,6 +233,10 @@ export function Dashboard(p: Props) {
     [pending, start] = useTransition();
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    setCurrency(p.initialCurrency || "BRL");
+  }, [p.initialCurrency]);
 
   useEffect(() => {
     try {
@@ -2470,7 +2475,7 @@ export function Dashboard(p: Props) {
             {modal === "workspace" ? (
               <WorkspaceForm />
             ) : modal === "workspace-rename" && p.workspace ? (
-              <WorkspaceRenameForm workspace={workspace} name={p.workspace.name} />
+              <WorkspaceRenameForm workspace={workspace} name={p.workspace.name} defaultCurrency={p.workspace.default_currency} />
             ) : modal === "workspace-delete" && p.workspace ? (
               <WorkspaceDeleteForm workspace={workspace} name={p.workspace.name} />
             ) : modal === "offer" ? (
@@ -3399,8 +3404,6 @@ function PushSettingsCard({
   const handleTestPush = () => {
     setStatusFeedback(null);
     run(async () => {
-      await soundPlayer.unlockAudio();
-      await soundPlayer.play();
       const res = await sendTestPushAction(workspace);
       if (res.error) {
         setStatusFeedback({ type: "error", message: res.error });

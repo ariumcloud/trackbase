@@ -66,7 +66,7 @@ export default async function Page({
   const client = await db();
   const { data: workspaces, error: we } = await client
     .from("utm_workspaces")
-    .select("id,name,timezone,plan,push_settings")
+    .select("id,name,timezone,plan,push_settings,default_currency")
     .order("created_at");
   const w: Workspace | null =
     workspaces?.find((w) => w.id === p.workspace) ?? workspaces?.[0] ?? null;
@@ -74,7 +74,7 @@ export default async function Page({
   const empty = Promise.resolve({ data: [], error: null });
 
   const periodParam = p.period || "7";
-  const currency = p.currency || "BRL";
+  const currency = p.currency || w?.default_currency || "BRL";
   const offerFilter = p.offer && p.offer !== "all" ? p.offer : null;
   const timezone = w?.timezone || "America/Sao_Paulo";
   const today = dayInZone(new Date(), timezone);
@@ -289,7 +289,8 @@ export default async function Page({
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
-      initialTab={p.tab}
+        initialTab={p.tab}
+        initialCurrency={currency}
       initialPeriod={p.period}
       appUrl={process.env.APP_URL || "http://localhost:3000"}
       error={error}

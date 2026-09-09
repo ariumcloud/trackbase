@@ -233,11 +233,11 @@ export async function deleteWorkspace(
 export async function renameWorkspace(workspace: string, form: FormData): Promise<ActionResult> {
   try {
     const { client } = await authorize(workspace, true);
-    const name = z.string().trim().min(2).max(100).safeParse(form.get("name"));
-    if (!name.success) return { error: "Informe um nome entre 2 e 100 caracteres." };
+    const values = z.object({ name: z.string().trim().min(2).max(100), default_currency: z.enum(["BRL", "USD", "EUR", "MXN", "COP"]) }).safeParse(Object.fromEntries(form));
+    if (!values.success) return { error: "Informe um nome e uma moeda padrão válidos." };
     const { error } = await client
       .from("utm_workspaces")
-      .update({ name: name.data })
+      .update({ name: values.data.name, default_currency: values.data.default_currency })
       .eq("id", workspace);
     if (error) throw error;
     revalidatePath("/painel");

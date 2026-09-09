@@ -2,6 +2,7 @@ export type Workspace = {
   id: string;
   name: string;
   timezone: string;
+  default_currency?: string;
   plan: string;
   push_settings?: {
     title_template?: string;

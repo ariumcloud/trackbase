@@ -260,14 +260,20 @@ export function WorkspaceDeleteForm({ workspace, name }: { workspace: string; na
     </ActionForm>
   );
 }
-export function WorkspaceRenameForm({ workspace, name }: { workspace: string; name: string }) {
+export function WorkspaceRenameForm({ workspace, name, defaultCurrency = "BRL" }: { workspace: string; name: string; defaultCurrency?: string }) {
   return (
     <ActionForm action={(form) => renameWorkspace(workspace, form)} label="Salvar nome">
       <label>
         Nome do workspace
         <input name="name" defaultValue={name} minLength={2} maxLength={100} required autoFocus />
       </label>
-      <p className="form-help">Esse nome aparece no seletor de operações e não altera seus dados.</p>
+      <label>
+        Moeda padrão do painel
+        <select name="default_currency" defaultValue={defaultCurrency}>
+          <option value="BRL">Real brasileiro (BRL)</option><option value="USD">Dólar americano (USD)</option><option value="EUR">Euro (EUR)</option><option value="MXN">Peso mexicano (MXN)</option><option value="COP">Peso colombiano (COP)</option>
+        </select>
+      </label>
+      <p className="form-help">A moeda será usada sempre que você abrir este workspace. Você ainda pode trocar temporariamente no painel.</p>
     </ActionForm>
   );
 }
