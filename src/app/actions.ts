@@ -472,50 +472,54 @@ export async function deleteOffer(workspace: string, id: string): Promise<Action
     z.string().uuid().parse(id);
     const service = admin();
 
-    // 1. Check if there are sales
-    const { count: salesCount } = await service
-      .from("utm_sales")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspace)
-      .eq("offer_id", id);
+    // 1. Run primary lookups and decoupled cleanups in parallel
+    const [
+      { count: salesCount },
+      { data: integrations },
+    ] = await Promise.all([
+      service
+        .from("utm_sales")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace)
+        .eq("offer_id", id),
+      service
+        .from("utm_integrations")
+        .select("id")
+        .eq("workspace_id", workspace)
+        .eq("offer_id", id),
+      service
+        .from("utm_offers")
+        .update({ parent_offer_id: null })
+        .eq("workspace_id", workspace)
+        .eq("parent_offer_id", id),
+      service
+        .from("utm_pixels")
+        .update({ offer_id: null })
+        .eq("workspace_id", workspace)
+        .eq("offer_id", id),
+      service
+        .from("utm_links")
+        .delete()
+        .eq("workspace_id", workspace)
+        .eq("offer_id", id),
+    ]);
 
-    // 2. Clear any parent_offer_id references from child offers (e.g. bumps/upsells)
-    await service
-      .from("utm_offers")
-      .update({ parent_offer_id: null })
-      .eq("workspace_id", workspace)
-      .eq("parent_offer_id", id);
-
-    // 3. Clear any pixel references
-    await service
-      .from("utm_pixels")
-      .update({ offer_id: null })
-      .eq("workspace_id", workspace)
-      .eq("offer_id", id);
-
-    // 4. Remove or decouple integrations linked to this offer
-    const { data: integrations } = await service
-      .from("utm_integrations")
-      .select("id")
-      .eq("workspace_id", workspace)
-      .eq("offer_id", id);
-
+    // 2. Clean up integrations linked to this offer in parallel
     const ids = (integrations || []).map((item) => item.id);
     if (ids.length) {
-      await service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", ids);
-      await service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).in("integration_id", ids);
-      await service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).in("integration_id", ids);
-      await service.from("utm_insights").delete().eq("workspace_id", workspace).in("integration_id", ids);
-      await service.from("utm_ad_entities").delete().eq("workspace_id", workspace).in("integration_id", ids);
-      await service.from("utm_sales").delete().eq("workspace_id", workspace).in("integration_id", ids);
+      await Promise.all([
+        service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", ids),
+        service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).in("integration_id", ids),
+        service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).in("integration_id", ids),
+        service.from("utm_insights").delete().eq("workspace_id", workspace).in("integration_id", ids),
+        service.from("utm_ad_entities").delete().eq("workspace_id", workspace).in("integration_id", ids),
+        service.from("utm_sales").delete().eq("workspace_id", workspace).in("integration_id", ids),
+      ]);
       await service.from("utm_integrations").delete().eq("workspace_id", workspace).in("id", ids);
     }
 
-    // 5. Delete links for this offer
-    await service.from("utm_links").delete().eq("workspace_id", workspace).eq("offer_id", id);
-
+    // 3. Delete or soft-delete the offer
     if (salesCount && salesCount > 0) {
-      // If sales exist, soft-delete to preserve attribution data
       const { error } = await service
         .from("utm_offers")
         .update({ active: false })
@@ -523,7 +527,6 @@ export async function deleteOffer(workspace: string, id: string): Promise<Action
         .eq("id", id);
       if (error) throw error;
     } else {
-      // No sales, attempt hard delete, fallback to soft-delete if constrained
       const { error: deleteError } = await service
         .from("utm_offers")
         .delete()
@@ -537,6 +540,7 @@ export async function deleteOffer(workspace: string, id: string): Promise<Action
           .eq("id", id);
       }
     }
+
     revalidatePath("/painel");
     return { ok: true };
   } catch (err) {
@@ -562,13 +566,15 @@ export async function deleteIntegration(workspace: string, id: string): Promise<
       return { error: "Integração não encontrada ou já removida." };
     }
 
-    // Clean up dependent tables
-    await service.from("utm_credentials").delete().eq("workspace_id", workspace).eq("integration_id", id);
-    await service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).eq("integration_id", id);
-    await service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).eq("integration_id", id);
-    await service.from("utm_insights").delete().eq("workspace_id", workspace).eq("integration_id", id);
-    await service.from("utm_ad_entities").delete().eq("workspace_id", workspace).eq("integration_id", id);
-    await service.from("utm_sales").delete().eq("workspace_id", workspace).eq("integration_id", id);
+    // Parallel cleanup of all dependent tables
+    await Promise.all([
+      service.from("utm_credentials").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_insights").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_ad_entities").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_sales").delete().eq("workspace_id", workspace).eq("integration_id", id),
+    ]);
 
     // Delete the integration
     const { error: delErr } = await service
@@ -579,25 +585,29 @@ export async function deleteIntegration(workspace: string, id: string): Promise<
 
     if (delErr) throw delErr;
 
-    // If an offer was created solely for this integration and has no other integrations/links/sales, clean it up too
+    // Clean up orphaned offer in parallel if needed
     if (integration.offer_id) {
-      const { count: offerSales } = await service
-        .from("utm_sales")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspace)
-        .eq("offer_id", integration.offer_id);
-
-      const { count: offerLinks } = await service
-        .from("utm_links")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspace)
-        .eq("offer_id", integration.offer_id);
-
-      const { count: otherIntegrations } = await service
-        .from("utm_integrations")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspace)
-        .eq("offer_id", integration.offer_id);
+      const [
+        { count: offerSales },
+        { count: offerLinks },
+        { count: otherIntegrations },
+      ] = await Promise.all([
+        service
+          .from("utm_sales")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace)
+          .eq("offer_id", integration.offer_id),
+        service
+          .from("utm_links")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace)
+          .eq("offer_id", integration.offer_id),
+        service
+          .from("utm_integrations")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace)
+          .eq("offer_id", integration.offer_id),
+      ]);
 
       if (
         (!offerSales || offerSales === 0) &&

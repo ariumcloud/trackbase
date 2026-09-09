@@ -281,6 +281,7 @@ export function Dashboard(p: Props) {
     [notice, setNotice] = useState(""),
     [showExportMenu, setShowExportMenu] = useState(false),
     [guideModalOpen, setGuideModalOpen] = useState(false),
+    [deletingOfferId, setDeletingOfferId] = useState<string | null>(null),
     [pending, start] = useTransition();
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -1662,18 +1663,31 @@ export function Dashboard(p: Props) {
                                 <button
                                   type="button"
                                   className="offer-delete-btn"
-                                  disabled={pending}
+                                  disabled={pending || deletingOfferId === o.id}
                                   onClick={() => {
                                     if (window.confirm(`Tem certeza que deseja excluir a oferta "${o.name}"? Os links associados serão removidos.`)) {
+                                      setDeletingOfferId(o.id);
                                       run(async () => {
-                                        const res = await deleteOffer(workspace, o.id);
-                                        if (res.error) throw new Error(res.error);
+                                        try {
+                                          const res = await deleteOffer(workspace, o.id);
+                                          if (res.error) throw new Error(res.error);
+                                        } finally {
+                                          setDeletingOfferId(null);
+                                        }
                                       });
                                     }
                                   }}
                                   title="Excluir esta oferta/produto"
                                 >
-                                  <Trash2 size={12} /> Excluir
+                                  {deletingOfferId === o.id ? (
+                                    <>
+                                      <RefreshCw size={11} className="spin" /> Excluindo...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Trash2 size={12} /> Excluir
+                                    </>
+                                  )}
                                 </button>
                               </div>
                             </div>
@@ -3627,6 +3641,7 @@ function IntegrationCard({
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingWebhookSecret, setEditingWebhookSecret] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchAccounts = useCallback(async () => {
     setLoadingAccounts(true);
@@ -3684,22 +3699,35 @@ function IntegrationCard({
         <button
           type="button"
           className="integration-delete-btn"
-          disabled={pending}
+          disabled={pending || deleting}
           onClick={() => {
             if (
               window.confirm(
                 `Tem certeza que deseja excluir a integração "${i.name}"? As configurações associadas a ela serão removidas.`,
               )
             ) {
+              setDeleting(true);
               run(async () => {
-                const res = await deleteIntegration(workspace, i.id);
-                if (res.error) throw new Error(res.error);
+                try {
+                  const res = await deleteIntegration(workspace, i.id);
+                  if (res.error) throw new Error(res.error);
+                } finally {
+                  setDeleting(false);
+                }
               });
             }
           }}
           title="Excluir esta integração"
         >
-          <Trash2 size={13} /> Excluir
+          {deleting ? (
+            <>
+              <RefreshCw size={11} className="spin" /> Excluindo...
+            </>
+          ) : (
+            <>
+              <Trash2 size={13} /> Excluir
+            </>
+          )}
         </button>
       </div>
       {i.provider === "meta" ? (
