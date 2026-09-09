@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 interface LockedFeatureCardProps {
-  feature: "shield" | "diagnostico" | "radar" | "mining";
+  feature: "shield" | "diagnostico" | "radar" | "mining" | "mcp";
 }
 
 const FEATURE_CONFIGS = {
@@ -85,6 +85,24 @@ const FEATURE_CONFIGS = {
       "Análises estruturadas de copy e oferta com o assistente de IA.",
       "Monitoramento escolhido pelo usuário com snapshots e histórico de alterações.",
       "Dados isolados por workspace, sem duplicidade do mesmo anúncio.",
+    ],
+    upgradeUrl: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03",
+    planName: "Plano Básico ou Premium",
+  },
+  mcp: {
+    title: "Conexão MCP (Claude, Codex & Cursor)",
+    subtitle:
+      "Conecte seus assistentes de Inteligência Artificial diretamente aos dados do Trackbase",
+    icon: Sparkles,
+    badge: "PLANOS BÁSICO & PREMIUM",
+    tagline:
+      "Permita que o Claude Desktop, Claude Code, Cursor e Codex consultem faturamento, ROAS real, métricas de campanhas e criem links UTM em tempo real.",
+    benefits: [
+      "Consultas em linguagem natural no Claude ('Quanto faturamos hoje?', 'Qual criativo teve mais lucro?').",
+      "Geração de chaves de API seguras e isoladas exclusivamente para o seu workspace.",
+      "Servidor oficial Model Context Protocol (JSON-RPC 2.0) e compatibilidade com stdio e HTTP/SSE.",
+      "Configuração rápida no Claude Desktop, Cursor e Claude Code.",
+      "Automação completa de análises de tráfego pago e métricas de conversão.",
     ],
     upgradeUrl: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03",
     planName: "Plano Básico ou Premium",

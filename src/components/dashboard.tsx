@@ -647,7 +647,7 @@ export function Dashboard(p: Props) {
               <t.icon size={19} />
               {t.name}
               {isFreePlan &&
-                ["shield", "diagnostico", "radar", "mineracao"].includes(
+                ["shield", "diagnostico", "radar", "mineracao", "mcp"].includes(
                   t.id,
                 ) && (
                   <span
@@ -2079,50 +2079,68 @@ export function Dashboard(p: Props) {
                     text: "Infraestrutura global de pagamentos em múltiplas moedas (USD, EUR, BRL).",
                     color: "blue",
                   },
-                ].map((i) => (
-                  <section className="panel integration-card" key={i.id}>
-                    <div className={`provider-logo ${i.color}`}>{i.letter}</div>
-                    <h2>{i.name}</h2>
-                    <p>{i.text}</p>
-                    <span className="chip">
-                      {p.integrations.filter((c) => c.provider === i.id).length}{" "}
-                      conexões
-                    </span>
-                    <button
-                      className="button"
-                      onClick={() => {
-                        if (!workspace) {
-                          create("workspace");
-                          return;
-                        }
-                        if (i.id === "meta") {
-                          window.location.assign(
-                            `/api/meta/connect?workspace=${workspace}`,
-                          );
-                        } else if (i.id === "google") {
-                          window.location.assign(
-                            `/api/google/connect?workspace=${workspace}`,
-                          );
-                        } else if (
-                          ["cakto", "kiwify", "hotmart"].includes(i.id) &&
-                          p.integrations.some(
-                            (connection) => connection.provider === i.id,
-                          )
-                        ) {
-                          setModal(`${i.id}-add`);
-                        } else setModal(i.id);
-                      }}
-                    >
-                      {["cakto", "kiwify", "hotmart"].includes(i.id) &&
-                      p.integrations.some(
-                        (connection) => connection.provider === i.id,
-                      )
-                        ? "Adicionar outro produto"
-                        : `Conectar ${i.name}`}{" "}
-                      <ArrowUpRight size={15} />
-                    </button>
-                  </section>
-                ))}
+                ].map((i) => {
+                  const currentPlan = normalizePlan(p.workspace?.plan || "devedor");
+                  const metaLimit = plans[currentPlan].meta;
+                  const metaConnectedCount = p.integrations.filter(
+                    (c) => c.provider === "meta" && c.status === "connected" && Boolean(c.account_id),
+                  ).length;
+                  const isMetaLimitReached = i.id === "meta" && metaConnectedCount >= metaLimit;
+
+                  return (
+                    <section className="panel integration-card" key={i.id}>
+                      <div className={`provider-logo ${i.color}`}>{i.letter}</div>
+                      <h2>{i.name}</h2>
+                      <p>{i.text}</p>
+                      <span className="chip">
+                        {i.id === "meta"
+                          ? `${metaConnectedCount} de ${metaLimit} contas`
+                          : `${p.integrations.filter((c) => c.provider === i.id).length} conexões`}
+                      </span>
+                      <button
+                        className={isMetaLimitReached ? "button secondary" : "button"}
+                        onClick={() => {
+                          if (!workspace) {
+                            create("workspace");
+                            return;
+                          }
+                          if (i.id === "meta") {
+                            if (isMetaLimitReached) {
+                              setNotice(
+                                `Limite de ${metaLimit} conta(s) Meta atingido no plano ${plans[currentPlan].name}. Faça upgrade para conectar mais contas.`,
+                              );
+                              return;
+                            }
+                            window.location.assign(
+                              `/api/meta/connect?workspace=${workspace}`,
+                            );
+                          } else if (i.id === "google") {
+                            window.location.assign(
+                              `/api/google/connect?workspace=${workspace}`,
+                            );
+                          } else if (
+                            ["cakto", "kiwify", "hotmart"].includes(i.id) &&
+                            p.integrations.some(
+                              (connection) => connection.provider === i.id,
+                            )
+                          ) {
+                            setModal(`${i.id}-add`);
+                          } else setModal(i.id);
+                        }}
+                      >
+                        {isMetaLimitReached
+                          ? `Limite atingido (${metaLimit}/${metaLimit})`
+                          : ["cakto", "kiwify", "hotmart"].includes(i.id) &&
+                            p.integrations.some(
+                              (connection) => connection.provider === i.id,
+                            )
+                          ? "Adicionar outro produto"
+                          : `Conectar ${i.name}`}{" "}
+                        {!isMetaLimitReached && <ArrowUpRight size={15} />}
+                      </button>
+                    </section>
+                  );
+                })}
               </div>
               {p.integrations.length > 0 && (
                 <section
@@ -2484,10 +2502,14 @@ export function Dashboard(p: Props) {
             />
           )}
           {tab === "mcp" && (
-            <McpSettingsView
-              workspace={workspace}
-              appUrl={p.appUrl}
-            />
+            canUse(p.workspace?.plan || "devedor", "mcp") ? (
+              <McpSettingsView
+                workspace={workspace}
+                appUrl={p.appUrl}
+              />
+            ) : (
+              <LockedFeatureCard feature="mcp" />
+            )
           )}
           {tab === "alertas" && (
             <>

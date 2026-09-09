@@ -8,16 +8,24 @@ import {
   normalizedPaymentEventSchema,
 } from "../src/lib/payment-contract";
 import { canUse, normalizePlan, plans } from "../src/lib/plans";
+
 test("planos oficiais e compatibilidade histórica não liberam plano desconhecido", () => {
   assert.deepEqual(Object.keys(plans), ["devedor", "liso", "vorcaro"]);
   assert.equal(normalizePlan("rico"), "vorcaro");
   assert.equal(normalizePlan("classe_media"), "vorcaro");
   assert.equal(canUse("forged", "capi"), false);
   assert.equal(canUse("devedor", "mining"), false);
+  assert.equal(canUse("devedor", "mcp"), false);
   assert.equal(canUse("liso", "mining"), true);
   assert.equal(canUse("liso", "shield"), true);
+  assert.equal(canUse("liso", "mcp"), true);
   assert.equal(canUse("vorcaro", "mining"), true);
+  assert.equal(canUse("vorcaro", "mcp"), true);
+  assert.equal(plans.devedor.meta, 1);
+  assert.equal(plans.liso.meta, 5);
+  assert.equal(plans.vorcaro.meta, 20);
 });
+
 test("identidade ignora IDs de entrega e separa provedor e teste", () => {
   const base = {
     provider: "hotmart" as const,

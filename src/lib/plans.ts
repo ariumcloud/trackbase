@@ -13,6 +13,7 @@ export const planFeatures = [
   "shield",
   "radar",
   "diagnostico",
+  "mcp",
 ] as const;
 export type PlanFeature = (typeof planFeatures)[number];
 export type PlanId = "devedor" | "liso" | "vorcaro";
@@ -38,7 +39,7 @@ export const plans = {
     workspaces: 1,
     offers: 10,
     links: 200,
-    meta: 3,
+    meta: 5,
     features: [
       "dashboard",
       "tracking",
@@ -49,6 +50,7 @@ export const plans = {
       "mining",
       "radar",
       "diagnostico",
+      "mcp",
     ] as readonly PlanFeature[],
   },
   vorcaro: {
@@ -58,7 +60,7 @@ export const plans = {
     workspaces: 25,
     offers: 500,
     links: 10000,
-    meta: 100,
+    meta: 20,
     features: planFeatures,
   },
 } as const;

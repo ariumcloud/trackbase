@@ -1306,7 +1306,7 @@ export async function createMcpApiKeyAction(
   name: string = "Claude / Codex MCP",
 ): Promise<{ ok?: boolean; error?: string; rawKey?: string; keyInfo?: unknown }> {
   try {
-    const { user } = await authorize(workspace, true);
+    const { user } = await requireFeature(workspace, "mcp", true);
     const result = await createKeyRecord(workspace, user.id, name);
     revalidatePath("/painel");
     return { ok: true, rawKey: result.rawKey, keyInfo: result };
@@ -1317,7 +1317,7 @@ export async function createMcpApiKeyAction(
 
 export async function listMcpApiKeysAction(workspace: string) {
   try {
-    await authorize(workspace, false);
+    await requireFeature(workspace, "mcp", false);
     const keys = await listKeyRecords(workspace);
     return { ok: true, keys };
   } catch (err: unknown) {

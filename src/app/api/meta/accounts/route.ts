@@ -4,6 +4,7 @@ import { z } from "zod";
 import { body, sameOrigin } from "@/lib/security";
 import { credentials, listMetaAccounts, normalizeAdAccountId, MetaError } from "@/lib/meta";
 import { admin } from "@/lib/supabase/server";
+import { plans, normalizePlan } from "@/lib/plans";
 
 function selectionFailure(error: unknown) {
   if (error instanceof MetaError) {
@@ -91,6 +92,35 @@ export async function POST(request: Request) {
       .eq("provider", "meta")
       .eq("account_id", selectedId)
       .maybeSingle();
+
+    if (!existing) {
+      const { data: ws } = await service
+        .from("utm_workspaces")
+        .select("plan")
+        .eq("id", v.workspace)
+        .single();
+      const planId = normalizePlan(ws?.plan || "devedor");
+      const maxAccounts = plans[planId].meta;
+
+      const { count, error: countErr } = await service
+        .from("utm_integrations")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", v.workspace)
+        .eq("provider", "meta")
+        .eq("status", "connected")
+        .not("account_id", "is", null);
+
+      if (!countErr && (count ?? 0) >= maxAccounts) {
+        return NextResponse.json(
+          {
+            error: `Seu plano ${plans[planId].name} permite até ${maxAccounts} conta(s) da Meta. Faça upgrade para conectar mais contas.`,
+            code: "plan_limit_exceeded",
+            stage: "account_selection",
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     if (existing && existing.id !== v.integration) {
       const { data: sourceCredentials, error: sourceError } = await service

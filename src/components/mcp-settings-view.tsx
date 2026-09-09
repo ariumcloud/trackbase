@@ -1,6 +1,17 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
+import {
+  Key,
+  Copy,
+  Check,
+  Trash2,
+  Terminal,
+  Cpu,
+  Sparkles,
+  Code2,
+  Layers,
+} from "lucide-react";
 import { createMcpApiKeyAction, revokeMcpApiKeyAction } from "@/app/actions";
 
 export type ApiKeyItem = {
@@ -37,7 +48,10 @@ export function McpSettingsView({
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     startTransition(async () => {
-      const res = await createMcpApiKeyAction(workspace, keyName || "Claude / Codex MCP");
+      const res = await createMcpApiKeyAction(
+        workspace,
+        keyName.trim() || "Claude Desktop MCP",
+      );
       if (res.ok && res.rawKey && res.keyInfo) {
         setNewKey(res.rawKey);
         setKeyName("");
@@ -48,7 +62,12 @@ export function McpSettingsView({
   };
 
   const handleRevoke = (id: string) => {
-    if (!confirm("Tem certeza que deseja revogar esta chave de API? A IA perderá o acesso.")) return;
+    if (
+      !confirm(
+        "Tem certeza que deseja revogar esta chave de API? A IA perderá o acesso a este workspace.",
+      )
+    )
+      return;
     startTransition(async () => {
       const res = await revokeMcpApiKeyAction(workspace, id);
       if (res.ok) {
@@ -57,7 +76,8 @@ export function McpSettingsView({
     });
   };
 
-  const displayKey = newKey || (keys[0] ? `${keys[0].prefix}` : "tb_live_SUA_CHAVE_AQUI");
+  const activeApiKey =
+    newKey || (keys.length > 0 ? `${keys[0].prefix}...` : "tb_live_SUA_CHAVE_AQUI");
 
   const claudeConfig = JSON.stringify(
     {
@@ -66,7 +86,7 @@ export function McpSettingsView({
           command: "node",
           args: ["./bin/trackbase-mcp.mjs"],
           env: {
-            TRACKBASE_API_KEY: displayKey,
+            TRACKBASE_API_KEY: activeApiKey,
             TRACKBASE_API_URL: appUrl,
           },
         },
@@ -83,7 +103,7 @@ export function McpSettingsView({
           command: "node",
           args: ["./bin/trackbase-mcp.mjs"],
           env: {
-            TRACKBASE_API_KEY: displayKey,
+            TRACKBASE_API_KEY: activeApiKey,
             TRACKBASE_API_URL: appUrl,
           },
         },
@@ -93,90 +113,247 @@ export function McpSettingsView({
     2,
   );
 
-  return (
-    <div style={{ display: "grid", gap: "1.5rem", maxWidth: "900px", margin: "0 auto", padding: "1rem 0" }}>
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)", borderRadius: "14px", padding: "1.5rem 1.75rem", color: "#fff" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-          <span style={{ fontSize: "1.5rem" }}>⚡</span>
-          <h2 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 700 }}>Conexão MCP · Claude, Codex & Cursor</h2>
-        </div>
-        <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.5, opacity: 0.9 }}>
-          Conecte o seu assistente de IA diretamente ao Trackbase através do <b>Model Context Protocol (MCP)</b>.
-          Permita que o Claude Desktop, Claude Code ou Codex/Cursor consultem métricas de vendas, analisem campanhas do Meta e criem links de rastreio em tempo real.
-        </p>
-      </div>
+  const cliCommand = `claude mcp add trackbase -- node bin/trackbase-mcp.mjs`;
 
-      {/* Alerta de chave recém-gerada */}
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "1.5rem",
+        maxWidth: "960px",
+        margin: "0 auto",
+        paddingBottom: "3rem",
+      }}
+    >
+      {/* Alerta de chave recém-criada */}
       {newKey && (
-        <div style={{ background: "#FEF3C7", border: "1px solid #F59E0B", borderRadius: "12px", padding: "1.25rem", color: "#92400E" }}>
-          <strong style={{ display: "block", fontSize: "0.95rem", marginBottom: "0.35rem" }}>
-            🔑 Chave MCP gerada com sucesso!
-          </strong>
-          <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.85rem" }}>
-            Por segurança, esta chave só será exibida <b>uma única vez</b>. Copie e guarde-a agora:
+        <div
+          style={{
+            background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)",
+            border: "1.5px solid #F59E0B",
+            borderRadius: "14px",
+            padding: "1.25rem 1.5rem",
+            boxShadow: "0 6px 20px rgba(245, 158, 11, 0.12)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "0.4rem",
+              color: "#92400E",
+            }}
+          >
+            <Key size={18} />
+            <strong style={{ fontSize: "1rem" }}>Chave de Acesso MCP Gerada!</strong>
+          </div>
+          <p
+            style={{
+              margin: "0 0 0.85rem 0",
+              fontSize: "0.86rem",
+              color: "#78350F",
+              lineHeight: 1.45,
+            }}
+          >
+            Esta chave completa só é exibida <strong>uma única vez</strong>. Copie e
+            guarde em local seguro ou cole diretamente no Claude Desktop agora:
           </p>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.6rem",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
             <input
               readOnly
               value={newKey}
               style={{
-                flex: 1,
-                padding: "0.6rem 0.85rem",
-                fontFamily: "monospace",
+                flex: "1 1 300px",
+                height: "44px",
+                padding: "0 12px",
+                fontFamily:
+                  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 fontSize: "0.85rem",
-                background: "#fff",
+                background: "#FFFFFF",
                 border: "1px solid #D97706",
                 borderRadius: "8px",
+                color: "#92400E",
+                fontWeight: 600,
+                boxSizing: "border-box",
               }}
             />
             <button
               type="button"
               className="button primary"
               onClick={() => handleCopy(newKey, "new-key")}
-              style={{ padding: "0.6rem 1.1rem" }}
+              style={{
+                height: "44px",
+                padding: "0 1.25rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                background: "#D97706",
+                borderColor: "#B45309",
+                color: "#FFFFFF",
+                fontWeight: 600,
+              }}
             >
-              {copied === "new-key" ? "✓ Copiado!" : "Copiar Chave"}
+              {copied === "new-key" ? (
+                <>
+                  <Check size={16} /> Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy size={16} /> Copiar Chave
+                </>
+              )}
             </button>
             <button
               type="button"
               className="button secondary"
               onClick={() => setNewKey(null)}
-              style={{ padding: "0.6rem 0.85rem" }}
+              style={{ height: "44px", padding: "0 1rem" }}
             >
-              Fechar
+              Concluído
             </button>
           </div>
         </div>
       )}
 
-      {/* Formulário de criação de chave */}
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line, #E2E8F0)", borderRadius: "12px", padding: "1.25rem" }}>
-        <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.05rem", fontWeight: 700 }}>Gerar Chave de Acesso MCP</h3>
-        <p style={{ margin: "0 0 1rem 0", color: "var(--muted, #64748B)", fontSize: "0.85rem" }}>
-          Crie uma chave de API para autenticar o Claude Desktop, Codex ou Cursor com seu workspace.
-        </p>
-        <form onSubmit={handleCreate} style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Nome da chave (ex.: Claude Desktop Mac, Cursor Trabalho)"
-            value={keyName}
-            onChange={(e) => setKeyName(e.target.value)}
+      {/* Cartão 1: Gerenciar Chaves */}
+      <section
+        className="panel"
+        style={{
+          borderRadius: "14px",
+          border: "1px solid var(--line, #E2E8F0)",
+          background: "var(--surface, #FFFFFF)",
+          padding: "1.5rem",
+        }}
+      >
+        <div style={{ marginBottom: "1.25rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "0.3rem",
+            }}
+          >
+            <Key size={18} style={{ color: "var(--brand-accent, #5B34EA)" }} />
+            <h2 style={{ fontSize: "1.1rem", margin: 0, fontWeight: 700 }}>
+              Chaves de Acesso MCP
+            </h2>
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.86rem",
+              color: "var(--muted, #64748B)",
+              lineHeight: 1.45,
+            }}
+          >
+            Crie chaves de API exclusivas para autenticar seus assistentes de IA (Claude,
+            Cursor, Codex) aos dados do seu workspace.
+          </p>
+        </div>
+
+        {/* Formulário com layout estável (nunca estica na vertical) */}
+        <form
+          onSubmit={handleCreate}
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "stretch",
+            gap: "10px",
+            width: "100%",
+            maxWidth: "680px",
+            marginBottom: "1.5rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: "1 1 280px", minWidth: "240px" }}>
+            <input
+              type="text"
+              placeholder="Nome da chave (ex: Claude Desktop Mac, Cursor)"
+              value={keyName}
+              onChange={(e) => setKeyName(e.target.value)}
+              disabled={loading}
+              style={{
+                width: "100%",
+                height: "44px",
+                padding: "0 14px",
+                fontSize: "0.88rem",
+                borderRadius: "8px",
+                border: "1px solid var(--line, #CBD5E1)",
+                background: "var(--surface-subtle, #F8FAFC)",
+                color: "var(--ink, #0F172A)",
+                boxSizing: "border-box",
+                outline: "none",
+              }}
+            />
+          </div>
+          <button
+            type="submit"
+            className="button primary"
             disabled={loading}
-            style={{ flex: "1 1 250px", padding: "0.6rem 0.85rem", borderRadius: "8px", border: "1px solid var(--line, #CBD5E1)" }}
-          />
-          <button className="button primary" disabled={loading} style={{ padding: "0.6rem 1.25rem" }}>
-            {loading ? "Gerando…" : "+ Criar Chave MCP"}
+            style={{
+              height: "44px",
+              padding: "0 1.5rem",
+              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              fontWeight: 600,
+            }}
+          >
+            <Sparkles size={16} />
+            {loading ? "Gerando..." : "Criar Nova Chave"}
           </button>
         </form>
 
-        {/* Lista de Chaves Ativas */}
-        {keys.length > 0 && (
-          <div style={{ marginTop: "1.5rem" }}>
-            <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.9rem", color: "var(--muted, #64748B)" }}>
-              Chaves ativas ({keys.length})
-            </h4>
-            <div style={{ display: "grid", gap: "0.5rem" }}>
+        {/* Lista de chaves ativas */}
+        <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "0.75rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "var(--muted, #64748B)",
+              }}
+            >
+              Suas Chaves Ativas ({keys.length})
+            </span>
+          </div>
+
+          {keys.length === 0 ? (
+            <div
+              style={{
+                padding: "1.5rem",
+                borderRadius: "10px",
+                border: "1px dashed var(--line, #E2E8F0)",
+                background: "var(--surface-subtle, #F8FAFC)",
+                textAlign: "center",
+                color: "var(--muted, #64748B)",
+                fontSize: "0.86rem",
+              }}
+            >
+              Nenhuma chave MCP ativa neste workspace. Clique em &quot;Criar Nova Chave&quot;
+              acima para começar.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "0.6rem" }}>
               {keys.map((k) => (
                 <div
                   key={k.id}
@@ -184,95 +361,369 @@ export function McpSettingsView({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "0.75rem 1rem",
+                    padding: "0.85rem 1.1rem",
                     border: "1px solid var(--line, #E2E8F0)",
-                    borderRadius: "8px",
+                    borderRadius: "10px",
                     background: "var(--surface-subtle, #F8FAFC)",
+                    gap: "1rem",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <div>
-                    <strong style={{ fontSize: "0.85rem", color: "var(--ink, #0F172A)" }}>{k.name}</strong>
-                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.75rem", color: "var(--muted, #64748B)", marginTop: "2px" }}>
-                      <code>{k.prefix}</code>
-                      <span>Criada em: {new Date(k.createdAt).toLocaleDateString("pt-BR")}</span>
-                      {k.lastUsedAt && <span>Último uso: {new Date(k.lastUsedAt).toLocaleDateString("pt-BR")}</span>}
+                  <div style={{ minWidth: "200px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          background: "#10B981",
+                          display: "inline-block",
+                        }}
+                        title="Ativa"
+                      />
+                      <strong
+                        style={{
+                          fontSize: "0.9rem",
+                          color: "var(--ink, #0F172A)",
+                        }}
+                      >
+                        {k.name}
+                      </strong>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "0.85rem",
+                        fontSize: "0.78rem",
+                        color: "var(--muted, #64748B)",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <code
+                        style={{
+                          background: "var(--surface, #FFFFFF)",
+                          border: "1px solid var(--line, #E2E8F0)",
+                          borderRadius: "4px",
+                          padding: "2px 6px",
+                          fontFamily: "monospace",
+                          fontSize: "0.75rem",
+                        }}
+                      >
+                        {k.prefix}••••••••
+                      </code>
+                      <span>
+                        Criada em:{" "}
+                        {new Date(k.createdAt).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      {k.lastUsedAt && (
+                        <span>
+                          Último uso:{" "}
+                          {new Date(k.lastUsedAt).toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => handleRevoke(k.id)}
                     style={{
                       background: "transparent",
-                      border: "none",
+                      border: "1px solid #FCA5A5",
                       color: "#DC2626",
-                      fontSize: "0.8rem",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
                       cursor: "pointer",
-                      padding: "4px 8px",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    Revogar
+                    <Trash2 size={13} /> Revogar
                   </button>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </section>
 
-      {/* Como configurar no Claude / Codex / Cursor */}
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line, #E2E8F0)", borderRadius: "12px", padding: "1.25rem" }}>
-        <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "1.05rem", fontWeight: 700 }}>Como Configurar no seu Aplicativo</h3>
-        
-        {/* Abas */}
-        <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--line, #E2E8F0)", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
+      {/* Cartão 2: Como configurar passo a passo */}
+      <section
+        className="panel"
+        style={{
+          borderRadius: "14px",
+          border: "1px solid var(--line, #E2E8F0)",
+          background: "var(--surface, #FFFFFF)",
+          padding: "1.5rem",
+        }}
+      >
+        <div style={{ marginBottom: "1.25rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "0.3rem",
+            }}
+          >
+            <Cpu size={18} style={{ color: "var(--brand-accent, #5B34EA)" }} />
+            <h2 style={{ fontSize: "1.1rem", margin: 0, fontWeight: 700 }}>
+              Como Configurar no seu Aplicativo de IA
+            </h2>
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.86rem",
+              color: "var(--muted, #64748B)",
+            }}
+          >
+            Siga o passo a passo simplificado para conectar o Claude ou seu editor em menos
+            de 1 minuto.
+          </p>
+        </div>
+
+        {/* Seletor de Aplicativo */}
+        <div
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            borderBottom: "1px solid var(--line, #E2E8F0)",
+            paddingBottom: "0.85rem",
+            marginBottom: "1.25rem",
+            flexWrap: "wrap",
+          }}
+        >
           <button
             type="button"
             className={`button ${activeTab === "claude" ? "primary" : "secondary"}`}
             onClick={() => setActiveTab("claude")}
-            style={{ fontSize: "0.82rem", padding: "0.4rem 0.85rem" }}
+            style={{
+              fontSize: "0.84rem",
+              padding: "0.5rem 1rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              fontWeight: 600,
+            }}
           >
-            Claude Desktop
+            <Sparkles size={15} /> Claude Desktop
           </button>
           <button
             type="button"
             className={`button ${activeTab === "cursor" ? "primary" : "secondary"}`}
             onClick={() => setActiveTab("cursor")}
-            style={{ fontSize: "0.82rem", padding: "0.4rem 0.85rem" }}
+            style={{
+              fontSize: "0.84rem",
+              padding: "0.5rem 1rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              fontWeight: 600,
+            }}
           >
-            Codex / Cursor
+            <Code2 size={15} /> Cursor / Codex
           </button>
           <button
             type="button"
             className={`button ${activeTab === "cli" ? "primary" : "secondary"}`}
             onClick={() => setActiveTab("cli")}
-            style={{ fontSize: "0.82rem", padding: "0.4rem 0.85rem" }}
+            style={{
+              fontSize: "0.84rem",
+              padding: "0.5rem 1rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              fontWeight: 600,
+            }}
           >
-            Claude Code / Terminal
+            <Terminal size={15} /> Claude Code (Terminal)
           </button>
         </div>
 
+        {/* Aba: Claude Desktop */}
         {activeTab === "claude" && (
           <div>
-            <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "var(--muted, #64748B)" }}>
-              1. Abra o arquivo de configuração do Claude Desktop:
-              <br />
-              • <b>Windows:</b> <code>%APPDATA%\Claude\claude_desktop_config.json</code>
-              <br />
-              • <b>Mac:</b> <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
-            </p>
-            <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "var(--muted, #64748B)" }}>
-              2. Cole a configuração abaixo e reinicie o Claude Desktop:
-            </p>
-            <div style={{ position: "relative" }}>
+            <div
+              style={{
+                display: "grid",
+                gap: "0.85rem",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.85rem",
+                  alignItems: "flex-start",
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  background: "var(--surface-subtle, #F8FAFC)",
+                  border: "1px solid var(--line, #E2E8F0)",
+                }}
+              >
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "26px",
+                    height: "26px",
+                    borderRadius: "50%",
+                    background: "var(--brand-accent, #5B34EA)",
+                    color: "#FFFFFF",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                >
+                  1
+                </span>
+                <div style={{ fontSize: "0.86rem", lineHeight: 1.5 }}>
+                  <strong style={{ color: "var(--ink, #0F172A)" }}>
+                    Abra o Claude Desktop e acesse as Configurações
+                  </strong>
+                  <div style={{ color: "var(--muted, #64748B)", marginTop: "2px" }}>
+                    Pressione o atalho{" "}
+                    <kbd
+                      style={{
+                        padding: "2px 6px",
+                        background: "#E2E8F0",
+                        borderRadius: "4px",
+                        fontSize: "0.78rem",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      Ctrl + ,
+                    </kbd>{" "}
+                    (Windows) ou{" "}
+                    <kbd
+                      style={{
+                        padding: "2px 6px",
+                        background: "#E2E8F0",
+                        borderRadius: "4px",
+                        fontSize: "0.78rem",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      Cmd + ,
+                    </kbd>{" "}
+                    (Mac) e clique na aba <strong>Developer</strong>.
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.85rem",
+                  alignItems: "flex-start",
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  background: "var(--surface-subtle, #F8FAFC)",
+                  border: "1px solid var(--line, #E2E8F0)",
+                }}
+              >
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "26px",
+                    height: "26px",
+                    borderRadius: "50%",
+                    background: "var(--brand-accent, #5B34EA)",
+                    color: "#FFFFFF",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                >
+                  2
+                </span>
+                <div style={{ fontSize: "0.86rem", lineHeight: 1.5 }}>
+                  <strong style={{ color: "var(--ink, #0F172A)" }}>
+                    Clique no botão &quot;Edit Config&quot;
+                  </strong>
+                  <div style={{ color: "var(--muted, #64748B)", marginTop: "2px" }}>
+                    O próprio Claude abrirá o arquivo{" "}
+                    <code>claude_desktop_config.json</code> no seu Bloco de Notas ou
+                    editor favorito diretamente, sem você precisar procurar pastas
+                    ocultas.
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.85rem",
+                  alignItems: "flex-start",
+                  padding: "0.85rem 1rem",
+                  borderRadius: "10px",
+                  background: "var(--surface-subtle, #F8FAFC)",
+                  border: "1px solid var(--line, #E2E8F0)",
+                }}
+              >
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "26px",
+                    height: "26px",
+                    borderRadius: "50%",
+                    background: "var(--brand-accent, #5B34EA)",
+                    color: "#FFFFFF",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                >
+                  3
+                </span>
+                <div style={{ fontSize: "0.86rem", lineHeight: 1.5 }}>
+                  <strong style={{ color: "var(--ink, #0F172A)" }}>
+                    Cole o código abaixo, salve o arquivo e reinicie o Claude
+                  </strong>
+                  <div style={{ color: "var(--muted, #64748B)", marginTop: "2px" }}>
+                    Copie a configuração com 1 clique abaixo. Ela já inclui sua chave de
+                    acesso:
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Snippet com botão de cópia */}
+            <div style={{ position: "relative", marginTop: "0.5rem" }}>
               <pre
                 style={{
                   background: "#0F172A",
                   color: "#E2E8F0",
-                  padding: "1rem",
-                  borderRadius: "8px",
-                  fontSize: "0.82rem",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  fontSize: "0.84rem",
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                   overflowX: "auto",
-                  margin: "0 0 0.5rem 0",
+                  margin: 0,
+                  lineHeight: 1.5,
                 }}
               >
                 {claudeConfig}
@@ -281,29 +732,60 @@ export function McpSettingsView({
                 type="button"
                 className="button primary"
                 onClick={() => handleCopy(claudeConfig, "claude-json")}
-                style={{ position: "absolute", top: "10px", right: "10px", fontSize: "0.75rem", padding: "4px 10px" }}
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  fontSize: "0.78rem",
+                  padding: "6px 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontWeight: 600,
+                }}
               >
-                {copied === "claude-json" ? "✓ Copiado" : "Copiar JSON"}
+                {copied === "claude-json" ? (
+                  <>
+                    <Check size={14} /> Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} /> Copiar JSON
+                  </>
+                )}
               </button>
             </div>
           </div>
         )}
 
+        {/* Aba: Cursor / Codex */}
         {activeTab === "cursor" && (
           <div>
-            <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "var(--muted, #64748B)" }}>
-              No Cursor ou Codex, crie ou edite o arquivo <code>.cursor/mcp.json</code> na raiz do seu projeto:
+            <p
+              style={{
+                margin: "0 0 1rem 0",
+                fontSize: "0.86rem",
+                color: "var(--muted, #64748B)",
+                lineHeight: 1.5,
+              }}
+            >
+              No Cursor ou Codex, crie ou edite o arquivo{" "}
+              <code>.cursor/mcp.json</code> na raiz do seu projeto e adicione a
+              configuração abaixo:
             </p>
             <div style={{ position: "relative" }}>
               <pre
                 style={{
                   background: "#0F172A",
                   color: "#E2E8F0",
-                  padding: "1rem",
-                  borderRadius: "8px",
-                  fontSize: "0.82rem",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  fontSize: "0.84rem",
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                   overflowX: "auto",
-                  margin: "0 0 0.5rem 0",
+                  margin: 0,
+                  lineHeight: 1.5,
                 }}
               >
                 {cursorConfig}
@@ -312,67 +794,223 @@ export function McpSettingsView({
                 type="button"
                 className="button primary"
                 onClick={() => handleCopy(cursorConfig, "cursor-json")}
-                style={{ position: "absolute", top: "10px", right: "10px", fontSize: "0.75rem", padding: "4px 10px" }}
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  fontSize: "0.78rem",
+                  padding: "6px 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontWeight: 600,
+                }}
               >
-                {copied === "cursor-json" ? "✓ Copiado" : "Copiar JSON"}
+                {copied === "cursor-json" ? (
+                  <>
+                    <Check size={14} /> Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} /> Copiar JSON
+                  </>
+                )}
               </button>
             </div>
           </div>
         )}
 
+        {/* Aba: Claude Code (CLI) */}
         {activeTab === "cli" && (
           <div>
-            <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "var(--muted, #64748B)" }}>
-              Para conectar no <b>Claude Code</b> via terminal, execute o comando:
+            <p
+              style={{
+                margin: "0 0 1rem 0",
+                fontSize: "0.86rem",
+                color: "var(--muted, #64748B)",
+                lineHeight: 1.5,
+              }}
+            >
+              Se você usa o <strong>Claude Code</strong> no terminal, basta rodar o comando
+              único abaixo:
             </p>
             <div style={{ position: "relative" }}>
               <pre
                 style={{
                   background: "#0F172A",
                   color: "#E2E8F0",
-                  padding: "1rem",
-                  borderRadius: "8px",
-                  fontSize: "0.82rem",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  fontSize: "0.84rem",
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                   overflowX: "auto",
-                  margin: "0 0 0.5rem 0",
+                  margin: 0,
+                  lineHeight: 1.5,
                 }}
               >
-                {`claude mcp add trackbase -- node bin/trackbase-mcp.mjs`}
+                {cliCommand}
               </pre>
               <button
                 type="button"
                 className="button primary"
-                onClick={() => handleCopy(`claude mcp add trackbase -- node bin/trackbase-mcp.mjs`, "cli-cmd")}
-                style={{ position: "absolute", top: "10px", right: "10px", fontSize: "0.75rem", padding: "4px 10px" }}
+                onClick={() => handleCopy(cliCommand, "cli-cmd")}
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  fontSize: "0.78rem",
+                  padding: "6px 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontWeight: 600,
+                }}
               >
-                {copied === "cli-cmd" ? "✓ Copiado" : "Copiar Comando"}
+                {copied === "cli-cmd" ? (
+                  <>
+                    <Check size={14} /> Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} /> Copiar Comando
+                  </>
+                )}
               </button>
             </div>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Ferramentas Disponíveis */}
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line, #E2E8F0)", borderRadius: "12px", padding: "1.25rem" }}>
-        <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "1.05rem", fontWeight: 700 }}>
-          Ferramentas que sua IA ganha com o Trackbase
-        </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.75rem" }}>
+      {/* Cartão 3: O que o Claude pode fazer */}
+      <section
+        className="panel"
+        style={{
+          borderRadius: "14px",
+          border: "1px solid var(--line, #E2E8F0)",
+          background: "var(--surface, #FFFFFF)",
+          padding: "1.5rem",
+        }}
+      >
+        <div style={{ marginBottom: "1.25rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "0.3rem",
+            }}
+          >
+            <Layers size={18} style={{ color: "var(--brand-accent, #5B34EA)" }} />
+            <h2 style={{ fontSize: "1.1rem", margin: 0, fontWeight: 700 }}>
+              O que a sua IA pode fazer conectada ao Trackbase
+            </h2>
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.86rem",
+              color: "var(--muted, #64748B)",
+            }}
+          >
+            O protocolo MCP dá superpoderes ao seu Claude ou editor para analisar e agir
+            sobre o seu negócio.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: "0.85rem",
+          }}
+        >
           {[
-            { name: "get_metrics", desc: "Consulta faturamento bruto/líquido, vendas aprovadas, ticket médio, taxa de reembolso e ROAS real por período." },
-            { name: "list_campaigns", desc: "Lista todas as campanhas ativas do Meta Ads e Google Ads com gastos, cliques e receita gerada." },
-            { name: "list_offers", desc: "Acessa ofertas, checkouts vinculados e páginas de vendas cadastradas no workspace." },
-            { name: "create_tracking_link", desc: "Cria links de rastreio com UTMs completas (origem, campanha, criativo) e link encurtado." },
-            { name: "get_recent_sales", desc: "Consulta as vendas mais recentes em tempo real de qualquer checkout (Hotmart, Kiwify, Cakto, etc.)." },
-            { name: "get_mined_offers", desc: "Espiona anúncios minerados de concorrentes com dias ativos, títulos e criativos." },
+            {
+              name: "get_metrics",
+              title: "Métricas e Faturamento Real",
+              desc: "Consulta faturamento bruto/líquido, vendas aprovadas, ticket médio, reembolsos e ROAS real por período.",
+            },
+            {
+              name: "list_campaigns",
+              title: "Análise de Campanhas",
+              desc: "Lista todas as campanhas ativas do Meta Ads e Google Ads com gastos, cliques, CPA e receita gerada.",
+            },
+            {
+              name: "list_offers",
+              title: "Catálogo de Ofertas e Checkouts",
+              desc: "Acessa ofertas cadastradas, links de checkout (Hotmart, Kiwify, Cakto) e páginas de venda.",
+            },
+            {
+              name: "create_tracking_link",
+              title: "Criação de Links com UTMs",
+              desc: "Gera links de rastreio com parâmetros completos (origem, campanha, criativo) e link encurtado na hora.",
+            },
+            {
+              name: "get_recent_sales",
+              title: "Feed de Vendas em Tempo Real",
+              desc: "Verifica vendas recentes minuto a minuto com detalhes de comprador, método de pagamento e gateway.",
+            },
+            {
+              name: "get_mined_offers",
+              title: "Espionagem de Anúncios e Ofertas",
+              desc: "Analisa anúncios minerados de concorrentes com dias ativos, títulos e criativos que mais escalam.",
+            },
           ].map((tool) => (
-            <div key={tool.name} style={{ border: "1px solid var(--line, #E2E8F0)", borderRadius: "8px", padding: "0.75rem", background: "var(--surface-subtle, #F8FAFC)" }}>
-              <code style={{ color: "var(--brand-primary, #6366F1)", fontWeight: 700, fontSize: "0.82rem" }}>{tool.name}</code>
-              <p style={{ margin: "4px 0 0 0", fontSize: "0.78rem", color: "var(--muted, #64748B)", lineHeight: 1.45 }}>{tool.desc}</p>
+            <div
+              key={tool.name}
+              style={{
+                border: "1px solid var(--line, #E2E8F0)",
+                borderRadius: "10px",
+                padding: "1rem",
+                background: "var(--surface-subtle, #F8FAFC)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.35rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <strong
+                  style={{
+                    fontSize: "0.88rem",
+                    color: "var(--ink, #0F172A)",
+                  }}
+                >
+                  {tool.title}
+                </strong>
+                <code
+                  style={{
+                    color: "var(--brand-accent, #5B34EA)",
+                    fontWeight: 700,
+                    fontSize: "0.72rem",
+                    background: "rgba(91, 52, 234, 0.08)",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  {tool.name}
+                </code>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.8rem",
+                  color: "var(--muted, #64748B)",
+                  lineHeight: 1.45,
+                }}
+              >
+                {tool.desc}
+              </p>
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
