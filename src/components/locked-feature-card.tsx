@@ -23,7 +23,7 @@ const FEATURE_CONFIGS = {
     subtitle:
       "Proteja sua oferta contra analistas da Meta e concorrentes do AdHeart",
     icon: ShieldCheck,
-    badge: "EXCLUSIVO PLANO PREMIUM",
+    badge: "PLANOS BÁSICO & PREMIUM",
     tagline:
       "Evite bloqueios repentinos em contas de anúncio e impeça que concorrentes espionem ou copiem suas páginas de vendas.",
     benefits: [
@@ -33,8 +33,8 @@ const FEATURE_CONFIGS = {
       "Tokens de sessão HMAC criptografados com expiração e proteção contra reutilização.",
       "Logs em tempo real de acessos bloqueados e liberados por IP, dispositivo e país.",
     ],
-    upgradeUrl: "https://buy.stripe.com/4gMeVfeB86sRbV3cAP9IQ04", // Link Stripe Premium
-    planName: "Plano Premium",
+    upgradeUrl: "https://buy.stripe.com/aFa5kF3Wu8AZaQZ0S79IQ03", // Link Stripe Básico
+    planName: "Plano Básico ou Premium",
   },
   diagnostico: {
     title: "Diagnóstico de Gargalos & Auditoria Financeira",

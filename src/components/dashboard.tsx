@@ -643,24 +643,10 @@ export function Dashboard(p: Props) {
             >
               <t.icon size={19} />
               {t.name}
-              {!hasMiningAccess && t.id === "mineracao" && (
-                <span
-                  style={{
-                    marginLeft: "auto",
-                    fontSize: "0.68rem",
-                    padding: "2px 6px",
-                    borderRadius: "4px",
-                    background: "rgba(91, 52, 234, 0.12)",
-                    color: "var(--brand-accent, #5B34EA)",
-                    fontWeight: 700,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  BÁSICO+
-                </span>
-              )}
               {isFreePlan &&
-                ["shield", "diagnostico", "radar"].includes(t.id) && (
+                ["shield", "diagnostico", "radar", "mineracao"].includes(
+                  t.id,
+                ) && (
                   <span
                     style={{
                       marginLeft: "auto",
@@ -673,7 +659,7 @@ export function Dashboard(p: Props) {
                       letterSpacing: "0.02em",
                     }}
                   >
-                    PRO
+                    BÁSICO+
                   </span>
                 )}
               {t.id === "links" && p.links.length > 0 && (

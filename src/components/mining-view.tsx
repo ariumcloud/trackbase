@@ -107,9 +107,17 @@ export function ExtensionSettings({ workspace }: { workspace: string }) {
     <section className="mining-panel">
       <h2>Extensão Trackbase</h2>
       <p>
-        Instale a pasta extension pelo modo de desenvolvedor do Chrome (Carregar
-        sem compactação). Abra a extensão, inicie o vínculo e aprove o código
-        aqui. A autorização dura 24 horas e vale apenas para este workspace.
+        <a
+          href="https://github.com/pedawfall1/trackbase/tree/main/extension"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Baixe a extensão no GitHub
+        </a>{" "}
+        e instale a pasta <code>extension</code> pelo modo de desenvolvedor do
+        Chrome (Carregar sem compactação). Depois abra a extensão, inicie o
+        vínculo e aprove o código aqui. A autorização dura 24 horas e vale
+        apenas para este workspace.
       </p>
       <label>
         Código de vínculo
