@@ -49,13 +49,34 @@ async function handle(message, sender) {
     sender.url || "",
   );
   if (!popup && !meta) throw new Error("Página não autorizada.");
-  const state = await chrome.storage.session.get([
+  let state = await chrome.storage.session.get([
     "pending",
     "grants",
     "selected",
     "origin",
   ]);
-  const grants = state.grants || {};
+  let grants = state.grants || {};
+
+  // Se a sessão foi limpa pelo fechamento do navegador, recupera a autorização persistida
+  if ((!state.grants || Object.keys(state.grants).length === 0) && chrome.storage?.local) {
+    const local = await chrome.storage.local.get(["grants", "selected", "origin", "pending"]);
+    if (local.grants && Object.keys(local.grants).length > 0) {
+      grants = local.grants;
+      state.grants = grants;
+      state.selected = local.selected || state.selected || Object.keys(grants)[0];
+      state.origin = local.origin || state.origin || "https://trackbase.com.br";
+      await chrome.storage.session.set({
+        grants: state.grants,
+        selected: state.selected,
+        origin: state.origin,
+      });
+    }
+    if (!state.pending && local.pending) {
+      state.pending = local.pending;
+      await chrome.storage.session.set({ pending: state.pending });
+    }
+  }
+
   if (message.action === "status" && popup) {
     return {
       origin: state.origin || "https://trackbase.com.br",
@@ -80,12 +101,22 @@ async function handle(message, sender) {
     const verifier = random(),
       challenge = await hash(verifier);
     // Changing deployment clears authorizations so no credential crosses origins.
+    const newGrants = state.origin === origin ? grants : {};
+    const newSelected = state.origin === origin ? state.selected || "" : "";
     await chrome.storage.session.set({
       origin,
       pending: { verifier, challenge },
-      grants: state.origin === origin ? grants : {},
-      selected: state.origin === origin ? state.selected || "" : "",
+      grants: newGrants,
+      selected: newSelected,
     });
+    if (chrome.storage?.local) {
+      await chrome.storage.local.set({
+        origin,
+        pending: { verifier, challenge },
+        grants: newGrants,
+        selected: newSelected,
+      });
+    }
     await chrome.tabs.create({
       url: `${origin}/painel?tab=mineracao#extension=${challenge}`,
     });
@@ -104,15 +135,29 @@ async function handle(message, sender) {
     };
     await chrome.storage.session.set({ grants, selected: g.workspace_id });
     await chrome.storage.session.remove("pending");
+    if (chrome.storage?.local) {
+      await chrome.storage.local.set({
+        grants,
+        selected: g.workspace_id,
+        origin: state.origin,
+      });
+      await chrome.storage.local.remove("pending");
+    }
     return { ok: true };
   }
   if (message.action === "select" && popup) {
     if (!grants[message.workspace]) throw new Error("Workspace não vinculado.");
     await chrome.storage.session.set({ selected: message.workspace });
+    if (chrome.storage?.local) {
+      await chrome.storage.local.set({ selected: message.workspace });
+    }
     return { ok: true };
   }
   if (message.action === "disconnect" && popup) {
     await chrome.storage.session.clear();
+    if (chrome.storage?.local) {
+      await chrome.storage.local.clear();
+    }
     return { ok: true };
   }
   if (message.action === "capture" && meta) {

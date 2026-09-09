@@ -92,7 +92,7 @@ export function ExtensionSettings({ workspace }: { workspace: string }) {
       await api("extension", method, value);
       setMessage(
         method === "POST"
-          ? "Vínculo aprovado. Volte à extensão e clique em Concluir vínculo."
+          ? "Workspace autorizado com sucesso! Agora basta abrir o popup da extensão para concluir a conexão."
           : "Autorização revogada.",
       );
       setChallenge("");
@@ -148,30 +148,57 @@ export function ExtensionSettings({ workspace }: { workspace: string }) {
         Autorizar extensão neste workspace
       </button>
       {message && <p role="status">{message}</p>}
-      {!grants.some(
-        (g) => g.status === "active" && Date.parse(g.expires_at) > Date.now(),
-      ) && <p>Sem autorização ativa da extensão.</p>}
-      {grants
-        .filter((g) => g.status !== "revoked")
-        .map((g) => (
-          <div className="mining-row" key={g.id}>
-            <span>
-              {Date.parse(g.expires_at) <= Date.now()
-                ? "Expirado"
-                : g.status === "pending"
-                  ? "Aguardando extensão"
-                  : "Autorizado"}{" "}
-              · até {date(g.expires_at)}
-            </span>
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => void act("DELETE", { workspace, id: g.id })}
-            >
-              Revogar
-            </button>
+      <div className="mining-status-container">
+        <h4 className="mining-status-title">Status do vínculo com a extensão</h4>
+        {!grants.some(
+          (g) => g.status === "active" && Date.parse(g.expires_at) > Date.now(),
+        ) && (
+          <div className="mining-status-badge inactive">
+            <span className="mining-status-icon">⚠️</span>
+            <div>
+              <strong>Nenhuma autorização ativa</strong>
+              <p>
+                Cole o código gerado pela extensão acima e clique em autorizar para conectar este workspace.
+              </p>
+            </div>
           </div>
-        ))}
+        )}
+        {grants
+          .filter((g) => g.status !== "revoked")
+          .map((g) => {
+            const isExpired = Date.parse(g.expires_at) <= Date.now();
+            const isPending = g.status === "pending";
+            const statusClass = isExpired ? "expired" : isPending ? "pending" : "active";
+            const statusLabel = isExpired ? "Expirado" : isPending ? "Pendente" : "Ativo";
+            const statusText = isExpired
+              ? "Autorização expirada"
+              : isPending
+                ? "Aguardando confirmação na extensão"
+                : "Extensão conectada e autorizada";
+
+            return (
+              <div className={`mining-status-item ${statusClass}`} key={g.id}>
+                <div className="mining-status-info">
+                  <span className={`mining-status-pill ${statusClass}`}>
+                    {statusLabel}
+                  </span>
+                  <div className="mining-status-meta">
+                    <strong>{statusText}</strong>
+                    <span>Válido até {date(g.expires_at)}</span>
+                  </div>
+                </div>
+                <button
+                  className="button secondary"
+                  style={{ padding: "6px 12px", fontSize: "12px" }}
+                  disabled={busy}
+                  onClick={() => void act("DELETE", { workspace, id: g.id })}
+                >
+                  Revogar
+                </button>
+              </div>
+            );
+          })}
+      </div>
     </section>
   );
 }

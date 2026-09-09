@@ -25,13 +25,48 @@ A auditoria local identificou:
 
 ## Instalar e vincular a extensão
 
-1. No Chrome, abra `chrome://extensions`, habilite o modo de desenvolvedor, escolha **Carregar sem compactação** e selecione a pasta `extension/` deste projeto. Não há etapa de build da extensão.
-2. Abra o popup, informe o endereço do Trackbase (domínio `trackbase.com.br` ou subdomínio HTTPS; localhost/127.0.0.1 é permitido no desenvolvimento) e clique **Iniciar vínculo / adicionar workspace**. A permissão opcional é solicitada apenas para esse host. Endereços externos são rejeitados pela extensão.
-3. A extensão abre `/painel?tab=mineracao` com o desafio no fragmento da URL. O desafio não é uma credencial de captura. Autentique-se pelo login normal, selecione o workspace e aprove o vínculo. Se o login descartar o fragmento, copie o código do popup para a configuração da extensão no painel.
-4. Volte ao popup e clique **Concluir vínculo aprovado**. O código aprovado expira em cinco minutos e só pode ser resgatado uma vez. A credencial de captura expira em 24 horas.
-5. Para adicionar outro workspace, repita o vínculo. O seletor do popup contém somente workspaces vinculados. Os nomes vêm do servidor.
-6. Abra anúncios na Biblioteca da Meta e clique **Salvar no Trackbase**. Clique **Registrar verificação** somente para ofertas/páginas que você ativou no monitoramento. Para páginas, anúncios novos observados são salvos pelo mesmo fluxo transacional.
-7. Revogue um vínculo no Trackbase. **Esquecer vínculos** no popup apenas limpa a sessão local; o vínculo também expira no servidor. Fechar o navegador elimina a credencial local e exige novo vínculo.
+### Instalação no Google Chrome
+1. Baixe o ZIP oficial do Trackbase (`trackbase-extension.zip`) disponível no painel em **Biblioteca de Ofertas** ou em `/downloads/trackbase-extension.zip`.
+2. Extraia o conteúdo do arquivo ZIP em uma pasta dedicada no seu computador.
+3. No Chrome, abra `chrome://extensions`.
+4. Ative a chave **"Modo do desenvolvedor"** no canto superior direito.
+5. Clique em **"Carregar sem compactação"** e selecione a pasta extraída da extensão. Não há etapa de build adicional.
+6. Fixe o ícone da extensão Trackbase na barra de ferramentas do navegador para facilitar o acesso.
+
+### Primeiro vínculo com o Workspace
+1. Abra o popup da extensão, informe o endereço do Trackbase (padrão `https://trackbase.com.br`; subdomínios HTTPS ou `http://localhost:*` para desenvolvimento local) e clique em **"Iniciar vínculo"**.
+2. A extensão solicita a permissão opcional exclusivamente para o domínio configurado e abre a aba do painel em `/painel?tab=mineracao` com o código (desafio PKCE) no fragmento da URL.
+3. Faça login com sua conta normal do Trackbase e confirme o workspace ativo no painel.
+4. Caso o código não seja preenchido automaticamente, copie o código do popup usando o botão **"Copiar"** e cole no campo **"Código de vínculo"** no painel.
+5. Clique em **"Autorizar extensão neste workspace"** (o código temporário dura 5 minutos e só pode ser resgatado uma vez).
+6. Volte ao popup da extensão e clique em **"Concluir vínculo"**.
+7. O workspace de destino será automaticamente selecionado no popup com status "Conectado e ativo".
+8. Para conectar workspaces adicionais, basta repetir o processo selecionando outro workspace no painel.
+
+### Mineração na Biblioteca de Anúncios da Meta
+1. Acesse a Biblioteca de Anúncios da Meta (`https://www.facebook.com/ads/library/`).
+2. Pesquise por um anunciante, termo ou nicho de interesse.
+3. Localize qualquer card de anúncio ativo; a barra de ferramentas do Trackbase é injetada automaticamente no rodapé do card.
+4. Clique em **"Salvar no Trackbase"** para enviar a captura imediatamente ao workspace selecionado.
+5. Acompanhe o status instantâneo ("Salvo no workspace selecionado" ou "Anúncio já salvo neste workspace").
+6. Para ofertas ou páginas incluídas no monitoramento contínuo, utilize **"Registrar verificação"** para gerar um novo snapshot comparativo.
+
+### Organização e Recursos no Trackbase
+- **Ofertas salvas:** acesse a lista completa com filtros inteligentes por formato de anúncio, nicho, tags, status e dias ativos estimados.
+- **Visualização de criativos:** reproduza vídeos e inspecione imagens capturadas diretamente na interface.
+- **Análise estratégica com IA:** desconstrua o anúncio em gancho, promessa, mecanismo único, nível de consciência, prova social e hipóteses de longevidade.
+- **Tags e anotações:** adicione tags personalizadas e notas estratégicas para o seu time.
+- **Monitoramento contínuo:** configure rastreadores por anúncio ou página anunciante para auditar alterações de criativo ou pausas.
+- **Histórico e snapshots:** consulte as diferenças estruturais registradas entre verificações.
+
+### Solução de problemas frequentes
+- **Código de autorização expirado:** o código de vinculação expira em 5 minutos. Caso expire antes de autorizar no painel, clique em "Iniciar vínculo" no popup para gerar um novo código.
+- **Workspace não autorizado:** certifique-se de que o usuário possui permissão de Proprietário (Owner) ou Administrador (Admin) e que o workspace possui o Plano Básico (`liso`) ou superior. Workspaces no plano Free são bloqueados.
+- **Anúncio sem dados suficientes:** a extensão captura estritamente os dados visíveis no DOM da página no instante da captura. Se a Meta não renderizou o anunciante ou o ID, clique em "Ver detalhes do anúncio" e salve a partir da visualização expandida.
+- **Botão "Salvar" não aparece:** atualize a página da Meta (`F5`). O observador de mutações injeta os controles conforme os cards são renderizados no feed.
+- **Extensão desatualizada:** em `chrome://extensions`, clique no botão de atualizar na extensão Trackbase para recarregar o content script.
+- **Autorização revogada:** se o vínculo foi revogado no painel ou o navegador foi fechado, clique em "Esquecer vínculos neste navegador" e refaça a conexão em poucos segundos.
+- **Página carregando dinamicamente:** aguarde a rolagem carregar novos blocos; o observador injeta os botões de forma não intrusiva.
 
 O servidor só persiste hashes de desafio/credencial. A extensão armazena verifier e credenciais em `chrome.storage.session`, com acesso `TRUSTED_CONTEXTS`; o content script não lê esse storage. Referência: [Chrome storage](https://developer.chrome.com/docs/extensions/reference/api/storage). O worker valida remetente, página Meta e tipo de mensagem. A troca de domínio elimina vínculos anteriores. Chamadas usam `credentials: omit` e rejeitam redirecionamentos, evitando enviar bearer a outro destino. Não há CORS curinga: requisições do worker usam a permissão de host do Chrome, enquanto mutações por sessão exigem a origem do Trackbase.
 

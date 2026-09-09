@@ -1,43 +1,732 @@
-body {
-  font:
-    14px system-ui,
-    sans-serif;
-  width: 340px;
-  padding: 16px;
-  color: #172321;
-  background: #f8faf9;
+/* ==========================================================================
+   TRACKBASE CHROME EXTENSION — DESIGN SYSTEM
+   Cores e identidade visual consistentes com o painel oficial do Trackbase.
+   ========================================================================== */
+
+:root {
+  /* Paleta Oficial do Trackbase */
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface-subtle: #f9fafb;
+  --surface-muted: #f3f4f6;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+
+  /* Tipografia */
+  --ink: #0f172a;
+  --ink-secondary: #334155;
+  --muted: #64748b;
+  --muted-light: #94a3b8;
+
+  /* Roxo Oficial da Marca */
+  --brand-dark: #1e1744;
+  --brand: #5b34ea;
+  --brand-hover: #4c28d4;
+  --brand-soft: #f3f0ff;
+  --brand-border: #ddd6fe;
+  --brand-text: #3b1e78;
+
+  /* Verde Oficial (Ações confirmadas / Sucesso) */
+  --green: #10b981;
+  --green-hover: #059669;
+  --green-soft: #ecfdf5;
+  --green-border: #a7f3d0;
+  --green-text: #047857;
+
+  /* Vermelho Oficial (Erros e Alertas) */
+  --red: #ef3340;
+  --red-hover: #d92532;
+  --red-soft: #fef2f2;
+  --red-border: #fecaca;
+  --red-text: #b91c1c;
+
+  /* Amarelo/Laranja (Avisos / Pendente / Expirado) */
+  --yellow: #f59e0b;
+  --yellow-soft: #fef3c7;
+  --yellow-border: #fde68a;
+  --yellow-text: #b45309;
+
+  /* Efeitos e Bordas */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 }
-h1 {
-  margin: 0;
-}
-label {
-  display: grid;
-  gap: 6px;
-  margin: 14px 0;
-}
-input,
-select,
-textarea,
-button {
+
+* {
   box-sizing: border-box;
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #d8e1dc;
-  border-radius: 8px;
+  margin: 0;
+  padding: 0;
 }
-button {
-  background: #127b54;
-  color: white;
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  background-color: var(--bg);
+  width: 360px;
+  min-height: 480px;
+  max-height: 590px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+body::-webkit-scrollbar,
+.view-guide::-webkit-scrollbar {
+  width: 5px;
+}
+body::-webkit-scrollbar-track,
+.view-guide::-webkit-scrollbar-track {
+  background: transparent;
+}
+body::-webkit-scrollbar-thumb,
+.view-guide::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+/* Containers de Visão */
+.view-container {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.view-guide {
+  background: var(--bg);
+}
+
+/* ==========================================================================
+   CABEÇALHO
+   ========================================================================== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-dark);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.brand-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.btn-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand-text);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-border);
+  border-radius: 20px;
+  padding: 4px 9px;
   cursor: pointer;
-  margin: 4px 0;
+  transition: all 0.15s ease;
 }
-button:disabled {
-  opacity: 0.5;
+
+.btn-guide:hover {
+  background: #eae3ff;
+  border-color: var(--brand);
+  color: var(--brand);
 }
-p {
+
+.app-description {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   CARD DE STATUS VISUAL
+   ========================================================================== */
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.status-indicator-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted-light);
+  flex-shrink: 0;
+}
+
+.status-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.status-expiry-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  padding-left: 15px;
+}
+
+/* Variantes de Status */
+.status-connected {
+  border-color: var(--green-border);
+  background: var(--green-soft);
+}
+.status-connected .status-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+.status-connected .status-badge {
+  color: var(--green-text);
+}
+.status-connected .status-expiry-row {
+  color: var(--green-text);
+}
+
+.status-pending {
+  border-color: var(--brand-border);
+  background: var(--brand-soft);
+}
+.status-pending .status-dot {
+  background: var(--brand);
+  animation: pulse 1.5s infinite;
+}
+.status-pending .status-badge {
+  color: var(--brand-text);
+}
+
+.status-expired {
+  border-color: var(--yellow-border);
+  background: var(--yellow-soft);
+}
+.status-expired .status-dot {
+  background: var(--yellow);
+}
+.status-expired .status-badge {
+  color: var(--yellow-text);
+}
+.status-expired .status-expiry-row {
+  color: var(--yellow-text);
+}
+
+.status-disconnected {
+  border-color: var(--line);
+  background: var(--surface);
+}
+.status-disconnected .status-dot {
+  background: var(--muted-light);
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* ==========================================================================
+   FORMULÁRIOS & SEÇÕES
+   ========================================================================== */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.label-help {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.form-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(91, 52, 234, 0.12);
+}
+
+.select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.form-select {
+  width: 100%;
+  appearance: none;
+  padding: 8px 30px 8px 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.form-select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(91, 52, 234, 0.12);
+}
+
+.select-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   BOTÕES
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-brand {
+  background: var(--brand);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(91, 52, 234, 0.25);
+}
+
+.btn-brand:hover:not(:disabled) {
+  background: var(--brand-hover);
+  box-shadow: 0 2px 5px rgba(91, 52, 234, 0.35);
+}
+
+.btn-brand:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-success {
+  background: var(--green);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--green-hover);
+  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.35);
+}
+
+.btn-success:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  padding: 7px 10px;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-muted);
+  color: var(--red-text);
+  border-color: var(--red-border);
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand-text);
+  background: var(--surface);
+  border: 1px solid var(--brand-border);
+  border-radius: 4px;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-copy:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.btn-copy.copied {
+  background: var(--green-soft);
+  color: var(--green-text);
+  border-color: var(--green-border);
+}
+
+/* ==========================================================================
+   CARD DESTACADO DE AUTORIZAÇÃO
+   ========================================================================== */
+.challenge-box {
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-md);
+  padding: 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.challenge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.challenge-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 50%;
+}
+
+.challenge-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-text);
+}
+
+.challenge-textarea {
+  width: 100%;
+  padding: 7px 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--brand-dark);
+  background: var(--surface);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-sm);
+  resize: none;
+  word-break: break-all;
+  outline: none;
+  cursor: text;
+}
+
+.challenge-textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(91, 52, 234, 0.15);
+}
+
+.steps-list {
+  padding-left: 17px;
+  font-size: 11px;
+  color: var(--brand-text);
   line-height: 1.45;
 }
-#message {
-  font-weight: 600;
+
+.steps-list li {
+  margin-bottom: 2px;
+}
+
+/* ==========================================================================
+   RODAPÉ E SEGURANÇA
+   ========================================================================== */
+.footer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.security-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ==========================================================================
+   MENSAGENS DE FEEDBACK (TOAST / STATUS)
+   ========================================================================== */
+.message-container {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.message-container.visible {
+  display: flex;
+}
+
+.message-container.is-loading {
+  background: var(--surface-muted);
+  color: var(--ink-secondary);
+  border: 1px solid var(--line);
+}
+
+.message-container.is-success {
+  background: var(--green-soft);
+  color: var(--green-text);
+  border: 1px solid var(--green-border);
+}
+
+.message-container.is-error {
+  background: var(--red-soft);
+  color: var(--red-text);
+  border: 1px solid var(--red-border);
+}
+
+.message-text {
   overflow-wrap: anywhere;
 }
+
+/* ==========================================================================
+   TUTORIAL / MANUAL ("COMO USAR")
+   ========================================================================== */
+.guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+}
+
+.btn-back:hover {
+  color: var(--brand-hover);
+}
+
+.guide-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.guide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guide-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.guide-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+  transition: background 0.15s ease;
+}
+
+.guide-card-summary:hover {
+  background: var(--surface-subtle);
+}
+
+.guide-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  border: 1px solid var(--brand-border);
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.guide-heading {
+  flex: 1;
+}
+
+.guide-card-body {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-subtle);
+  font-size: 11.5px;
+  color: var(--ink-secondary);
+  line-height: 1.45;
+}
+
+.guide-steps {
+  padding-left: 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-features {
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.code-badge {
+  background: var(--surface-muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.troubleshoot-item {
+  margin-bottom: 8px;
+}
+
+.troubleshoot-item:last-child {
+  margin-bottom: 0;
+}
+
+.troubleshoot-title {
+  display: block;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+/* Ícones utilitários */
+.icon {
+  flex-shrink: 0;
+}
+
+.icon-tiny {
+  flex-shrink: 0;
+}
+
+.icon-subtle {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+

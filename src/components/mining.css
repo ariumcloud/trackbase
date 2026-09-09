@@ -97,6 +97,108 @@
 .mining [role="alert"] {
   color: #b42318;
 }
+.mining-status-container {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border, #e5e7eb);
+  padding-top: 14px;
+}
+.mining-status-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mining-status-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.mining-status-badge.inactive {
+  background: var(--bg-elevated, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  color: var(--fg, #334155);
+}
+.mining-status-badge p {
+  margin: 3px 0 0 0;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+.mining-status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+}
+.mining-status-item.active {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.mining-status-item.pending {
+  border-color: #fde047;
+  background: #fefce8;
+}
+.mining-status-item.expired {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+.mining-status-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mining-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.mining-status-pill.active {
+  background: #10b981;
+  color: #fff;
+}
+.mining-status-pill.pending {
+  background: #f59e0b;
+  color: #fff;
+}
+.mining-status-pill.expired {
+  background: #ef4444;
+  color: #fff;
+}
+.mining-status-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.mining-status-meta span {
+  font-size: 11px;
+  color: var(--muted, #64748b);
+}
+[data-theme="dark"] .mining-status-item.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+[data-theme="dark"] .mining-status-item.pending {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+[data-theme="dark"] .mining-status-item.expired {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+}
 @media (max-width: 600px) {
   .mining-panel {
     padding: 14px;

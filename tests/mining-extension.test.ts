@@ -224,3 +224,183 @@ test("dynamic content inserts one action per card, handles recycled cards, loadi
   assert.equal(cards[0].children.length, 1);
   assert.equal(cards[0].children[0].dataset.adId, "999999999");
 });
+
+test("popup UI renders brand identity, visual states, copy action and full guide", async () => {
+  const popupHtml = readFileSync("extension/popup.html", "utf8");
+  const popupCss = readFileSync("extension/popup.css", "utf8");
+
+  // Visual Identity checks
+  assert.ok(popupHtml.includes('class="brand-title">Trackbase'));
+  assert.ok(popupHtml.includes("Capture ofertas da Biblioteca de Anúncios da Meta"));
+  assert.ok(popupHtml.includes('id="btn-open-guide"'));
+  assert.ok(popupHtml.includes('id="guide-view"'));
+  assert.ok(popupHtml.includes('id="btn-copy-challenge"'));
+  assert.ok(popupHtml.includes("Instalação no Google Chrome"));
+  assert.ok(popupHtml.includes("Primeiro Vínculo com o Workspace"));
+  assert.ok(popupHtml.includes("Uso na Biblioteca da Meta"));
+  assert.ok(popupHtml.includes("Organização & Inteligência no Painel"));
+  assert.ok(popupHtml.includes("Solução de Problemas (Troubleshooting)"));
+
+  // CSS palette checks
+  assert.ok(popupCss.includes("--brand: #5b34ea"));
+  assert.ok(popupCss.includes("--green: #10b981"));
+  assert.ok(popupCss.includes("--red: #ef3340"));
+  assert.ok(popupCss.includes(".status-connected"));
+  assert.ok(popupCss.includes(".status-pending"));
+  assert.ok(popupCss.includes(".status-expired"));
+
+  // Mock DOM for popup.js execution
+  class MockElement {
+    id = "";
+    value = "";
+    textContent = "";
+    hidden = false;
+    disabled = false;
+    children: MockElement[] = [];
+    classList = new (class {
+      classes = new Set<string>();
+      add(...c: string[]) {
+        c.forEach((x) => this.classes.add(x));
+      }
+      remove(...c: string[]) {
+        c.forEach((x) => this.classes.delete(x));
+      }
+      contains(x: string) {
+        return this.classes.has(x);
+      }
+    })();
+    onclick?: () => void;
+    onchange?: () => void;
+    append(child: MockElement) {
+      this.children.push(child);
+    }
+    replaceChildren(...children: MockElement[]) {
+      this.children = children;
+    }
+    trim() {
+      return this.value.trim();
+    }
+  }
+
+  const elements: Record<string, MockElement> = {
+    origin: Object.assign(new MockElement(), { id: "origin", value: "https://trackbase.com.br" }),
+    challenge: Object.assign(new MockElement(), { id: "challenge", value: "" }),
+    workspace: Object.assign(new MockElement(), { id: "workspace" }),
+    expiry: Object.assign(new MockElement(), { id: "expiry" }),
+    message: Object.assign(new MockElement(), { id: "message" }),
+    "message-container": Object.assign(new MockElement(), { id: "message-container" }),
+    "status-card": Object.assign(new MockElement(), { id: "status-card" }),
+    "status-badge": Object.assign(new MockElement(), { id: "status-badge" }),
+    start: Object.assign(new MockElement(), { id: "start" }),
+    complete: Object.assign(new MockElement(), { id: "complete" }),
+    disconnect: Object.assign(new MockElement(), { id: "disconnect" }),
+    "btn-copy-challenge": Object.assign(new MockElement(), { id: "btn-copy-challenge" }),
+    "copy-text": Object.assign(new MockElement(), { id: "copy-text" }),
+    "btn-open-guide": Object.assign(new MockElement(), { id: "btn-open-guide" }),
+    "btn-close-guide": Object.assign(new MockElement(), { id: "btn-close-guide" }),
+    "main-view": Object.assign(new MockElement(), { id: "main-view", hidden: false }),
+    "guide-view": Object.assign(new MockElement(), { id: "guide-view", hidden: true }),
+  };
+
+  let copiedText = "";
+  let sentMessages: unknown[] = [];
+  const statusResponse = {
+    origin: "https://app.trackbase.com.br",
+    selected: "ws-1",
+    pending: null,
+    workspaces: [
+      { id: "ws-1", name: "Workspace Alpha", expires_at: new Date(Date.now() + 36000000).toISOString() },
+    ],
+  };
+
+  const context = {
+    document: {
+      getElementById: (id: string) => elements[id] || null,
+      createElement: (tag: string) => Object.assign(new MockElement(), { tag }),
+      querySelectorAll: () => [elements.start, elements.complete, elements.disconnect],
+    },
+    navigator: {
+      clipboard: {
+        writeText: async (t: string) => {
+          copiedText = t;
+        },
+      },
+    },
+    chrome: {
+      runtime: {
+        sendMessage: async (msg: unknown) => {
+          sentMessages.push(msg);
+          return { data: statusResponse };
+        },
+      },
+      permissions: {
+        request: async () => true,
+      },
+    },
+    URL,
+    Date,
+    setTimeout: (cb: () => void) => {
+      cb();
+      return 1;
+    },
+  };
+
+  runInNewContext(readFileSync("extension/popup.js", "utf8"), context);
+
+  // Wait for initial load()
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.equal(elements.origin.value, "https://app.trackbase.com.br");
+  assert.equal(elements["status-badge"].textContent, "Conectado: Workspace Alpha");
+  assert.equal(elements.workspace.children.length, 1);
+  assert.equal(elements.workspace.value, "ws-1");
+
+  // Test guide navigation toggle
+  elements["btn-open-guide"].onclick!();
+  assert.equal(elements["main-view"].hidden, true);
+  assert.equal(elements["guide-view"].hidden, false);
+
+  elements["btn-close-guide"].onclick!();
+  assert.equal(elements["main-view"].hidden, false);
+  assert.equal(elements["guide-view"].hidden, true);
+
+  // Test copy challenge
+  elements.challenge.value = "test-challenge-hash-64-characters-long-example-code-1234567890abcdef";
+  await elements["btn-copy-challenge"].onclick!();
+  assert.equal(copiedText, "test-challenge-hash-64-characters-long-example-code-1234567890abcdef");
+
+  // Test invalid origin validation
+  elements.origin.value = "invalid-url";
+  elements.start.onclick!();
+  assert.equal(elements.message.textContent, "Endereço inválido.");
+  assert.ok(elements["message-container"].classList.contains("is-error"));
+
+  // Test valid start action
+  elements.origin.value = "https://trackbase.com.br";
+  elements.start.onclick!();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(sentMessages.some((m) => (m as { action?: string })?.action === "start"));
+
+  // Test complete action
+  elements.complete.onclick!();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(sentMessages.some((m) => (m as { action?: string })?.action === "complete"));
+
+  // Test workspace select change
+  elements.workspace.value = "ws-1";
+  elements.workspace.onchange!();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(sentMessages.some((m) => (m as { action?: string })?.action === "select"));
+
+  // Test disconnect action
+  elements.disconnect.onclick!();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(sentMessages.some((m) => (m as { action?: string })?.action === "disconnect"));
+
+  // Test ZIP package verification
+  assert.ok(existsSync("public/downloads/trackbase-extension.zip"));
+  const zipBuf = readFileSync("public/downloads/trackbase-extension.zip");
+  assert.ok(zipBuf.length > 5000);
+});
+
+

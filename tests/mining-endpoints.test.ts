@@ -7,6 +7,10 @@ import { digest } from "../src/lib/security";
 
 test("capture endpoints validate bearer, current membership, workspace, payload and idempotent response", async () => {
   const original = global.fetch;
+  const originalWs = (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+  if (!("WebSocket" in globalThis) || !globalThis.WebSocket) {
+    (globalThis as unknown as { WebSocket: unknown }).WebSocket = class WebSocket {};
+  }
   const env = {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
     key: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -137,6 +141,11 @@ test("capture endpoints validate bearer, current membership, workspace, payload 
     );
   } finally {
     global.fetch = original;
+    if (originalWs === undefined) {
+      delete (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+    } else {
+      (globalThis as unknown as { WebSocket: unknown }).WebSocket = originalWs;
+    }
     if (env.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     else process.env.NEXT_PUBLIC_SUPABASE_URL = env.url;
     if (env.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;

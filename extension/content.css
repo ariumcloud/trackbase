@@ -1,30 +1,153 @@
+/* ==========================================================================
+   TRACKBASE CONTROLS — META ADS LIBRARY INJECTION
+   Identidade visual do Trackbase injetada nos cards da Biblioteca da Meta.
+   ========================================================================== */
+
 [data-trackbase-controls] {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-top: 1px solid #dce5e1;
-  background: #f0f8f4;
-  color: #173c2c;
-  font:
-    13px system-ui,
-    sans-serif;
+  padding: 10px 14px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8f9fb;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 12.5px;
   position: relative;
-  z-index: 1;
+  z-index: 10;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
+
+/* ==========================================================================
+   SINAIS DO ANÚNCIO (DIAS ATIVO, QUANTIDADE E FORMATO)
+   Aparecem visualmente no topo dos controles acima dos botões.
+   ========================================================================== */
+.trackbase-ad-signals {
+  order: -1;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.trackbase-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+  line-height: 1.3;
+  user-select: none;
+}
+
+/* Chip Normal (< 7 dias) */
+.trackbase-chip-normal {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Chip Em Escala (7 a 29 dias - Roxo Trackbase) */
+.trackbase-chip-scale {
+  background: #f3f0ff;
+  color: #5b34ea;
+  border: 1px solid #ddd6fe;
+}
+
+/* Chip Validado / Fogo (>= 30 dias - Verde Sucesso) */
+.trackbase-chip-fire {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+/* Chip de Múltiplos Anúncios com o mesmo criativo (Amarelo/Laranja) */
+.trackbase-chip-count {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* Chip de Formato (Vídeo / Imagem) */
+.trackbase-chip-format {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* ==========================================================================
+   BOTÕES DE AÇÃO
+   ========================================================================== */
 [data-trackbase-controls] button {
-  border: 0;
-  border-radius: 7px;
-  padding: 9px 12px;
-  color: white;
-  background: #137b54;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
+
+/* Botão Principal: Salvar no Trackbase (Roxo Trackbase) */
+[data-trackbase-controls] .trackbase-btn-save {
+  background: #5b34ea;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(91, 52, 234, 0.25);
+}
+
+[data-trackbase-controls] .trackbase-btn-save:hover:not(:disabled) {
+  background: #4c28d4;
+  box-shadow: 0 2px 4px rgba(91, 52, 234, 0.35);
+}
+
+/* Botão Secundário (Baixar criativo e Ver anunciante) */
+[data-trackbase-controls] .trackbase-btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border-color: #d1d5db;
+}
+
+[data-trackbase-controls] .trackbase-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #5b34ea;
+  color: #5b34ea;
+}
+
+/* Botão de Verificação (Verde Trackbase) */
+[data-trackbase-controls] .trackbase-btn-verify {
+  background: #ffffff;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+[data-trackbase-controls] .trackbase-btn-verify:hover:not(:disabled) {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
 [data-trackbase-controls] button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
+  cursor: wait;
 }
-[data-trackbase-controls] span {
+
+[data-trackbase-controls] .trackbase-status {
   flex-basis: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
   overflow-wrap: anywhere;
+  margin-top: 2px;
 }
+
+

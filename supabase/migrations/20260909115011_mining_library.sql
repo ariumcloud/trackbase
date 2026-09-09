@@ -115,7 +115,7 @@ declare o public.utm_mined_offers; prior uuid; snap uuid; diff jsonb; duplicate 
 end $$;
 create function public.utm_extension_redeem(p_challenge text,p_hash text) returns jsonb language plpgsql set search_path='' as $$
 declare g public.utm_extension_grants; begin
- update public.utm_extension_grants set status='active',token_hash=p_hash,expires_at=now()+interval '24 hours'
+ update public.utm_extension_grants set status='active',token_hash=p_hash,expires_at=now()+interval '30 days'
  where challenge=p_challenge and status='pending' and expires_at>now()
  and exists(select 1 from public.utm_members m where m.workspace_id=utm_extension_grants.workspace_id and m.user_id=utm_extension_grants.user_id and m.role in ('owner','admin'))
  and exists(select 1 from public.utm_workspaces w where w.id=utm_extension_grants.workspace_id and w.plan in ('liso','vorcaro','classe_media','rico'))
