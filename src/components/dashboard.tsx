@@ -285,6 +285,7 @@ export function Dashboard(p: Props) {
     [showExportMenu, setShowExportMenu] = useState(false),
     [guideModalOpen, setGuideModalOpen] = useState(false),
     [deletingOfferId, setDeletingOfferId] = useState<string | null>(null),
+    [viewingPixelSnippet, setViewingPixelSnippet] = useState<string | null>(null),
     [pending, start] = useTransition();
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -2467,6 +2468,34 @@ export function Dashboard(p: Props) {
                         algoritmo do Facebook com vendas reais.
                       </p>
                     </ActionForm>
+
+                    <div
+                      style={{
+                        marginTop: "1.25rem",
+                        padding: "0.85rem 1rem",
+                        borderRadius: "8px",
+                        background: "rgba(99, 102, 241, 0.05)",
+                        border: "1px solid rgba(99, 102, 241, 0.16)",
+                        fontSize: "0.82rem",
+                        lineHeight: "1.45",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          marginBottom: "0.35rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          color: "var(--brand, #4F46E5)",
+                        }}
+                      >
+                        <Sparkles size={14} /> Como funciona o rastreamento (Padrão UTMify)
+                      </div>
+                      <p style={{ margin: 0, color: "var(--muted, #64748B)", fontSize: "0.78rem" }}>
+                        Conecte seu Pixel aqui para que o Trackbase envie as compras confirmadas via API de Conversões (CAPI). Na sua página de vendas, cole o código do <strong>Meta Pixel</strong> (com PageView) e o <strong>Script do Trackbase</strong> na tag <code>&lt;head&gt;</code>. Você pode copiar ambos prontos nos Pixels Ativos ao lado!
+                      </p>
+                    </div>
                   </div>
 
                   <div>
@@ -2479,6 +2508,34 @@ export function Dashboard(p: Props) {
                           const linkedOffer = p.offers.find(
                             (o) => o.id === px.offer_id,
                           );
+                          const metaPixelCode = `<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${px.pixel_id}');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->`;
+
+                          const trackerKey =
+                            linkedOffer?.public_key ||
+                            p.offers[0]?.public_key ||
+                            "";
+                          const trackbaseCode = trackerKey
+                            ? `<script src="${p.appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`
+                            : `<script src="${p.appUrl}/tracker.js" defer></script>`;
+
+                          const isViewing = viewingPixelSnippet === px.id;
+
                           return (
                             <div
                               key={px.id}
@@ -2488,58 +2545,218 @@ export function Dashboard(p: Props) {
                                 background: "var(--surface-subtle, #F9FAFB)",
                                 border: "1px solid var(--line, #E5E7EB)",
                                 display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
+                                flexDirection: "column",
+                                gap: "0.75rem",
                               }}
                             >
-                              <div>
-                                <strong
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.95rem",
-                                  }}
-                                >
-                                  Pixel: {px.pixel_id}
-                                </strong>
-                                <small
-                                  style={{
-                                    color: "var(--muted, #64748B)",
-                                    display: "block",
-                                  }}
-                                >
-                                  Escopo:{" "}
-                                  {linkedOffer
-                                    ? linkedOffer.name
-                                    : "Global (Workspace)"}
-                                </small>
-                                {px.test_event_code && (
-                                  <small
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                  gap: "0.5rem",
+                                }}
+                              >
+                                <div>
+                                  <strong
                                     style={{
-                                      color: "var(--brand-accent, #5B34EA)",
                                       display: "block",
-                                      fontWeight: 600,
+                                      fontSize: "0.95rem",
                                     }}
                                   >
-                                    Teste ativo: {px.test_event_code}
+                                    Pixel: {px.pixel_id}
+                                  </strong>
+                                  <small
+                                    style={{
+                                      color: "var(--muted, #64748B)",
+                                      display: "block",
+                                    }}
+                                  >
+                                    Escopo:{" "}
+                                    {linkedOffer
+                                      ? linkedOffer.name
+                                      : "Global (Workspace)"}
                                   </small>
-                                )}
+                                  {px.test_event_code && (
+                                    <small
+                                      style={{
+                                        color: "var(--brand-accent, #5B34EA)",
+                                        display: "block",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Teste ativo: {px.test_event_code}
+                                    </small>
+                                  )}
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.5rem",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <Clipboard
+                                    value={metaPixelCode}
+                                    label="Copiar Pixel"
+                                    className="button small"
+                                  />
+                                  <button
+                                    type="button"
+                                    className="button small secondary"
+                                    onClick={() =>
+                                      setViewingPixelSnippet(
+                                        isViewing ? null : px.id,
+                                      )
+                                    }
+                                    title="Ver códigos de instalação (Meta Pixel + Trackbase)"
+                                  >
+                                    <Code2
+                                      size={14}
+                                      style={{ marginRight: "0.25rem" }}
+                                    />
+                                    {isViewing ? "Ocultar" : "Ver Códigos"}
+                                  </button>
+                                  <button
+                                    className="icon-button"
+                                    aria-label="Excluir Pixel"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      run(async () => {
+                                        const res = await deletePixel(
+                                          workspace,
+                                          px.id,
+                                        );
+                                        if (res.error) throw new Error(res.error);
+                                      })
+                                    }
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               </div>
-                              <button
-                                className="icon-button"
-                                aria-label="Excluir Pixel"
-                                disabled={pending}
-                                onClick={() =>
-                                  run(async () => {
-                                    const res = await deletePixel(
-                                      workspace,
-                                      px.id,
-                                    );
-                                    if (res.error) throw new Error(res.error);
-                                  })
-                                }
-                              >
-                                <Trash2 size={16} />
-                              </button>
+
+                              {isViewing && (
+                                <div
+                                  style={{
+                                    marginTop: "0.25rem",
+                                    padding: "0.85rem",
+                                    background: "var(--surface, #FFFFFF)",
+                                    borderRadius: "6px",
+                                    border: "1px solid var(--line, #E2E8F0)",
+                                    fontSize: "0.82rem",
+                                  }}
+                                >
+                                  <div style={{ marginBottom: "0.85rem" }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        marginBottom: "0.35rem",
+                                      }}
+                                    >
+                                      <strong
+                                        style={{
+                                          color: "var(--brand, #4F46E5)",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: "0.35rem",
+                                        }}
+                                      >
+                                        <Code2 size={14} /> 1. Código do Meta
+                                        Pixel (Padrão UTMify / Facebook):
+                                      </strong>
+                                      <Clipboard
+                                        value={metaPixelCode}
+                                        label="Copiar Código do Pixel"
+                                        className="button small"
+                                      />
+                                    </div>
+                                    <p
+                                      style={{
+                                        color: "var(--muted, #64748B)",
+                                        fontSize: "0.75rem",
+                                        marginBottom: "0.35rem",
+                                      }}
+                                    >
+                                      Cole este código na tag{" "}
+                                      <code>&lt;head&gt;</code> da sua página de
+                                      vendas ou obrigado para registrar o
+                                      PageView:
+                                    </p>
+                                    <pre
+                                      style={{
+                                        padding: "0.6rem 0.8rem",
+                                        background: "#0f172a",
+                                        color: "#f8fafc",
+                                        borderRadius: "6px",
+                                        overflowX: "auto",
+                                        fontSize: "0.75rem",
+                                        lineHeight: "1.35",
+                                        maxHeight: "140px",
+                                      }}
+                                    >
+                                      <code>{metaPixelCode}</code>
+                                    </pre>
+                                  </div>
+
+                                  <div>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        marginBottom: "0.35rem",
+                                      }}
+                                    >
+                                      <strong
+                                        style={{
+                                          color: "var(--brand, #4F46E5)",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: "0.35rem",
+                                        }}
+                                      >
+                                        <Sparkles size={14} /> 2. Script do
+                                        Trackbase (UTMs + FBP/FBC para CAPI):
+                                      </strong>
+                                      <Clipboard
+                                        value={trackbaseCode}
+                                        label="Copiar Script Trackbase"
+                                        className="button small"
+                                      />
+                                    </div>
+                                    <p
+                                      style={{
+                                        color: "var(--muted, #64748B)",
+                                        fontSize: "0.75rem",
+                                        marginBottom: "0.35rem",
+                                      }}
+                                    >
+                                      Cole também no <code>&lt;head&gt;</code>.
+                                      Ele captura as UTMs e os cookies do
+                                      Facebook para enviar o evento Purchase via
+                                      servidor nas vendas aprovadas:
+                                    </p>
+                                    <pre
+                                      style={{
+                                        padding: "0.6rem 0.8rem",
+                                        background: "#0f172a",
+                                        color: "#f8fafc",
+                                        borderRadius: "6px",
+                                        overflowX: "auto",
+                                        fontSize: "0.75rem",
+                                        lineHeight: "1.35",
+                                      }}
+                                    >
+                                      <code>{trackbaseCode}</code>
+                                    </pre>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

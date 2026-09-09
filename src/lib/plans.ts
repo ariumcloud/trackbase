@@ -30,6 +30,7 @@ export const plans = {
       "dashboard",
       "tracking",
       "integrations",
+      "capi",
     ] as readonly PlanFeature[],
   },
   liso: {

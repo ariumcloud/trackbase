@@ -1179,27 +1179,63 @@ export async function savePixel(
     const service = admin();
     const ciphertext = encrypt(parsed.capi_token);
 
-    const { error } = await service.from("utm_pixels").upsert(
-      {
+    // Busca se já existe registro deste pixel para o workspace e oferta
+    let query = service
+      .from("utm_pixels")
+      .select("id")
+      .eq("workspace_id", workspace)
+      .eq("pixel_id", parsed.pixel_id);
+
+    if (parsed.offer_id) {
+      query = query.eq("offer_id", parsed.offer_id);
+    } else {
+      query = query.is("offer_id", null);
+    }
+
+    const { data: existing, error: findError } = await query.maybeSingle();
+    if (findError) {
+      console.error("Erro ao consultar pixel existente:", findError);
+    }
+
+    let saveError: { message?: string } | null = null;
+    if (existing?.id) {
+      const { error } = await service
+        .from("utm_pixels")
+        .update({
+          capi_token_ciphertext: ciphertext,
+          test_event_code: parsed.test_event_code || null,
+          active: true,
+        })
+        .eq("id", existing.id);
+      saveError = error;
+    } else {
+      const { error } = await service.from("utm_pixels").insert({
         workspace_id: workspace,
         pixel_id: parsed.pixel_id,
         offer_id: parsed.offer_id ? parsed.offer_id : null,
         capi_token_ciphertext: ciphertext,
         test_event_code: parsed.test_event_code || null,
         active: true,
-      },
-      { onConflict: "workspace_id,pixel_id,offer_id" },
-    );
+      });
+      saveError = error;
+    }
 
-    if (error) throw error;
+    if (saveError) {
+      console.error("Erro ao gravar utm_pixels:", saveError);
+      throw new Error(saveError.message || "Erro no banco de dados ao salvar o Pixel.");
+    }
+
     revalidatePath("/painel");
     return { ok: true };
-  } catch (e) {
+  } catch (e: unknown) {
+    console.error("Erro ao salvar configuração do Pixel/CAPI:", e);
     return {
       error:
         e instanceof z.ZodError
           ? e.issues[0]?.message || "Dados inválidos."
-          : "Não foi possível salvar a configuração do Pixel/CAPI.",
+          : e instanceof Error
+            ? e.message
+            : "Não foi possível salvar a configuração do Pixel/CAPI.",
     };
   }
 }
