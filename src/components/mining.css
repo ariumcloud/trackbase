@@ -19,6 +19,23 @@
   align-items: center;
   gap: 10px;
 }
+.extension-install-help {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--bg-elevated, #f8fafc);
+}
+.extension-install-help summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+.extension-install-help ol {
+  margin: 12px 0 0 20px;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  line-height: 1.45;
+}
 .mining-row {
   justify-content: space-between;
 }
