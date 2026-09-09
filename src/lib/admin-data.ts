@@ -65,6 +65,18 @@ export type AdminCapi = {
   last_error: string | null;
   updated_at: string;
 };
+export type AdminOffer = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  landing_url: string;
+  checkout_url: string | null;
+  platform: string | null;
+  currency: string;
+  product_type: string | null;
+  active: boolean;
+  created_at: string;
+};
 export type AdminOverview = {
   customers: number;
   new_customers: number;
@@ -87,6 +99,7 @@ export type AdminData = {
   webhooks: AdminWebhook[];
   capi: AdminCapi[];
   workspaces: AdminWorkspace[];
+  offers: AdminOffer[];
 };
 
 export async function getAdminData(
@@ -171,6 +184,17 @@ export async function getAdminData(
           .limit(100)
       : emptyList;
 
+  const offersPromise =
+    tab === "offers"
+      ? client
+          .from("utm_offers")
+          .select(
+            "id,workspace_id,name,landing_url,checkout_url,platform,currency,product_type,active,created_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(100)
+      : emptyList;
+
   const results = await Promise.all([
     overviewPromise,
     directoryPromise,
@@ -179,6 +203,7 @@ export async function getAdminData(
     integrationsPromise,
     webhooksPromise,
     capiPromise,
+    offersPromise,
   ]);
 
   if (
@@ -192,17 +217,18 @@ export async function getAdminData(
       "Não foi possível carregar a administração. Tente atualizar a página.",
     );
 
-  const [overview, directory, tickets, audit, integrations, webhooks, capi] =
+  const [overview, directory, tickets, audit, integrations, webhooks, capi, offers] =
     results;
 
   let workspacesData: AdminWorkspace[] = [];
-  if (tab === "health") {
+  if (tab === "health" || tab === "offers") {
     const workspaceIds = [
       ...new Set(
         [
           ...(integrations.data ?? []),
           ...(webhooks.data ?? []),
           ...(capi.data ?? []),
+          ...(offers.data ?? []),
         ].map((r: { workspace_id: string }) => r.workspace_id),
       ),
     ];
@@ -226,6 +252,7 @@ export async function getAdminData(
     webhooks: webhooks.data ?? [],
     capi: capi.data ?? [],
     workspaces: workspacesData,
+    offers: (offers.data ?? []) as AdminOffer[],
   } as AdminData;
 }
 
@@ -296,8 +323,13 @@ export async function getAdminCustomer(id: string) {
     ids.length
       ? client
           .from("utm_offers")
-          .select("id", { count: "exact", head: true })
+          .select(
+            "id,workspace_id,name,landing_url,checkout_url,platform,currency,product_type,active,created_at",
+            { count: "exact" },
+          )
           .in("workspace_id", ids)
+          .order("created_at", { ascending: false })
+          .limit(50)
       : empty,
     ids.length
       ? client
@@ -355,6 +387,7 @@ export async function getAdminCustomer(id: string) {
       occurred_at: string;
     }[],
     tickets: results[4].data as AdminTicket[],
+    offers: (results[5].data ?? []) as AdminOffer[],
     counts: {
       offers: results[5].count ?? 0,
       links: results[6].count ?? 0,

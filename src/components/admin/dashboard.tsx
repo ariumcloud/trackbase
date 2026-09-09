@@ -9,6 +9,8 @@ import {
   Search,
   ArrowUpRight,
   AlertCircle,
+  Package,
+  ExternalLink,
 } from "lucide-react";
 import type { AdminData } from "@/lib/admin-data";
 import { normalizePlan, plans } from "@/lib/plans";
@@ -17,6 +19,7 @@ import { date, label, Status, Empty, Metric, TicketList } from "./shared";
 const tabs = [
   { id: "overview", name: "Visão geral", icon: LayoutDashboard },
   { id: "customers", name: "Clientes", icon: Users },
+  { id: "offers", name: "Produtos & Ofertas", icon: Package },
   { id: "health", name: "Saúde da operação", icon: Activity },
   { id: "support", name: "Atendimentos", icon: Headphones },
   { id: "audit", name: "Histórico", icon: History },
@@ -247,6 +250,20 @@ export function AdminDashboard({
               <span />
             )}
           </div>
+        </section>
+      )}
+      {active === "offers" && (
+        <section className="admin-card">
+          <div className="admin-section-heading">
+            <div>
+              <h2>Produtos e Ofertas dos Usuários</h2>
+              <p>
+                Auditoria de compliance, prevenção contra golpes e links suspeitos cadastrados pelos clientes.
+              </p>
+            </div>
+            <span className="admin-badge neutral">{data.offers.length} ofertas</span>
+          </div>
+          <OfferTable offers={data.offers} workspaces={workspaceMap} />
         </section>
       )}
       {active === "health" && (
@@ -511,3 +528,102 @@ function CustomerTable({ users }: { users: AdminData["directory"]["users"] }) {
     <Empty>Nenhum cliente encontrado. Tente outro e-mail ou nome.</Empty>
   );
 }
+
+function OfferTable({
+  offers,
+  workspaces,
+}: {
+  offers: AdminData["offers"];
+  workspaces: Map<string, AdminData["workspaces"][number]>;
+}) {
+  return offers.length ? (
+    <div className="admin-table-wrap">
+      <table className="admin-table">
+        <thead>
+          <tr>
+            <th>Produto / Oferta</th>
+            <th>Operação & Plano</th>
+            <th>Plataforma</th>
+            <th>Páginas & Checkouts</th>
+            <th>Cadastrado em</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {offers.map((o) => {
+            const ws = workspaces.get(o.workspace_id);
+            return (
+              <tr key={o.id}>
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <strong>{o.name || "Sem nome"}</strong>
+                    <span className={`admin-status ${o.active ? "good" : "neutral"}`}>
+                      {o.active ? "Ativa" : "Pausada"}
+                    </span>
+                  </div>
+                  <small className="admin-mono" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+                    {o.id.slice(0, 10)}... · {o.product_type || "digital"} · {o.currency}
+                  </small>
+                </td>
+                <td>
+                  <strong>{ws?.name ?? "Workspace"}</strong>
+                  <small style={{ color: "var(--text-secondary)" }}>
+                    {ws?.plan ? `Plano ${ws.plan}` : "ID " + o.workspace_id.slice(0, 8)}
+                  </small>
+                </td>
+                <td>
+                  <span className="admin-tag">
+                    {o.platform ? o.platform.toUpperCase() : "HOTMART/OUTRA"}
+                  </span>
+                </td>
+                <td>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {o.landing_url ? (
+                      <a
+                        href={o.landing_url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="admin-text-link"
+                        style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", wordBreak: "break-all" }}
+                      >
+                        <ExternalLink size={12} /> Landing Page
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>Sem landing</span>
+                    )}
+                    {o.checkout_url ? (
+                      <a
+                        href={o.checkout_url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="admin-text-link"
+                        style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", wordBreak: "break-all", color: "#10b981" }}
+                      >
+                        <ExternalLink size={12} /> Checkout
+                      </a>
+                    ) : null}
+                  </div>
+                </td>
+                <td>{date(o.created_at)}</td>
+                <td>
+                  {ws?.owner_id && (
+                    <Link
+                      className="admin-text-link"
+                      href={`/admin/clientes/${ws.owner_id}`}
+                      style={{ fontWeight: 600 }}
+                    >
+                      Ver cliente →
+                    </Link>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <Empty>Nenhum produto ou oferta cadastrado no momento.</Empty>
+  );
+}
+

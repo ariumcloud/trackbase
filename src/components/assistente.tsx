@@ -184,20 +184,21 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
 
   return (
     <div
-      className="panel"
+      className="panel assistente-chat-panel"
       style={{
         display: "flex",
         flexDirection: "column",
         height: "calc(100vh - 210px)",
-        minHeight: "560px",
+        minHeight: "480px",
         padding: 0,
         overflow: "hidden",
       }}
     >
       {/* Header */}
       <div
+        className="assistente-header"
         style={{
-          padding: "1rem 1.25rem",
+          padding: "0.9rem 1.25rem",
           background: "linear-gradient(135deg, #17152F 0%, #2D1B69 100%)",
           color: "#FFFFFF",
           display: "flex",
@@ -209,24 +210,25 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div
             style={{
-              width: 36,
-              height: 36,
+              width: 34,
+              height: 34,
               borderRadius: "50%",
               background: "#5B34EA",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               boxShadow: "0 0 15px rgba(91, 52, 234, 0.5)",
+              flexShrink: 0,
             }}
           >
-            <Bot size={20} color="#FFF" />
+            <Bot size={18} color="#FFF" />
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <strong style={{ fontSize: "1.05rem" }}>Assistente Trackbase IA</strong>
+              <strong style={{ fontSize: "1rem" }}>Assistente Trackbase IA</strong>
               <span
                 style={{
-                  fontSize: "0.7rem",
+                  fontSize: "0.68rem",
                   padding: "0.15rem 0.45rem",
                   borderRadius: "10px",
                   background: "#10B981",
@@ -237,7 +239,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
                 ONLINE
               </span>
             </div>
-            <small style={{ color: "#CBD5E1", fontSize: "0.8rem" }}>
+            <small className="assistente-header-sub" style={{ color: "#CBD5E1", fontSize: "0.78rem" }}>
               Especialista em tráfego direto, métricas em tempo real e CRO
             </small>
           </div>
@@ -407,6 +409,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
 
       {/* Quick Prompts Chips */}
       <div
+        className="assistente-chips-bar"
         style={{
           padding: "0.6rem 1.25rem",
           background: "var(--surface, #FFFFFF)",
@@ -421,7 +424,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
           <button
             key={p.label}
             type="button"
-            className="button small ghost"
+            className="button small ghost assistente-chip-btn"
             onClick={() => handleSend(p.query)}
             style={{
               fontSize: "0.78rem",
@@ -430,6 +433,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
               borderColor: "var(--line, #E2E8F0)",
               background: "var(--surface-muted, #F8FAFC)",
               color: "var(--ink)",
+              flexShrink: 0,
             }}
           >
             {p.label}
@@ -439,17 +443,19 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
 
       {/* Input Area */}
       <div
+        className="assistente-input-area"
         style={{
-          padding: "0.85rem 1.25rem",
+          padding: "0.75rem 1rem",
           background: "var(--surface, #FFFFFF)",
           borderTop: "1px solid var(--line, #E2E8F0)",
           display: "flex",
-          gap: "0.6rem",
+          gap: "0.5rem",
           alignItems: "center",
         }}
       >
         <input
           type="text"
+          className="assistente-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -458,29 +464,30 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
           placeholder="Pergunte sobre seu ROAS, campanhas, gargalos ou estratégias..."
           style={{
             flex: 1,
-            padding: "0.65rem 1rem",
+            padding: "0.65rem 0.9rem",
             borderRadius: "8px",
             border: "1px solid var(--line, #CBD5E1)",
             background: "var(--surface-subtle, #FFFFFF)",
             color: "var(--ink, #0F172A)",
-            fontSize: "0.9rem",
+            fontSize: "16px",
             outline: "none",
           }}
         />
         <button
           type="button"
-          className="button primary"
+          className="button primary assistente-send-btn"
           onClick={() => handleSend()}
           disabled={!input.trim() || loading}
           style={{
-            padding: "0.65rem 1.25rem",
+            padding: "0.65rem 1rem",
             display: "flex",
             alignItems: "center",
             gap: "0.4rem",
+            flexShrink: 0,
           }}
         >
           <Send size={15} />
-          <span>Enviar</span>
+          <span className="assistente-send-text">Enviar</span>
         </button>
       </div>
     </div>

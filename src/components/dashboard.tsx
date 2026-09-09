@@ -634,11 +634,15 @@ export function Dashboard(p: Props) {
             <Menu size={21} />
           </button>
           <div className="breadcrumb">
-            Workspace <span>/</span>{" "}
+            <span className="breadcrumb-prefix">Workspace</span> <span className="breadcrumb-sep">/</span>{" "}
             <strong>{tabs.find((t) => t.id === tab)?.name}</strong>
           </div>
           <div className="topbar-right">
-            {p.isAdmin && <Link href="/admin" className="button small"><ShieldCheck size={16} /> Admin</Link>}
+            {p.isAdmin && (
+              <Link href="/admin" className="button small admin-btn-topbar" title="Painel de Administração">
+                <ShieldCheck size={16} /> <span className="admin-btn-label">Admin</span>
+              </Link>
+            )}
             <button
               type="button"
               className="theme-toggle-btn"
@@ -650,21 +654,21 @@ export function Dashboard(p: Props) {
             </button>
             <SalesNotifier workspaceId={workspace} />
             <span className="live-dot" />
-            <span>
+            <span className="topbar-status-text">
               {p.setup ? "Ambiente em configuração" : "Dados do seu workspace"}
             </span>
             <span className="top-avatar">U</span>
           </div>
         </header>
-        <main className={tab === "campanhas" ? "main-fluid" : ""}>
+        <main className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""}`}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>
               <h1>{titles[tab][0]}</h1>
               <p>{titles[tab][1]}</p>
             </div>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ position: "relative" }}>
+            <div className="page-heading-actions">
+              <div className="export-menu-wrap" style={{ position: "relative" }}>
                 <button
                   type="button"
                   className="button ghost"

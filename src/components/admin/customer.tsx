@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, UserRound } from "lucide-react";
+import { ArrowLeft, UserRound, ExternalLink } from "lucide-react";
 import type { getAdminCustomer } from "@/lib/admin-data";
 import { plans, normalizePlan } from "@/lib/plans";
 import { PlanForm, QuickGrantPremiumButton, NewTicketForm, TicketStatusForm } from "./forms";
@@ -128,6 +128,90 @@ export function AdminCustomerView({
           </Empty>
         </section>
       )}
+      <section className="admin-card">
+        <div className="admin-section-heading">
+          <div>
+            <h2>Produtos e Ofertas (Auditoria & Compliance)</h2>
+            <p>
+              Inspecione as páginas e checkouts cadastrados pelo usuário para auditoria anti-fraude.
+            </p>
+          </div>
+          <span className="admin-badge neutral">
+            {d.offers.length} ofertas
+          </span>
+        </div>
+        {d.offers.length ? (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Produto / Oferta</th>
+                  <th>Operação</th>
+                  <th>Plataforma</th>
+                  <th>Páginas & Links</th>
+                  <th>Criado em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.offers.map((o) => (
+                  <tr key={o.id}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <strong>{o.name || "Sem nome"}</strong>
+                        <span className={`admin-status ${o.active ? "good" : "neutral"}`}>
+                          {o.active ? "Ativa" : "Pausada"}
+                        </span>
+                      </div>
+                      <small className="admin-mono" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+                        {o.id.slice(0, 10)}... · {o.product_type || "digital"} · {o.currency}
+                      </small>
+                    </td>
+                    <td>
+                      {d.workspaces.find((w) => w.id === o.workspace_id)?.name ?? o.workspace_id}
+                    </td>
+                    <td>
+                      <span className="admin-tag">
+                        {o.platform ? o.platform.toUpperCase() : "HOTMART/OUTRA"}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        {o.landing_url ? (
+                          <a
+                            href={o.landing_url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="admin-text-link"
+                            style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", wordBreak: "break-all" }}
+                          >
+                            <ExternalLink size={12} /> Landing Page
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>Sem landing</span>
+                        )}
+                        {o.checkout_url ? (
+                          <a
+                            href={o.checkout_url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="admin-text-link"
+                            style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", wordBreak: "break-all", color: "#10b981" }}
+                          >
+                            <ExternalLink size={12} /> Checkout
+                          </a>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td>{date(o.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty>Nenhum produto ou oferta cadastrado por este cliente.</Empty>
+        )}
+      </section>
       <section className="admin-card">
         <div className="admin-section-heading">
           <div>
