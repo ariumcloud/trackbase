@@ -2124,6 +2124,20 @@ tr:hover td {
   box-shadow: var(--shadow-lg), 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   position: relative;
   z-index: 151;
+  box-sizing: border-box;
+}
+
+.modal form {
+  min-width: 0;
+}
+
+.modal label,
+.modal input,
+.modal select,
+.modal textarea {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .modal h2 {

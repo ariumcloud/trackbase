@@ -234,16 +234,17 @@ export function WorkspaceForm() {
           minLength={2}
           maxLength={100}
           required
+          autoFocus
         />
       </label>
       <label>
         Fuso horário
-        <select name="timezone">
-          <option>America/Sao_Paulo</option>
-          <option>America/Manaus</option>
-          <option>America/New_York</option>
-          <option>Europe/Lisbon</option>
-          <option>UTC</option>
+        <select name="timezone" defaultValue="America/Sao_Paulo" required>
+          <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+          <option value="America/Manaus">America/Manaus</option>
+          <option value="America/New_York">America/New_York</option>
+          <option value="Europe/Lisbon">Europe/Lisbon</option>
+          <option value="UTC">UTC</option>
         </select>
       </label>
     </ActionForm>
