@@ -189,6 +189,39 @@ export async function createWorkspace(form: FormData): Promise<ActionResult> {
     };
   }
 }
+export async function deleteWorkspace(
+  workspace: string,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    const { user, role } = await authorize(workspace, true);
+    if (role !== "owner") return { error: "Somente a pessoa proprietária pode excluir este workspace." };
+    const confirmation = z.string().trim().safeParse(form.get("confirmation"));
+    if (!confirmation.success || confirmation.data !== "EXCLUIR") {
+      return { error: "Digite EXCLUIR para confirmar." };
+    }
+    const service = admin();
+    const { data: alternatives, error: alternativesError } = await service
+      .from("utm_members")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .neq("workspace_id", workspace)
+      .limit(1);
+    if (alternativesError) throw alternativesError;
+    const { error } = await service.rpc("utm_delete_workspace", {
+      p_user: user.id,
+      p_workspace: workspace,
+    });
+    if (error) throw error;
+    revalidatePath("/painel");
+    const nextWorkspace = alternatives?.[0]?.workspace_id;
+    redirect(nextWorkspace ? `/painel?workspace=${nextWorkspace}` : "/painel");
+  } catch (e) {
+    const err = e as Error & { digest?: string };
+    if (err?.message === "NEXT_REDIRECT" || (err?.digest && err.digest.startsWith("NEXT_REDIRECT"))) throw e;
+    return { error: "Não foi possível excluir este workspace." };
+  }
+}
 export async function saveOffer(
   workspace: string,
   form: FormData,

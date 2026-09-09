@@ -9,6 +9,7 @@ import {
   requestPasswordReset,
   updatePassword,
   createWorkspace,
+  deleteWorkspace,
   saveOffer,
   updateOffer,
   type ActionResult,
@@ -241,6 +242,19 @@ export function WorkspaceForm() {
           <option>Europe/Lisbon</option>
           <option>UTC</option>
         </select>
+      </label>
+    </ActionForm>
+  );
+}
+export function WorkspaceDeleteForm({ workspace, name }: { workspace: string; name: string }) {
+  return (
+    <ActionForm action={(form) => deleteWorkspace(workspace, form)} label="Excluir operação">
+      <p className="form-help">
+        Você está excluindo <strong>{name}</strong>. Ofertas, links, integrações, vendas e registros deste workspace serão apagados permanentemente. Outros workspaces, como Brasil ou LATAM, não serão afetados.
+      </p>
+      <label>
+        Digite <strong>EXCLUIR</strong> para confirmar
+        <input name="confirmation" autoComplete="off" required placeholder="EXCLUIR" />
       </label>
     </ActionForm>
   );

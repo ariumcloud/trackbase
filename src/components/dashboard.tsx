@@ -36,7 +36,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { UtmifySummary } from "./utmify-summary";
-import { ActionForm, OfferForm, WorkspaceForm } from "./forms";
+import { ActionForm, OfferForm, WorkspaceDeleteForm, WorkspaceForm } from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
 import { GuideModal } from "./guide-modal";
 import { LockedFeatureCard } from "./locked-feature-card";
@@ -552,6 +552,16 @@ export function Dashboard(p: Props) {
               </option>
             ))}
           </select>
+        )}
+        {workspace && (
+          <div className="workspace-quick-actions">
+            <button type="button" className="workspace-action" onClick={() => create("workspace")}>
+              <Plus size={14} /> Nova operação
+            </button>
+            <button type="button" className="workspace-action danger" onClick={() => setModal("workspace-delete")}>
+              <Trash2 size={14} /> Excluir atual
+            </button>
+          </div>
         )}
         <div className="nav-label">OPERAÇÃO</div>
         <nav>
@@ -2415,6 +2425,8 @@ export function Dashboard(p: Props) {
             <h2>
               {modal === "workspace"
                 ? "Novo workspace"
+                : modal === "workspace-delete"
+                  ? "Excluir workspace"
                 : modal === "offer"
                   ? "Cadastrar oferta"
                   : modal === "link"
@@ -2451,6 +2463,8 @@ export function Dashboard(p: Props) {
             </h2>
             {modal === "workspace" ? (
               <WorkspaceForm />
+            ) : modal === "workspace-delete" && p.workspace ? (
+              <WorkspaceDeleteForm workspace={workspace} name={p.workspace.name} />
             ) : modal === "offer" ? (
               <OfferForm workspace={workspace} offers={p.offers} />
             ) : modal === "link" ? (
