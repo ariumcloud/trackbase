@@ -300,7 +300,7 @@ export function Dashboard(p: Props) {
     [p.offers],
   );
   const configuredPixel = p.pixels.find(
-    (pixel) => pixel.active && pixel.pixel_id.trim().length > 0,
+    (pixel) => pixel.pixel_id.trim().length > 0,
   );
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -2574,8 +2574,7 @@ export function Dashboard(p: Props) {
                           const linkedOffer = p.offers.find(
                             (o) => o.id === px.offer_id,
                           );
-                          const hasPixelId =
-                            px.active && px.pixel_id.trim().length > 0;
+                          const hasPixelId = px.pixel_id.trim().length > 0;
                           const trackbasePixelCode = hasPixelId
                             ? `<!-- Trackbase Pixel Code -->
 <script>
@@ -3324,7 +3323,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
         const linkedOffer = px ? p.offers.find((o) => o.id === px.offer_id) : null;
         const trackerKey = linkedOffer?.public_key || universalKey;
         const pixelId = px?.pixel_id?.trim() || "";
-        const hasConfiguredPixel = Boolean(px?.active && pixelId.length > 0);
+        const hasConfiguredPixel = pixelId.length > 0;
 
         const trackbasePixelCode = hasConfiguredPixel
           ? `<!-- Trackbase Pixel Code -->
