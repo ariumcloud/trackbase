@@ -66,10 +66,9 @@ export function SalesNotifier({ workspaceId }: Props) {
     // O worker envia um MessagePort e espera a confirmação real da reprodução.
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type !== "TRACKBASE_PUSH_SOUND") return;
-      void handlePushSound(event, workspaceId).then((result) => {
+      void handlePushSound(event, workspaceId).then(() => {
         const payload = event.data?.payload;
-        if (result?.status === "started") setToastMessage(`${payload?.title || "Venda recebida"} — som personalizado tocado.`);
-        else setToastMessage(`${payload?.title || "Venda recebida"} — notificação visual exibida; áudio personalizado bloqueado neste estado.`);
+        setToastMessage(`${payload?.title || "💰 Venda Realizada!"} ${payload?.body ? `— ${payload.body}` : ""}`);
         setTimeout(() => setToastMessage(null), 7000);
       });
     };

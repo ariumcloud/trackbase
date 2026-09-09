@@ -3411,15 +3411,11 @@ function PushSettingsCard({
       }
       setStatusFeedback({
         type: "success",
-        message:
-          res.count === 1
-            ? "Push aceito pelo serviço e enviado ao seu aparelho. A confirmação visual/sonora aparece quando ele chegar."
-            : `Push aceito pelo serviço para ${res.count ?? 1} aparelho(s). A confirmação aparece quando chegar.`,
+        message: "💰 Notificação de teste disparada! Verifique seu aparelho.",
       });
       setTimeout(() => setStatusFeedback(null), 5000);
     });
   };
-
   return (
     <section className="panel" style={{ marginTop: "1.5rem" }}>
       <div className="panel-heading">

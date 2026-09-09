@@ -68,23 +68,27 @@ export class SoundPlayer {
     const hidden = () => { if (document.visibilityState !== "visible") stop(); };
     document.addEventListener("visibilitychange", hidden);
     try {
-      // Do not resume here: resume() can remain pending after a background push.
-      if (this.context?.state === "running" && this.buffer && allowed()) {
-        const context = this.context;
-        const source = context.createBufferSource();
-        stop = () => { try { source.stop(); } catch {} source.disconnect(); };
-        try {
-          source.buffer = this.buffer;
-          source.connect(context.destination);
-          const before = context.currentTime;
-          source.start();
-          await new Promise(resolve => setTimeout(resolve, 60));
-          if (allowed() && context.state === "running" && context.currentTime > before) {
+      await this.preload();
+
+      if (this.context) {
+        if (this.context.state === "suspended") {
+          await this.context.resume().catch(() => {});
+        }
+
+        if (this.context.state === "running" && this.buffer && allowed()) {
+          const context = this.context;
+          const source = context.createBufferSource();
+          stop = () => { try { source.stop(); } catch {} source.disconnect(); };
+          try {
+            source.buffer = this.buffer;
+            source.connect(context.destination);
+            source.start(0);
             source.onended = () => source.disconnect();
             return { status: "started", backend: "web-audio" };
+          } catch {
+            stop();
           }
-        } catch { /* try HTMLAudio only after stopping this source */ }
-        stop();
+        }
       }
       if (!allowed()) return { status: document.visibilityState === "visible" ? "expired" : "hidden" };
       const audio = this.element ??= new Audio("/cash-machine.mp3");
