@@ -87,23 +87,23 @@ export function SalesNotifier({ workspaceId }: Props) {
   }, [playKaching]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
-      // No desktop PC, não registra inscrições de push (notificações são exclusivas para smartphone)
-      if (!isMobileEnvironment()) {
-        navigator.serviceWorker.getRegistration().then(async (reg) => {
-          const sub = await reg?.pushManager.getSubscription();
-          if (sub) {
-            await sub.unsubscribe().catch(() => {});
-            await fetch("/api/push/subscribe", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ endpoint: sub.endpoint }),
-            }).catch(() => {});
-          }
-        }).catch(() => {});
-        return;
-      }
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
+    // Escuta eventos de som e notificação enviados pelo Service Worker (sempre ativo)
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PLAY_SALE_SOUND") {
+        playKaching();
+        if (event.data?.data?.title) {
+          setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
+          setTimeout(() => setToastMessage(null), 7000);
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+
+    // Registra e sincroniza o Service Worker se houver suporte a PushManager
+    if ("PushManager" in window) {
       navigator.serviceWorker
         .register("/sw.js")
         .then(async (registration) => {
@@ -116,8 +116,6 @@ export function SalesNotifier({ workspaceId }: Props) {
           const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
           const expectedKey = publicKey ? urlBase64ToUint8Array(publicKey) : null;
 
-          // Uma inscrição criada com uma chave VAPID antiga parece ativa no
-          // navegador, mas o servidor não consegue mais entregar o push.
           if (!expectedKey || !hasSameApplicationServerKey(subscription.options.applicationServerKey, expectedKey)) {
             await subscription.unsubscribe();
             await fetch("/api/push/subscribe", {
@@ -147,37 +145,18 @@ export function SalesNotifier({ workspaceId }: Props) {
             }),
           });
 
-          if (!res.ok) {
-            const response = await res.json().catch(() => null);
-            throw new Error(
-              response?.error || "Não foi possível sincronizar as notificações deste aparelho.",
-            );
+          if (res.ok) {
+            setIsSubscribed(true);
           }
-
-          setIsSubscribed(true);
         })
         .catch((err) => {
           console.warn("SW register error:", err);
         });
-
-      const handleMessage = (event: MessageEvent) => {
-        if (event.data?.type === "PLAY_SALE_SOUND") {
-          // Apenas toca o áudio automaticamente em dispositivos móveis (evita susto/som no PC)
-          if (isMobileEnvironment()) {
-            playKaching();
-          }
-          if (event.data?.data?.title) {
-            setToastMessage(`${event.data.data.title} - ${event.data.data.body}`);
-            setTimeout(() => setToastMessage(null), 7000);
-          }
-        }
-      };
-
-      navigator.serviceWorker.addEventListener("message", handleMessage);
-      return () => {
-        navigator.serviceWorker.removeEventListener("message", handleMessage);
-      };
     }
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleMessage);
+    };
   }, [playKaching, workspaceId]);
 
   const toggleSubscription = async () => {

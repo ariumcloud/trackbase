@@ -30,28 +30,19 @@ self.addEventListener("push", (event) => {
       requireInteraction: false,
     };
 
-    event.waitUntil(
-      self.registration.showNotification(title, options).then(() => {
-        // Com o painel aberto, a aba recebe a mensagem e toca o som localmente.
-        return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-          clientList.forEach((client) => {
-            client.postMessage({
-              type: "PLAY_SALE_SOUND",
-              data: payload,
-            });
-          });
+    // Notifica abas/janelas abertas IMEDIATAMENTE em paralelo (sem esperar showNotification)
+    const notifyClients = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      clientList.forEach((client) => {
+        client.postMessage({
+          type: "PLAY_SALE_SOUND",
+          data: payload,
         });
-      })
-        return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-          clientList.forEach((client) => {
-            client.postMessage({
-              type: "PLAY_SALE_SOUND",
-              data: payload,
-            });
-          });
-        });
-      })
-    );
+      });
+    });
+
+    const showNotification = self.registration.showNotification(title, options);
+
+    event.waitUntil(Promise.all([notifyClients, showNotification]));
   } catch (err) {
     console.error("Erro ao processar push notification:", err);
   }

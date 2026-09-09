@@ -114,6 +114,12 @@ class SoundPlayer {
           await this.audioCtx.resume();
         }
 
+        if (!this.audioBuffer) {
+          const res = await fetch("/cash-machine.mp3");
+          const arrayBuffer = await res.arrayBuffer();
+          this.audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+        }
+
         if (this.audioBuffer) {
           const source = this.audioCtx.createBufferSource();
           source.buffer = this.audioBuffer;
