@@ -31,16 +31,95 @@ const providerNames: Record<Provider, string> = {
   greenn: "Greenn",
 };
 
-const manualProviders: Partial<Record<Provider, { credential: string; where: string; events: string; product: string }>> = {
-  hotmart: { credential: "Hottok de verificação", where: "Ferramentas > Webhook > Autenticação", events: "Compra aprovada, completa, reembolso e cancelamento", product: "ID do produto ou nome na Hotmart" },
-  kiwify: { credential: "token ou assinatura de webhook", where: "Configurações > Webhooks", events: "Pedido aprovado, reembolso e chargeback", product: "ID do produto Kiwify" },
-  cakto: { credential: "secret do webhook", where: "Webhooks", events: "Compra aprovada, reembolso e chargeback", product: "ID do produto Cakto" },
-  kirvano: { credential: "token/secret de validação", where: "Configurações > Webhooks", events: "Venda aprovada, reembolso, chargeback e cancelamento", product: "ID do produto Kirvano" },
-  eduzz: { credential: "chave de segurança do webhook", where: "Órbita / Ferramentas > Webhooks", events: "Pagamento aprovado, reembolso, chargeback e cancelamento", product: "Código do produto Eduzz" },
-  monetizze: { credential: "Chave Única do postback", where: "Ferramentas > Postback", events: "Finalizada, devolvida, bloqueada/chargeback e cancelada", product: "Código do produto Monetizze" },
-  wiapy: { credential: "token de autenticação do webhook", where: "Webhooks", events: "Pagamento aprovado, reembolso, chargeback e cancelamento", product: "ID do produto Wiapy" },
-  lowfy: { credential: "token/secret de webhook", where: "Webhooks", events: "Venda aprovada, reembolso, chargeback e cancelamento", product: "ID do produto Lowfy" },
-  greenn: { credential: "token de validação", where: "Ferramentas > Webhooks", events: "Pedido aprovado, reembolso, chargeback e cancelamento", product: "ID do produto Greenn" },
+type ManualProviderConfig = {
+  credential: string;
+  where: string;
+  events: string;
+  product: string;
+  productHelp: string;
+  credentialHelp: string;
+  directUrl?: string;
+};
+
+const manualProviders: Record<string, ManualProviderConfig> = {
+  hotmart: {
+    credential: "Hottok de verificação",
+    where: "Ferramentas > Webhook",
+    events: "Compra aprovada, Compra completa, Reembolso e Disputa",
+    product: "Código ou ID do produto na Hotmart",
+    productHelp: "Encontre em Produtos > Meus Produtos (é o código numérico de 7 dígitos abaixo do título do produto, ex.: 3848123).",
+    credentialHelp: "Na Hotmart, vá em Ferramentas > Webhook, clique na aba 'Autenticação' no topo e copie o Hottok de verificação.",
+    directUrl: "https://app-vlc.hotmart.com/tools/webhook",
+  },
+  kiwify: {
+    credential: "Token ou assinatura do webhook",
+    where: "Configurações > Webhooks",
+    events: "Pedido aprovado, Reembolso e Chargeback",
+    product: "ID do produto Kiwify",
+    productHelp: "O código do produto na Kiwify (visível na URL ao editar o produto).",
+    credentialHelp: "Na Kiwify, acesse Configurações > Webhooks e copie o token gerado.",
+    directUrl: "https://dashboard.kiwify.com.br/webhooks",
+  },
+  cakto: {
+    credential: "Secret do webhook",
+    where: "Apps > Webhooks",
+    events: "Compra aprovada, Reembolso e Chargeback",
+    product: "ID do produto Cakto",
+    productHelp: "O identificador do produto na Cakto.",
+    credentialHelp: "Na Cakto, copie a chave secret informada ao criar o webhook.",
+    directUrl: "https://app.cakto.com.br/dashboard/webhooks",
+  },
+  kirvano: {
+    credential: "Token de validação",
+    where: "Configurações > Webhooks",
+    events: "Venda aprovada, reembolso, chargeback e cancelamento",
+    product: "ID do produto Kirvano",
+    productHelp: "O código do produto na Kirvano.",
+    credentialHelp: "Token gerado pela Kirvano na aba de webhooks.",
+    directUrl: "https://app.kirvano.com",
+  },
+  eduzz: {
+    credential: "Chave de segurança do webhook",
+    where: "Órbita / Ferramentas > Webhooks",
+    events: "Pagamento aprovado, reembolso, chargeback e cancelamento",
+    product: "Código do produto Eduzz",
+    productHelp: "Código numérico do produto na Eduzz.",
+    credentialHelp: "Chave de autenticação gerada na Eduzz.",
+    directUrl: "https://orbita.eduzz.com",
+  },
+  monetizze: {
+    credential: "Chave Única do postback",
+    where: "Ferramentas > Postback",
+    events: "Finalizada, devolvida, bloqueada/chargeback e cancelada",
+    product: "Código do produto Monetizze",
+    productHelp: "Código do produto na Monetizze.",
+    credentialHelp: "Chave única copiada na área de Postback da Monetizze.",
+    directUrl: "https://app.monetizze.com.br",
+  },
+  wiapy: {
+    credential: "Token de autenticação",
+    where: "Webhooks",
+    events: "Pagamento aprovado, reembolso, chargeback e cancelamento",
+    product: "ID do produto Wiapy",
+    productHelp: "Identificador do produto na Wiapy.",
+    credentialHelp: "Token fornecido pela Wiapy nas configurações de webhook.",
+  },
+  lowfy: {
+    credential: "Token/secret do webhook",
+    where: "Webhooks",
+    events: "Venda aprovada, reembolso, chargeback e cancelamento",
+    product: "ID do produto Lowfy",
+    productHelp: "Identificador do produto na Lowfy.",
+    credentialHelp: "Chave de webhook gerada pela Lowfy.",
+  },
+  greenn: {
+    credential: "Token de validação",
+    where: "Ferramentas > Webhooks",
+    events: "Pedido aprovado, reembolso, chargeback e cancelamento",
+    product: "ID do produto Greenn",
+    productHelp: "Código do produto na Greenn.",
+    credentialHelp: "Token informado pela Greenn na criação do webhook.",
+  },
 };
 
 const providerDocs: Record<CatalogProvider, string> = {
@@ -128,21 +207,49 @@ export function GatewayConnectForm({
   }, [existingIntegrationId, workspace]);
 
   if (generatedWebhookUrl) {
+    const manualConfig = manualProviders[provider];
     return (
       <div className="gateway-next-step">
         <span className="gateway-next-step-kicker">INTEGRAÇÃO CONFIGURADA</span>
-        <h3>Tudo pronto! Ative o Webhook na {providerNames[provider]}.</h3>
-        <p>
-          Copie a URL abaixo e cole no campo <strong>URL para envio de dados</strong> na {providerNames[provider]}:
+        <h3 style={{ margin: "0.25rem 0 0.5rem" }}>Tudo pronto! Ative o Webhook na {providerNames[provider]}.</h3>
+        <p style={{ color: "var(--muted, #64748B)", fontSize: "0.85rem", marginBottom: "1rem" }}>
+          Copie a URL abaixo e cadastre na {providerNames[provider]} para receber as vendas em tempo real:
         </p>
+
         <div className="gateway-webhook-url">
           <code>{generatedWebhookUrl}</code>
           <button type="button" onClick={() => navigator.clipboard.writeText(generatedWebhookUrl)}>
             Copiar URL
           </button>
         </div>
+
+        <div style={{ background: "var(--surface-subtle, #F8FAFC)", border: "1px solid var(--line, #E2E8F0)", borderRadius: "10px", padding: "12px 14px", marginTop: "1rem" }}>
+          <strong style={{ fontSize: "0.82rem", color: "var(--ink, #0F172A)", display: "block", marginBottom: "6px" }}>
+            Como preencher na tela da {providerNames[provider]}:
+          </strong>
+          <ul style={{ margin: 0, paddingLeft: "1.2rem", fontSize: "0.8rem", color: "var(--muted, #64748B)", lineHeight: 1.6 }}>
+            <li><strong>URL:</strong> Cole a URL que você acabou de copiar acima.</li>
+            {provider === "hotmart" && <li><strong>Versão:</strong> Selecione 2.0.0 (Recomendado).</li>}
+            <li><strong>Eventos a marcar:</strong> {manualConfig?.events || "Compra aprovada, Reembolso e Chargeback"}.</li>
+            <li><strong>Produtos:</strong> Selecione o seu produto.</li>
+          </ul>
+        </div>
+
+        {manualConfig?.directUrl && (
+          <div style={{ marginTop: "0.75rem" }}>
+            <a
+              href={manualConfig.directUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--brand-primary, #6366F1)", display: "inline-flex", alignItems: "center", gap: "4px" }}
+            >
+              Abrir tela de Webhooks na {providerNames[provider]} ↗
+            </a>
+          </div>
+        )}
+
         <div style={{ marginTop: "1.25rem" }}>
-          <button className="button primary" type="button" onClick={onSuccess}>
+          <button className="button primary" type="button" onClick={onSuccess} style={{ width: "100%" }}>
             Concluir e fechar
           </button>
         </div>
@@ -190,16 +297,73 @@ export function GatewayConnectForm({
         <span className="gateway-next-step-kicker">CONFIGURAÇÃO GUIADA</span>
         <h3>Conecte {providerNames[provider]} por webhook.</h3>
         <ol className="gateway-webhook-steps">
-          <li><strong>Abra {manual.where}.</strong><span>Crie um novo webhook ou use o já existente.</span></li>
-          <li><strong>Copie o {manual.credential}.</strong><span>Cole abaixo para autenticar suas notificações com segurança.</span></li>
-          <li><strong>Gere a sua URL exclusiva.</strong><span>Ao salvar, o Trackbase fornecerá a URL exata para colar na {providerNames[provider]}.</span></li>
+          <li>
+            <strong>1. Acesse {manual.where} na {providerNames[provider]}.</strong>
+            <span>
+              {manual.directUrl ? (
+                <a
+                  href={manual.directUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "var(--brand-primary, #6366F1)", fontWeight: 600, marginTop: "2px" }}
+                >
+                  Abrir Webhooks na {providerNames[provider]} ↗
+                </a>
+              ) : `Abra a tela de webhooks da sua conta ${providerNames[provider]}.`}
+            </span>
+          </li>
+          <li>
+            <strong>2. Copie o {manual.credential}.</strong>
+            <span>{manual.credentialHelp}</span>
+          </li>
+          <li>
+            <strong>3. Preencha os campos e gere a sua URL exclusiva.</strong>
+            <span>Ao salvar, o Trackbase fornecerá a URL exata para colar na {providerNames[provider]}.</span>
+          </li>
         </ol>
-        <label>Oferta no Trackbase<select name="offer_id" required disabled={loading}>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
-        <label>{manual.product}<input name="external_product_id" placeholder="Ex.: 3848123 ou nome do produto" required disabled={loading} /></label>
+
+        <label style={{ marginTop: "1rem" }}>
+          Oferta no Trackbase
+          <select name="offer_id" required disabled={loading}>
+            {offers.map((offer) => (
+              <option key={offer.id} value={offer.id}>{offer.name}</option>
+            ))}
+          </select>
+          <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+            A qual oferta do Trackbase essas vendas pertencem.
+          </small>
+        </label>
+
+        <label>
+          {manual.product}
+          <input name="external_product_id" placeholder="Ex.: 3848123 ou nome do produto" required disabled={loading} />
+          <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+            {manual.productHelp}
+          </small>
+        </label>
         <input type="hidden" name="external_offer_id" value="" />
-        <label>Moeda padrão<select name="currency" defaultValue="BRL" disabled={loading}><option>BRL</option><option>USD</option><option>EUR</option><option>MXN</option></select></label>
-        <label>{manual.credential}<input name="secret" type="password" minLength={4} required autoComplete="new-password" placeholder="Cole aqui seu Hottok / token" disabled={loading} /></label>
-        <button className="button primary" disabled={loading}>{loading ? "Salvando…" : "Salvar e gerar URL do webhook"}</button>
+
+        <label>
+          Moeda padrão
+          <select name="currency" defaultValue="BRL" disabled={loading}>
+            <option>BRL</option>
+            <option>USD</option>
+            <option>EUR</option>
+            <option>MXN</option>
+          </select>
+        </label>
+
+        <label>
+          {manual.credential}
+          <input name="secret" type="password" minLength={4} required autoComplete="new-password" placeholder={`Cole aqui o seu ${manual.credential}`} disabled={loading} />
+          <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
+            {manual.credentialHelp}
+          </small>
+        </label>
+
+        <button className="button primary" disabled={loading} style={{ marginTop: "0.75rem" }}>
+          {loading ? "Salvando…" : "Salvar e gerar URL do webhook"}
+        </button>
         {message && <p className="form-message" role="status">{message}</p>}
       </form>
     );
