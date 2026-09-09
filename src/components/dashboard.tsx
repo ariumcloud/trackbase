@@ -107,10 +107,6 @@ const MiningView = dynamic(
   () => import("./mining-view").then((m) => m.MiningView),
   { ssr: false },
 );
-const ExtensionSettings = dynamic(
-  () => import("./mining-view").then((m) => m.ExtensionSettings),
-  { ssr: false },
-);
 import { SalesNotifier } from "./sales-notifier";
 import {
   exportSalesCsv,
@@ -1010,12 +1006,6 @@ export function Dashboard(p: Props) {
             ) : (
               <p>Selecione ou crie um workspace para começar.</p>
             ))}
-          {tab === "integracoes" && p.workspace && hasMiningAccess && (
-            <ExtensionSettings
-              key={p.workspace.id}
-              workspace={p.workspace.id}
-            />
-          )}
           {tab === "visao" && (
             <>
               <OnboardingChecklist
