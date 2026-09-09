@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
-import { rateLimit, body, encrypt } from "@/lib/security";
+import { body, encrypt } from "@/lib/security";
 import { trackPayloadSchema } from "@/lib/tracker";
 
 const corsHeaders = {
@@ -13,12 +13,37 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
+const ipMap = new Map<string, { count: number; resetAt: number }>();
+const keyMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkInMemoryLimit(
+  map: Map<string, { count: number; resetAt: number }>,
+  k: string,
+  limit: number,
+  windowMs = 60000,
+): boolean {
+  const now = Date.now();
+  const entry = map.get(k);
+  if (!entry || now > entry.resetAt) {
+    map.set(k, { count: 1, resetAt: now + windowMs });
+    if (map.size > 2000) {
+      for (const [id, val] of map.entries()) {
+        if (now > val.resetAt) map.delete(id);
+      }
+    }
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get("x-vercel-forwarded-for") ||
       request.headers.get("x-real-ip") || "unknown";
 
-    if (!(await rateLimit(`track:${ip}`, 300))) {
+    if (!checkInMemoryLimit(ipMap, ip, 300)) {
       return NextResponse.json(
         { error: "Limite de requisições excedido." },
         { status: 429, headers: { ...corsHeaders, "Retry-After": "60" } },
@@ -44,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     const { key, ...eventData } = parsed.data;
-    if (!(await rateLimit(`track-key:${key}`, 600))) {
+    if (!checkInMemoryLimit(keyMap, key, 600)) {
       return NextResponse.json(
         { error: "Limite de requisições excedido." },
         { status: 429, headers: { ...corsHeaders, "Retry-After": "60" } },

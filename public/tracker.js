@@ -1,10 +1,4 @@
-import { NextResponse } from "next/server";
-
-export const dynamic = "force-static";
-export const revalidate = 86400; // 24h CDN static cache
-
-export function GET() {
-  const script = `(function() {
+(function() {
   try {
     var scriptTag = document.currentScript || document.querySelector('script[data-key]');
     var key = scriptTag ? scriptTag.getAttribute('data-key') : (window.__TRACKBASE_KEY__ || window.__UTMLISO_KEY__ || '');
@@ -275,13 +269,4 @@ export function GET() {
     }, true);
 
   } catch(e) {}
-})();`;
-
-  return new NextResponse(script, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/javascript; charset=utf-8",
-      "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
-    },
-  });
-}
+})();
