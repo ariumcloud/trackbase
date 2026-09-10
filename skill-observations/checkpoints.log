@@ -10,3 +10,4 @@
 2026-09-10 — checkpoint: typecheck and targeted lint passed; full suite has one pre-existing payment-contract failure unrelated to the IC change.
 2026-09-10 — deliverable flush: IC aggregation fix is type-safe, lint-clean, and diff-check clean.
 2026-09-10 — no observations after replacing Radar demo fallback, hardening tracker delivery, and verifying real-session refresh.
+2026-09-10 — checkpoint: isolated click discrepancy to Meta link_click versus inline_link_clicks; added a regression test and explicit UI label.
