@@ -82,6 +82,7 @@ export default async function Page({
         summary={null}
         initialTab={p.tab}
         account={{ name: null, document: null, email: null }}
+        monthlySalesCount={0}
         appUrl={process.env.APP_URL || "http://localhost:3000"}
       />
     );
@@ -157,6 +158,21 @@ export default async function Page({
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
   const needsShield = activeTab === "shield";
   const needsEvents = ["radar", "simulador", "visao", "campanhas"].includes(activeTab);
+
+  // Independente da aba aberta e do período selecionado no dashboard: o uso
+  // do plano precisa refletir o total de vendas do mês corrente, não o
+  // recorte de datas que o usuário escolheu em outra tela.
+  const monthStart = `${today.slice(0, 7)}-01T00:00:00Z`;
+  const monthlySalesCount = w
+    ? await client
+        .from("utm_sales")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", w.id)
+        .eq("is_test", false)
+        .gte("occurred_at", monthStart)
+        .lte("occurred_at", queryUntil)
+        .then((res) => res.count ?? 0)
+    : 0;
 
   const [
     offers,
@@ -374,6 +390,7 @@ export default async function Page({
       initialPeriod={p.period}
       metaSelectIntegrationId={p.meta_select}
       account={account}
+      monthlySalesCount={monthlySalesCount}
       appUrl={process.env.APP_URL || "http://localhost:3000"}
       error={error}
     />

@@ -166,6 +166,7 @@ type Props = {
   shieldLogs?: ShieldLogRow[];
   events?: TrackingEvent[];
   account: { name: string | null; document: string | null; email: string | null };
+  monthlySalesCount: number;
 };
 const tabs = [
   { id: "visao", name: "Visão geral", icon: LayoutDashboard },
@@ -446,9 +447,9 @@ export function Dashboard(p: Props) {
       { label: "Ofertas", used: p.offers.length, limit: planInfo.offers },
       { label: "Links", used: p.links.length, limit: planInfo.links },
       { label: "Contas Meta", used: metaConnected, limit: planInfo.meta },
-      { label: "Vendas no período", used: p.sales.length, limit: planInfo.sales },
+      { label: "Vendas no mês", used: p.monthlySalesCount, limit: planInfo.sales },
     ];
-  }, [currentPlan, p.offers, p.links, p.integrations, p.sales]);
+  }, [currentPlan, p.offers, p.links, p.integrations, p.monthlySalesCount]);
 
   let since: string;
   let until: string;
@@ -829,6 +830,7 @@ export function Dashboard(p: Props) {
   };
   const selectTab = (value: string) => {
     setTab(value);
+    setAccountView(null);
     setMobile(false);
     setNotice("");
     setShowExportMenu(false);
