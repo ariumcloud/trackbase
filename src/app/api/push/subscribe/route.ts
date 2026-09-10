@@ -39,15 +39,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Muitas tentativas." }, { status: 429 });
     }
 
-    const userAgent = request.headers.get("user-agent") || "";
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent);
-    if (!isMobile) {
-      return NextResponse.json(
-        { error: "As notificações de venda com som devem ser ativadas exclusivamente no seu celular (iPhone ou Android)." },
-        { status: 400 },
-      );
-    }
-
     const json = await body(request, 8192);
     const parsed = subscribeSchema.safeParse(json);
 

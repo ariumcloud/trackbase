@@ -30,10 +30,15 @@ declare
   v_main_count bigint := 0;
   v_upsell_count bigint := 0;
   v_downsell_count bigint := 0;
+  v_timezone text := 'UTC';
 begin
   if auth.uid() is not null and not utm_private.member(p_workspace) then
     raise exception 'Workspace não autorizado';
   end if;
+
+  select coalesce(timezone, 'UTC') into v_timezone
+    from public.utm_workspaces
+   where id = p_workspace;
 
   select coalesce(count(*), 0),
     coalesce(count(distinct coalesce(parent_transaction_id, transaction_id)), 0),
@@ -45,7 +50,8 @@ begin
   where workspace_id = p_workspace
     and status in ('approved', 'paid', 'completed')
     and currency = p_currency
-    and occurred_at >= p_since and occurred_at <= p_until
+    and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
+    and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
     and is_test = false
     and (p_offer_id is null or offer_id = p_offer_id);
 
@@ -55,7 +61,8 @@ begin
   where workspace_id = p_workspace
     and status in ('refunded', 'chargeback', 'partial_refund', 'chargedback')
     and currency = p_currency
-    and occurred_at >= p_since and occurred_at <= p_until
+    and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
+    and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
     and is_test = false
     and (p_offer_id is null or offer_id = p_offer_id);
 
@@ -81,7 +88,8 @@ begin
   into v_pageviews, v_ctas, v_checkouts
   from public.utm_events
   where workspace_id = p_workspace
-    and created_at >= p_since and created_at <= p_until
+    and (created_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
+    and (created_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
     and (p_offer_id is null or offer_id = p_offer_id);
 
   select coalesce(jsonb_object_agg(product_type,
@@ -96,7 +104,8 @@ begin
     where workspace_id = p_workspace
       and status in ('approved', 'paid', 'completed')
       and currency = p_currency
-      and occurred_at >= p_since and occurred_at <= p_until
+      and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
+      and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
       and is_test = false
       and (p_offer_id is null or offer_id = p_offer_id)
     group by product_type
@@ -111,7 +120,8 @@ begin
     where workspace_id = p_workspace
       and status in ('approved', 'paid', 'completed')
       and currency = p_currency
-      and occurred_at >= p_since and occurred_at <= p_until
+      and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
+      and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
       and is_test = false
       and (p_offer_id is null or offer_id = p_offer_id)
     group by country

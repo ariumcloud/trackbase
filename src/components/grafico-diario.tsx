@@ -66,7 +66,7 @@ export function GraficoDiario({
       const sDay = dayInZone(new Date(s.occurred_at), timezone);
       const entry = dayMap.get(sDay);
       if (entry) {
-        entry.revenue += Number(s.amount || 0);
+        entry.revenue += Number(s.gross_amount ?? s.amount ?? 0);
         entry.salesCount += 1;
       }
     }

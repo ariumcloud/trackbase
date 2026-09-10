@@ -3,6 +3,7 @@ import { isApprovedSaleStatus } from "./sale-status";
 export type Sale = {
   currency: string | null;
   amount: number;
+  gross_amount?: number;
   status: string;
   is_test: boolean;
   occurred_at: string;
@@ -22,7 +23,7 @@ export function calculate(
     (s) => !s.is_test && s.currency === currency && isApprovedSaleStatus(s.status),
   );
   const ads = insights.filter((i) => i.currency === currency);
-  const revenue = paid.reduce((s, v) => s + Number(v.amount), 0),
+  const revenue = paid.reduce((s, v) => s + Number(v.gross_amount ?? v.amount), 0),
     spend = ads.length ? ads.reduce((s, v) => s + Number(v.spend), 0) : null;
   const impressions = ads.reduce((s, v) => s + Number(v.impressions), 0),
     clicks = ads.reduce((s, v) => s + Number(v.clicks), 0);

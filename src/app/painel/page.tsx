@@ -1,6 +1,7 @@
 import { db, configured } from "@/lib/supabase/server";
 import { getAuthUser, checkPlatformAdmin } from "@/lib/platform-admin";
 import { redirect } from "next/navigation";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { Dashboard } from "@/components/dashboard";
 import { dayInZone } from "@/lib/metrics";
 import { evaluateAlerts, type AlertItem } from "@/lib/alerts";
@@ -22,6 +23,28 @@ import type {
 } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Supabase applies a server-side row limit to every request. Dashboard totals
+ * must not silently stop at the first page, so high-volume tables are read in
+ * deterministic batches before the client performs any aggregation.
+ */
+async function fetchAllRows(
+  build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: PostgrestError | null }>,
+  pageSize = 1000,
+): Promise<{ data: unknown[]; error: PostgrestError | null }> {
+  const rows: unknown[] = [];
+  for (let page = 0; page < 1000; page += 1) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const result = await build(from, to);
+    if (result.error) return { data: rows, error: result.error };
+    const batch = result.data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return { data: rows, error: null };
+}
 
 export default async function Page({
   searchParams,
@@ -157,36 +180,42 @@ export default async function Page({
           .eq("workspace_id", w.id)
           .order("created_at"),
         needsSales
-          ? client
-              .from("utm_sales")
-              .select(
-                "id,offer_id,provider,status,amount,gross_amount,fee_amount,net_amount,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
-              )
-              .eq("workspace_id", w.id)
-              .gte("occurred_at", querySince)
-              .lte("occurred_at", queryUntil)
-              .order("occurred_at", { ascending: false })
-              .limit(1000)
+          ? fetchAllRows((from, to) =>
+              client
+                .from("utm_sales")
+                .select(
+                  "id,offer_id,provider,status,amount,gross_amount,fee_amount,net_amount,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
+                )
+                .eq("workspace_id", w.id)
+                .gte("occurred_at", querySince)
+                .lte("occurred_at", queryUntil)
+                .order("occurred_at", { ascending: false })
+                .range(from, to),
+            )
           : empty,
         needsInsights
-          ? client
-              .from("utm_insights")
-              .select(
-                "integration_id,ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
-              )
-              .eq("workspace_id", w.id)
-              .gte("day", since.slice(0, 10))
-              .lte("day", until.slice(0, 10))
-              .order("day", { ascending: false })
-              .limit(1000)
+          ? fetchAllRows((from, to) =>
+              client
+                .from("utm_insights")
+                .select(
+                  "integration_id,ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
+                )
+                .eq("workspace_id", w.id)
+                .gte("day", since.slice(0, 10))
+                .lte("day", until.slice(0, 10))
+                .order("day", { ascending: false })
+                .range(from, to),
+            )
           : empty,
         needsEntities
-          ? client
-              .from("utm_ad_entities")
-              .select("integration_id,external_id,kind,parent_id,name,status,budget_minor,budget_currency,budget_type,meta_created_at")
-              .eq("workspace_id", w.id)
-              .order("external_id", { ascending: false })
-              .limit(500)
+          ? fetchAllRows((from, to) =>
+              client
+                .from("utm_ad_entities")
+                .select("integration_id,external_id,kind,parent_id,name,status,budget_minor,budget_currency,budget_type,meta_created_at")
+                .eq("workspace_id", w.id)
+                .order("external_id", { ascending: false })
+                .range(from, to),
+            )
           : empty,
         needsLogs
           ? client
@@ -241,14 +270,16 @@ export default async function Page({
               .limit(100)
           : empty,
         needsEvents
-          ? client
-              .from("utm_events")
-              .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
-              .eq("workspace_id", w.id)
-              .gte("created_at", querySince)
-              .lte("created_at", queryUntil)
-              .order("created_at", { ascending: false })
-              .limit(2000)
+          ? fetchAllRows((from, to) =>
+              client
+                .from("utm_events")
+                .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
+                .eq("workspace_id", w.id)
+                .gte("created_at", querySince)
+                .lte("created_at", queryUntil)
+                .order("created_at", { ascending: false })
+                .range(from, to),
+            )
           : empty,
       ])
     : [

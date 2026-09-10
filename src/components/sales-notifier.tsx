@@ -33,16 +33,6 @@ function hasSameApplicationServerKey(
   return current.length === expectedKey.length && current.every((value, index) => value === expectedKey[index]);
 }
 
-function isMobileEnvironment() {
-  if (typeof window === "undefined") return false;
-  const userAgent = navigator.userAgent || "";
-  const isTouch = "ontouchstart" in window || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
-  return (
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) ||
-    (window.innerWidth <= 768 && isTouch)
-  );
-}
-
 export function SalesNotifier({ workspaceId }: Props) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -142,23 +132,15 @@ export function SalesNotifier({ workspaceId }: Props) {
     return () => {
       navigator.serviceWorker.removeEventListener("message", handleMessage);
     };
-  }, [workspaceId]);
+  }, [playKaching, workspaceId]);
 
   const toggleSubscription = async () => {
     if (!workspaceId) return;
     setLoading(true);
 
-    if (!isMobileEnvironment()) {
-      alert(
-        "📱 As notificações de venda com o som da máquina registradora são exclusivas para Celular!\n\nAbra o Trackbase no seu iPhone (Safari > Adicionar à Tela de Início) ou celular Android e toque em 'Ativar Vendas' lá para o aparelho tocar a cada venda aprovada."
-      );
-      setLoading(false);
-      return;
-    }
-
     if (!("Notification" in window) || !("PushManager" in window)) {
       alert(
-        "No iPhone/iOS, as notificações push só funcionam se você adicionar o app à Tela de Início:\n\n1. Abra o Safari e toque no botão de Compartilhar (quadrado com seta para cima);\n2. Escolha 'Adicionar à Tela de Início';\n3. Abra o app pelo ícone criado na sua tela e ative as notificações aqui!",
+        "Este navegador não oferece notificações push. No iPhone/iOS, adicione o Trackbase à Tela de Início e abra o app pelo ícone antes de ativar os alertas.",
       );
       setLoading(false);
       return;
@@ -229,7 +211,7 @@ export function SalesNotifier({ workspaceId }: Props) {
         setIsSubscribed(true);
         // Prime the audio context while this click is still the user gesture.
         void soundPlayer.unlockAudio();
-        setToastMessage("Notificações ativadas. Com o painel aberto, o Trackbase tentará o som personalizado; em segundo plano, o iOS usa o som padrão.");
+        setToastMessage("Notificações ativadas. Com o painel aberto, o Trackbase tocará o som personalizado; em segundo plano, o navegador usa o alerta padrão.");
         setTimeout(() => setToastMessage(null), 4000);
       }
     } catch (e: unknown) {
