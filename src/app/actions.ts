@@ -1596,7 +1596,14 @@ export async function createMcpApiKeyAction(
     revalidatePath("/painel");
     return { ok: true, rawKey: result.rawKey, keyInfo: result };
   } catch (err: unknown) {
-    return { error: err instanceof Error ? err.message : "Não foi possível gerar a chave MCP." };
+    const detail = err instanceof Error ? err.message : "";
+    if (/utm_api_keys|schema cache|relation .* does not exist/i.test(detail)) {
+      return {
+        error:
+          "A estrutura de chaves MCP ainda não foi aplicada neste projeto Supabase. Execute a migration 20260909160000_mcp_api_keys.sql e tente novamente.",
+      };
+    }
+    return { error: detail || "Não foi possível gerar a chave MCP." };
   }
 }
 
@@ -1606,7 +1613,15 @@ export async function listMcpApiKeysAction(workspace: string) {
     const keys = await listKeyRecords(workspace);
     return { ok: true, keys };
   } catch (err: unknown) {
-    return { error: err instanceof Error ? err.message : "Não foi possível listar as chaves.", keys: [] };
+    const detail = err instanceof Error ? err.message : "";
+    if (/utm_api_keys|schema cache|relation .* does not exist/i.test(detail)) {
+      return {
+        error:
+          "A estrutura de chaves MCP ainda não foi aplicada neste projeto Supabase. Execute a migration 20260909160000_mcp_api_keys.sql e tente novamente.",
+        keys: [],
+      };
+    }
+    return { error: detail || "Não foi possível listar as chaves.", keys: [] };
   }
 }
 

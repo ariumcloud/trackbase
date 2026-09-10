@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Key,
   Copy,
@@ -12,7 +12,11 @@ import {
   Code2,
   Layers,
 } from "lucide-react";
-import { createMcpApiKeyAction, revokeMcpApiKeyAction } from "@/app/actions";
+import {
+  createMcpApiKeyAction,
+  listMcpApiKeysAction,
+  revokeMcpApiKeyAction,
+} from "@/app/actions";
 
 export type ApiKeyItem = {
   id: string;
@@ -36,8 +40,21 @@ export function McpSettingsView({
   const [newKey, setNewKey] = useState<string | null>(null);
   const [keyName, setKeyName] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"claude" | "cursor" | "cli">("claude");
   const [loading, startTransition] = useTransition();
+
+  useEffect(() => {
+    let mounted = true;
+    listMcpApiKeysAction(workspace).then((res) => {
+      if (!mounted) return;
+      if (res.error) setMessage(res.error);
+      else setKeys(res.keys || []);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [workspace]);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -47,6 +64,7 @@ export function McpSettingsView({
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage(null);
     startTransition(async () => {
       const res = await createMcpApiKeyAction(
         workspace,
@@ -57,6 +75,8 @@ export function McpSettingsView({
         setKeyName("");
         const info = res.keyInfo as ApiKeyItem;
         setKeys((prev) => [info, ...prev]);
+      } else {
+        setMessage(res.error || "Não foi possível gerar a chave MCP.");
       }
     });
   };
@@ -72,6 +92,8 @@ export function McpSettingsView({
       const res = await revokeMcpApiKeyAction(workspace, id);
       if (res.ok) {
         setKeys((prev) => prev.filter((k) => k.id !== id));
+      } else {
+        setMessage(res.error || "Não foi possível revogar esta chave.");
       }
     });
   };
@@ -260,6 +282,24 @@ export function McpSettingsView({
             Cursor, Codex) aos dados do seu workspace.
           </p>
         </div>
+
+        {message && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "1rem",
+              padding: "0.75rem 0.9rem",
+              borderRadius: "9px",
+              border: "1px solid var(--red-border, #FECACA)",
+              background: "var(--red-soft, #FEF2F2)",
+              color: "var(--red-text, #B91C1C)",
+              fontSize: "0.82rem",
+              lineHeight: 1.4,
+            }}
+          >
+            {message}
+          </div>
+        )}
 
         {/* Formulário com layout estável (nunca estica na vertical) */}
         <form
