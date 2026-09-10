@@ -1,5 +1,14 @@
 type MetaAction = { action_type: string; value: string | number };
 
+/** Aliases overlap; select one, never sum them. */
+export function metaPurchases(actions?: MetaAction[]): number {
+  for (const kind of ["offsite_conversion.fb_pixel_purchase", "purchase", "omni_purchase"]) {
+    const value = nonNegativeNumber(actions?.find((a) => a.action_type === kind)?.value);
+    if (value !== null) return value;
+  }
+  return 0;
+}
+
 type MetaClickSource = {
   actions?: MetaAction[];
   inline_link_clicks?: string | number;

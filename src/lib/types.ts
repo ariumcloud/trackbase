@@ -133,6 +133,7 @@ export type WebhookLog = {
 };
 export type TrackingEvent = {
   id: string;
+  event_id?: string | null;
   workspace_id: string;
   offer_id: string;
   link_id: string | null;

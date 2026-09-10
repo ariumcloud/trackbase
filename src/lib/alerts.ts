@@ -101,7 +101,7 @@ export async function evaluateAlerts(workspaceId: string): Promise<AlertItem[]> 
   const totalImpressions = insightsInCurrency.reduce((acc, i) => acc + Number(i.impressions || 0), 0);
 
   const pageviews = events.filter((e) => e.event_type === "pageview").length;
-  const ctas = events.filter((e) => e.event_type === "cta").length;
+  const ctas = events.filter((e) => e.event_type === "cta" || e.event_type === "cta_click").length;
   const checkouts = events.filter((e) => e.event_type === "checkout").length;
 
   const alertsToInsert: Array<{

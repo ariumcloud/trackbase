@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 24h CDN static cache
 
 export function GET() {
-  const script = `(function() {
+  const script = readFileSync(join(process.cwd(), "public", "tracker.js"), "utf8");
+  /* const legacyScript = `(function() {
   try {
     var scriptTag = document.currentScript || document.querySelector('script[data-key]');
     var key = scriptTag ? scriptTag.getAttribute('data-key') : (window.__TRACKBASE_KEY__ || window.__UTMLISO_KEY__ || '');
@@ -288,6 +291,7 @@ export function GET() {
 
   } catch(e) {}
 })();`;
+  void legacyScript; */
 
   return new NextResponse(script, {
     status: 200,

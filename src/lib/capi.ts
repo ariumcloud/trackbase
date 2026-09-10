@@ -31,7 +31,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
   // 1. Busca o Pixel ativo (específico da oferta ou padrão do workspace)
   let query = service
     .from("utm_pixels")
-    .select("pixel_id,capi_token_ciphertext,test_event_code")
+    .select("pixel_id,offer_id,capi_token_ciphertext,test_event_code")
     .eq("workspace_id", payload.workspaceId)
     .eq("active", true);
 
@@ -41,7 +41,8 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     query = query.is("offer_id", null);
   }
 
-  const { data: pixels } = await query;
+  const { data: pixels, error: pixelError } = await query;
+  if (pixelError) return { status: "failed", error: "CAPI_PIXEL_LOOKUP_FAILED" };
   if (!pixels || pixels.length === 0) {
     return {
       status: "skipped",
@@ -49,7 +50,10 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     };
   }
 
-  const pixel = pixels[0];
+  const specific = pixels.filter((p) => payload.offerId && p.offer_id === payload.offerId);
+  const candidates = specific.length ? specific : pixels.filter((p) => p.offer_id === null);
+  if (candidates.length !== 1) return { status: "failed", error: "CAPI_PIXEL_AMBIGUOUS" };
+  const pixel = candidates[0];
   let token: string;
   try {
     token = decrypt(pixel.capi_token_ciphertext);
@@ -58,7 +62,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
   }
 
   // 2. Prevenção de duplicata no log da CAPI
-  const { data: existing } = await service
+  const { data: existing, error: logReadError } = await service
     .from("utm_capi_logs")
     .select("status")
     .eq("workspace_id", payload.workspaceId)
@@ -66,6 +70,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
     .eq("event_id", payload.eventId)
     .eq("event_name", payload.eventName)
     .maybeSingle();
+  if (logReadError) return { status: "failed", error: "CAPI_LOG_LOOKUP_FAILED" };
 
   if (existing?.status === "sent" || existing?.status === "skipped") {
     return { status: "duplicate" };
@@ -75,7 +80,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
   const userData = normalizeCapiUserData(payload.userData);
   const eventItem: Record<string, unknown> = {
     event_name: payload.eventName,
-    event_time: Math.floor(Date.now() / 1000),
+    event_time: Math.floor(Date.parse(payload.occurredAt || new Date().toISOString()) / 1000),
     event_id: payload.eventId,
     action_source: "website",
     event_source_url: payload.url || undefined,
@@ -144,7 +149,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
   }
 
   // 4. Registro seguro do log CAPI sem salvar tokens nem PII
-  await service.from("utm_capi_logs").upsert(
+  const { error: logWriteError } = await service.from("utm_capi_logs").upsert(
     {
       workspace_id: payload.workspaceId,
       pixel_id: pixel.pixel_id,
@@ -160,6 +165,7 @@ export async function sendCapiEvent(payload: CapiPayload): Promise<{
       ignoreDuplicates: false,
     },
   );
+  if (logWriteError) return { status: "failed", error: "CAPI_LOG_WRITE_FAILED" };
 
   return { status, error: status === "failed" ? responseSummary : undefined };
 }

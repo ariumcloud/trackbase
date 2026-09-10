@@ -76,9 +76,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mapeamento compatível para a RPC do banco:
-    // O banco aceita ('pageview', 'cta', 'checkout'). Eventos de rolagem e cta_view são armazenados como 'cta' com metadados na attribution.
-    let dbEventType: "pageview" | "cta" | "checkout" = "cta";
+    // Eventos de rolagem continuam agrupados em cta; cliques e visualizações preservam o tipo.
+    let dbEventType: "pageview" | "cta" | "cta_click" | "cta_view" | "checkout" = "cta";
     const enrichedAttribution: Record<string, string> = { ...(eventData.attribution || {}) };
 
     if (eventData.event_type === "pageview") {
@@ -99,9 +98,12 @@ export async function POST(request: Request) {
     } else if (eventData.event_type === "cta_view") {
       enrichedAttribution.cta_view = "true";
       enrichedAttribution.action = "cta_view";
-      dbEventType = "cta";
+      dbEventType = "cta_view";
+    } else if (eventData.event_type === "cta_click") {
+      enrichedAttribution.action = "cta_click";
+      dbEventType = "cta_click";
     } else {
-      dbEventType = "cta";
+      dbEventType = "cta_view";
     }
 
     let capiPayloadCiphertext: string | undefined;

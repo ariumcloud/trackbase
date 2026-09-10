@@ -18,6 +18,7 @@ const SESSION_KEYS = [
 ] as const;
 
 const TRACKING_KEYS = new Set([
+  "session_id",
   "utm_source",
   "utm_medium",
   "utm_campaign",
@@ -57,7 +58,7 @@ function addValues(target: AttributionMap, input: Record<string, unknown> | null
     if (!TRACKING_KEYS.has(key)) continue;
     if (typeof rawValue !== "string" && typeof rawValue !== "number") continue;
     const value = String(rawValue).trim();
-    if (value && !/^\{\{[^}]+\}\}$/.test(value)) target[key] = value.slice(0, 300);
+    if (value && !/\{\{|\}\}|%7b%7b/i.test(value)) target[key] = value.slice(0, 300);
   }
 }
 
@@ -82,6 +83,8 @@ export function mergeAttribution(
 }
 
 type TrackingEventLike = {
+  created_at?: string;
+  occurred_at?: string;
   offer_id?: string | null;
   session_id?: string | null;
   attribution?: Record<string, string> | null;
@@ -120,19 +123,49 @@ export function resolveSaleAttribution(
   saleAttribution: Record<string, string> | null | undefined,
   events: TrackingEventLike[],
   offerId?: string | null,
+  occurredAt?: string,
 ): AttributionMap {
+  return resolveSaleAttributionEvidence(saleAttribution, events, offerId, occurredAt).attribution;
+}
+
+export function resolveSaleAttributionEvidence(
+  saleAttribution: Record<string, string> | null | undefined,
+  events: TrackingEventLike[],
+  offerId?: string | null,
+  occurredAt?: string,
+): {
+  attribution: AttributionMap;
+  source: "session_id" | "click_id" | "gateway_tracking" | "none";
+  confidence: "high" | "medium" | "none";
+  reason: string;
+} {
   const direct = mergeAttribution(saleAttribution);
-  const sessions = sessionAttributionMap(events, offerId);
+  const eligible = events.filter((event) => !occurredAt || Boolean(event.occurred_at || event.created_at) && Date.parse(event.occurred_at || event.created_at!) <= Date.parse(occurredAt));
+  const sessions = sessionAttributionMap(eligible, offerId);
   const references = SESSION_KEYS.map((key) => direct[key]).filter(Boolean);
-  const clickKeys = ["fbclid", "fbp", "fbc", "gclid", "ttclid"] as const;
+  const clickKeys = ["fbclid", "fbc", "gclid", "ttclid"] as const;
 
   const candidates = [...sessions.entries()].filter(([sessionId, attr]) => {
     if (references.includes(sessionId)) return true;
     return clickKeys.some((key) => direct[key] && direct[key] === attr[key]);
   });
 
-  if (candidates.length !== 1) return direct;
-  return { ...candidates[0][1], ...direct };
+  if (candidates.length !== 1) {
+    const hasGatewayTracking = Boolean(direct.utm_content || direct.utm_campaign || direct.utm_term);
+    return {
+      attribution: hasGatewayTracking ? direct : {},
+      source: hasGatewayTracking ? "gateway_tracking" : "none",
+      confidence: hasGatewayTracking ? "medium" : "none",
+      reason: candidates.length > 1 ? "multiple_session_matches" : "no_deterministic_match",
+    };
+  }
+  // A reused session carrying different creatives is ambiguous, even with one session ID.
+  for (const key of ["utm_content", "utm_term", "utm_campaign"]) {
+    const values = new Set(eligible.filter((e) => e.session_id === candidates[0][0] && (!offerId || e.offer_id === offerId)).flatMap((e) => [mergeAttribution(urlAttribution(e.url), e.attribution)[key]]).filter(Boolean));
+    if (values.size > 1 || (direct[key] && candidates[0][1][key] && direct[key] !== candidates[0][1][key])) return { attribution: {}, source: "none", confidence: "none", reason: "ambiguous_session_creative" };
+  }
+  const source = references.some((value) => value === candidates[0][0]) ? "session_id" : "click_id";
+  return { attribution: { ...candidates[0][1], ...direct }, source, confidence: "high", reason: "unique_deterministic_match" };
 }
 
 function valueFrom(

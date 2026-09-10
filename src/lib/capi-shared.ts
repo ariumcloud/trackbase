@@ -6,7 +6,8 @@ export type CapiEventName =
   | "Lead"
   | "InitiateCheckout"
   | "Purchase"
-  | "Refund";
+  | "Refund"
+  | "Chargeback";
 
 export type CapiUserData = {
   email?: string | null;
@@ -28,6 +29,7 @@ export type CapiCustomData = {
 };
 
 export type CapiPayload = {
+  occurredAt?: string;
   workspaceId: string;
   offerId?: string | null;
   eventName: CapiEventName;

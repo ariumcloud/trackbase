@@ -5,7 +5,7 @@ import { body, sameOrigin, rateLimit } from "@/lib/security";
 import { credentials, pages, type RawInsight, MetaError } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { admin } from "@/lib/supabase/server";
-import { metaInitiateCheckouts, metaLinkClicks } from "@/lib/meta-clicks";
+import { metaInitiateCheckouts, metaLinkClicks, metaPurchases } from "@/lib/meta-clicks";
 
 export const maxDuration = 300;
 
@@ -118,11 +118,9 @@ export async function POST(request: Request) {
       clicks: metaLinkClicks(r),
       reach: Number(r.reach ?? 0),
       meta_initiate_checkouts: metaInitiateCheckouts(r.actions),
-      meta_purchases: Number(
-        r.actions?.find((a) => a.action_type === "purchase")?.value ?? 0,
-      ),
+      meta_purchases: metaPurchases(r.actions),
       meta_revenue: Number(
-        r.action_values?.find((a) => a.action_type === "purchase")?.value ?? 0,
+        r.action_values?.find((a) => ["offsite_conversion.fb_pixel_purchase", "purchase", "omni_purchase"].includes(a.action_type))?.value ?? 0,
       ),
     }));
     const { error } = await service.rpc("utm_commit_meta_sync", {
@@ -144,7 +142,9 @@ export async function POST(request: Request) {
         ? "token_expired"
         : e instanceof MetaError && e.internalCode === "permission_insufficient"
           ? "permission_insufficient"
-          : "connected";
+        : e instanceof MetaError && e.internalCode === "rate_limited"
+          ? "rate_limited"
+          : "sync_error";
       await admin().from("utm_integrations").update({ status }).eq("id", synchronization.integration).eq("workspace_id", synchronization.workspace);
     }
     if (e instanceof MetaError) {

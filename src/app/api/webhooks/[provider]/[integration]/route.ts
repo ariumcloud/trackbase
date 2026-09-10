@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
-import { body, decrypt, digest, matches, rateLimit, rawBody } from "@/lib/security";
+import { body, decrypt, digest, encrypt, matches, rateLimit, rawBody } from "@/lib/security";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { sendCapiEvent } from "@/lib/capi";
 import {
   paymentProviders,
   webhookEventIdentity,
@@ -12,6 +11,7 @@ import { paymentAdapters } from "@/lib/payment-adapters";
 import { hotmartProductNamesMatch } from "@/lib/payment-product-matching";
 import { notifySalePush } from "@/lib/push-notifications";
 import { z } from "zod";
+import { resolveSaleAttributionEvidence } from "@/lib/attribution";
 
 function extractWebhookToken(
   provider: string,
@@ -357,6 +357,16 @@ export async function POST(
         buyer_email: event.buyer?.email || null,
       };
 
+      const { data: trackingEvents } = await service
+        .from("utm_events")
+        .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
+        .eq("workspace_id", i.workspace_id)
+        .eq("offer_id", i.offer_id)
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      const evidence = resolveSaleAttributionEvidence(event.attribution, trackingEvents || [], i.offer_id, event.occurredAt);
+      dbPayment.attribution = evidence.attribution;
+
       if (!productMatches && !canRepairHotmartProductId || !offerMatches) {
         await service.from("utm_webhook_logs").upsert(
           {
@@ -388,25 +398,27 @@ export async function POST(
       lastResultStatus = data;
 
       if (data === "processed" && !event.isTest) {
-        const eventName = isApproved ? "Purchase" : isRefunded ? "Refund" : null;
+        const eventName = isApproved ? "Purchase" : isRefunded ? "Refund" : isChargeback ? "Chargeback" : null;
 
         if (eventName) {
-          await sendCapiEvent({
-            workspaceId: i.workspace_id,
-            offerId: i.offer_id,
-            eventName,
-            eventId: `tx_${event.externalTransactionId}_${event.productType}`,
-            customData: {
-              value: event.grossAmount ?? 0,
-              currency: event.grossCurrency || i.currency,
-            },
-            userData: {
+          const eventId = `tx_${event.externalTransactionId}_${event.productType}`;
+          const { error: outboxError } = await service.from("utm_capi_outbox").upsert({
+            workspace_id: i.workspace_id,
+            offer_id: i.offer_id,
+            event_id: eventId,
+            event_name: eventName,
+            event_source_url: "",
+            user_data_ciphertext: encrypt(JSON.stringify({
               email: event.buyer?.email || null,
               firstName: event.buyer?.name || null,
-              fbp: event.attribution?.fbp || null,
-              fbc: event.attribution?.fbc || null,
-            },
-          }).catch(() => {});
+              fbp: evidence.attribution.fbp || null,
+              fbc: evidence.attribution.fbc || null,
+            })),
+            occurred_at: event.occurredAt,
+            status: "pending",
+            next_attempt_at: new Date().toISOString(),
+          }, { onConflict: "workspace_id,offer_id,event_id,event_name", ignoreDuplicates: true });
+          if (outboxError) throw new Error("CAPI_OUTBOX_WRITE_FAILED");
         }
 
         const { data: offer } = await service
@@ -454,6 +466,16 @@ export async function POST(
               .eq("event_id", webhookEventIdentity(event));
           }
         }
+      }
+      if (data === "processed") {
+        const { error: attributionError } = await service.from("utm_sales").update({
+          attribution: evidence.attribution,
+          attribution_source: evidence.source,
+          attribution_confidence: evidence.confidence,
+          attribution_reason: evidence.reason,
+          attribution_session_id: evidence.attribution.session_id || null,
+        }).eq("integration_id", integration).eq("transaction_id", event.externalTransactionId).eq("product_type", event.productType).eq("is_test", event.isTest);
+        if (attributionError) throw new Error("ATTRIBUTION_PERSISTENCE_FAILED");
       }
     }
 

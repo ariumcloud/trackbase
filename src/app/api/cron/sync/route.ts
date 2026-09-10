@@ -1,7 +1,7 @@
 import { canUse } from "@/lib/plans";
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
-import { metaInitiateCheckouts, metaLinkClicks } from "@/lib/meta-clicks";
+import { metaInitiateCheckouts, metaLinkClicks, metaPurchases } from "@/lib/meta-clicks";
 import { credentials, pages, type RawInsight } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { processCapiOutbox } from "@/lib/capi-outbox";
@@ -144,12 +144,9 @@ export async function GET(request: Request) {
           clicks: metaLinkClicks(r),
           reach: Number(r.reach ?? 0),
           meta_initiate_checkouts: metaInitiateCheckouts(r.actions),
-          meta_purchases: Number(
-            r.actions?.find((a) => a.action_type === "purchase")?.value ?? 0,
-          ),
+          meta_purchases: metaPurchases(r.actions),
           meta_revenue: Number(
-            r.action_values?.find((a) => a.action_type === "purchase")?.value ??
-              0,
+            r.action_values?.find((a) => ["offsite_conversion.fb_pixel_purchase", "purchase", "omni_purchase"].includes(a.action_type))?.value ?? 0,
           ),
         }));
 
@@ -172,10 +169,14 @@ export async function GET(request: Request) {
           integrationId: integration.id,
           error: err instanceof Error ? err.name : "UnknownError",
         });
+        await service
+          .from("utm_integrations")
+          .update({ status: "sync_error" })
+          .eq("id", integration.id);
         results.push({
           id: integration.id,
           name: integration.name,
-          status: "error",
+          status: "sync_error",
           error: "Falha temporária ao sincronizar esta integração.",
         });
       }
@@ -183,7 +184,7 @@ export async function GET(request: Request) {
 
     const synced = results.filter((result) => result.status === "success").length;
     const skipped = results.filter((result) => result.status === "skipped").length;
-    const failed = results.filter((result) => result.status === "error").length;
+    const failed = results.filter((result) => result.status === "sync_error").length;
 
     return NextResponse.json({
       ok: failed === 0,

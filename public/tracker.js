@@ -4,8 +4,10 @@
     var key = scriptTag ? scriptTag.getAttribute('data-key') : (window.__TRACKBASE_KEY__ || window.__UTMLISO_KEY__ || '');
     if (!key) return;
 
-    var STORAGE_KEY = 'trackbase_attr';
+    var STORAGE_KEY = 'trackbase_attr_' + encodeURIComponent(location.origin + '|' + key).slice(0, 180);
     var SESSION_KEY = 'trackbase_sid';
+    var QUEUE_KEY = STORAGE_KEY + '_queue';
+    var ATTR_TTL = 30 * 24 * 60 * 60 * 1000;
 
     function getCookie(name) {
       var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
@@ -29,7 +31,10 @@
       var current = {};
       try {
         var raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) current = JSON.parse(raw) || {};
+        if (raw) {
+          var stored = JSON.parse(raw) || {};
+          if (stored.savedAt && Date.now() - stored.savedAt < ATTR_TTL) current = stored.value || {};
+        }
       } catch(e) {}
 
       var fields = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_placement', 'placement', 'fbclid'];
@@ -37,10 +42,10 @@
       for (var i = 0; i < fields.length; i++) {
         var f = fields[i];
         var val = params.get(f);
-        if (val) {
+        if (val && !/\{\{|\}\}|%7b%7b/i.test(val)) {
           current[f] = val.slice(0, 300);
           fresh = true;
-        }
+        } else if (val) current.tracking_macro_unresolved = 'true';
       }
 
       var fbp = getCookie('_fbp');
@@ -49,7 +54,7 @@
       if (fbc) current.fbc = fbc;
 
       if (fresh || fbp || fbc) {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current)); } catch(e) {}
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ value: current, savedAt: Date.now() })); } catch(e) {}
       }
       return current;
     }
@@ -58,6 +63,16 @@
     var attr = getAttribution();
     var endpoint = (scriptTag && scriptTag.src) ? new URL('/api/track', scriptTag.src).href : '/api/track';
 
+    function queueRead() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') || []; } catch(e) { return []; } }
+    function queueWrite(items) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-30))); } catch(e) {} }
+    function flushQueue() {
+      var items = queueRead();
+      items.forEach(function(item) {
+        fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item), keepalive: true }).then(function(r) {
+          if (r.ok) queueWrite(queueRead().filter(function(x) { return x.event_id !== item.event_id; }));
+        }).catch(function() {});
+      });
+    }
     function sendEvent(type, extraUrl, extraMeta) {
       try {
         var eventId = 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 11);
@@ -90,14 +105,16 @@
           }
         }
 
-        var payload = JSON.stringify({
+        var eventObject = {
           key: key,
           event_type: type,
           event_id: eventId,
           session_id: sessionId,
           url: extraUrl || window.location.href,
           attribution: eventAttr
-        });
+        };
+        var payload = JSON.stringify(eventObject);
+        var pending = queueRead(); pending.push(eventObject); queueWrite(pending);
 
         var beaconSent = false;
         if (navigator.sendBeacon) {
@@ -113,10 +130,15 @@
             headers: { 'Content-Type': 'application/json' },
             body: payload,
             keepalive: true
-          }).catch(function() {});
+          }).then(function(r) { if (r.ok) queueWrite(queueRead().filter(function(x) { return x.event_id !== eventId; })); }).catch(function() {});
         }
       } catch(e) {}
     }
+    flushQueue();
+    window.addEventListener('online', flushQueue);
+    window.addEventListener('pagehide', function() {
+      queueRead().forEach(function(item) { try { navigator.sendBeacon(endpoint, new Blob([JSON.stringify(item)], { type: 'text/plain;charset=UTF-8' })); } catch(e) {} });
+    });
 
     // Dispara pageview inicial
     sendEvent('pageview');
@@ -257,7 +279,9 @@
 
       if (target.tagName === 'A' && target.href) {
         var originalHref = target.href;
-        if (isAllowed(originalHref)) {
+        var sameOrigin = false; try { sameOrigin = new URL(originalHref, window.location.href).origin === window.location.origin; } catch(e) {}
+        var explicitCheckout = target.hasAttribute('data-trackbase-checkout') || target.hasAttribute('data-checkout');
+        if (isAllowed(originalHref) && (!sameOrigin || explicitCheckout)) {
           var decorated = decorate(originalHref);
           target.href = decorated;
           sendEvent('checkout', decorated);
@@ -276,9 +300,35 @@
       ) {
         // Keep CTA clicks distinct from scroll milestones and CTA visibility
         // events, which are stored as `cta` for backwards-compatible schemas.
-        sendEvent('cta', null, { action: 'cta_click' });
+        var checkoutButton = target.hasAttribute('data-trackbase-checkout') || target.hasAttribute('data-checkout') || /comprar|quero|garantir|assinar|iniciar checkout/i.test(text);
+        sendEvent(checkoutButton ? 'checkout' : 'cta_click', checkoutButton ? (target.getAttribute('data-trackbase-checkout') || target.getAttribute('data-checkout') || window.location.href) : null, { action: checkoutButton ? 'checkout_click' : 'cta_click' });
       }
     }, true);
+
+    document.addEventListener('submit', function(ev) {
+      var form = ev.target;
+      if (!form || form.tagName !== 'FORM') return;
+      var action = form.getAttribute('action') || window.location.href;
+      if (!isAllowed(action)) return;
+      var decorated = decorate(action);
+      form.setAttribute('action', decorated);
+      var hidden = [['sck', sessionId], ['xcod', sessionId], ['utm_sck', sessionId], ['src', sessionId]];
+      for (var i = 0; i < hidden.length; i++) {
+        if (!hidden[i][1] || form.querySelector('input[name="' + hidden[i][0] + '"]')) continue;
+        var input = document.createElement('input'); input.type = 'hidden'; input.name = hidden[i][0]; input.value = hidden[i][1]; form.appendChild(input);
+      }
+      sendEvent('checkout', decorated, { action: 'checkout_submit' });
+    }, true);
+
+    ['pushState', 'replaceState'].forEach(function(method) {
+      var original = history[method];
+      history[method] = function() {
+        var result = original.apply(this, arguments);
+        var destination = arguments[2];
+        if (destination && isAllowed(String(destination)) && new URL(String(destination), window.location.href).origin !== window.location.origin) sendEvent('checkout', decorate(String(destination)), { action: 'programmatic_navigation' });
+        return result;
+      };
+    });
 
   } catch(e) {}
 })();
