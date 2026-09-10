@@ -32,9 +32,14 @@ export const dynamic = "force-dynamic";
 async function fetchAllRows(
   build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: PostgrestError | null }>,
   pageSize = 1000,
+  // 50 pages (50k rows) is a wide margin over any real workspace's volume
+  // today, and caps a single page load's worst-case work — an unbounded loop
+  // here turns one dashboard visit into up to a million rows of server-side
+  // JSON parsing and filtering, which is real CPU cost on every load.
+  maxPages = 50,
 ): Promise<{ data: unknown[]; error: PostgrestError | null }> {
   const rows: unknown[] = [];
-  for (let page = 0; page < 1000; page += 1) {
+  for (let page = 0; page < maxPages; page += 1) {
     const from = page * pageSize;
     const to = from + pageSize - 1;
     const result = await build(from, to);

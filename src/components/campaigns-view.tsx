@@ -434,8 +434,10 @@ export function CampaignsView({
 
   // Meta data changes throughout the day. Keep this view fresh while it is
   // open, but only sync a visible tab and never overlap a manual refresh.
-  // The API limits each integration to two syncs per minute, so two minutes
-  // gives a useful cadence without turning every open tab into a Meta poller.
+  // onRefresh re-runs the whole /painel server data fetch, so a short
+  // interval here turns every open Campanhas tab into a recurring full-page
+  // reload on the server; 5 minutes is still a useful cadence at a fraction
+  // of the cost.
   useEffect(() => {
     const metaTargets = integrations.filter(
       (integration) =>
@@ -480,7 +482,7 @@ export function CampaignsView({
       }
     };
 
-    const interval = window.setInterval(syncInBackground, 120_000);
+    const interval = window.setInterval(syncInBackground, 300_000);
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") syncInBackground();
     };
