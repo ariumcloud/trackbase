@@ -977,8 +977,8 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
             <div className="mcp-guide-intro">
               <strong>Conectar no Codex Desktop, CLI ou extensão</strong>
               <span>
-                O Codex usa o mesmo arquivo de configuração nos três lugares. Você só
-                precisa salvar a chave como variável do Windows e reiniciar o Codex.
+                No Codex Desktop, a configuração fica em <strong>Geral → Servidores MCP</strong>.
+                CLI e extensão usam o mesmo arquivo de configuração do Codex.
               </span>
             </div>
 
@@ -986,29 +986,43 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
               <div className="mcp-guide-step">
                 <span>1</span>
                 <div>
-                  <strong>Abra a configuração do Codex</strong>
+                  <strong>Abra Geral → Servidores MCP</strong>
                   <p>
-                    No Codex, abra <code>Settings → MCP servers → Add server</code>. Se
-                    preferir editar arquivo, abra <code>~/.codex/config.toml</code>.
+                    No painel de Configurações, clique em <strong>Servidores MCP</strong>,
+                    dentro de <strong>Geral</strong>. Não use <strong>Plug-ins → MCPs</strong>:
+                    essa é outra área, destinada ao catálogo de plugins.
                   </p>
                 </div>
               </div>
               <div className="mcp-guide-step">
                 <span>2</span>
                 <div>
-                  <strong>Copie o bloco TOML abaixo</strong>
-                  <p>Ele aponta para o servidor online do Trackbase e usa sua chave com segurança.</p>
+                  <strong>Adicione o servidor Trackbase</strong>
+                  <p>
+                    Clique em <strong>Adicionar servidor</strong>, escolha
+                    <strong> Streamable HTTP</strong>, use o nome <code>trackbase</code> e a URL
+                    <code> {appUrl.replace(/\/$/, "")}/api/mcp</code>. Se aparecer um campo
+                    Bearer token, cole a chave gerada nele.
+                  </p>
                 </div>
               </div>
               <div className="mcp-guide-step">
                 <span>3</span>
                 <div>
-                  <strong>Salve a chave no Windows</strong>
-                  <p>Abra o PowerShell, cole o comando abaixo, reinicie o Codex e pronto.</p>
+                  <strong>Salve, reinicie e confira</strong>
+                  <p>
+                    Se a tela não tiver campo de token, use o TOML abaixo e execute o comando
+                    de ambiente. Depois reinicie o Codex e digite <code>/mcp</code> em uma nova
+                    tarefa.
+                  </p>
                 </div>
               </div>
             </div>
 
+            <p className="mcp-code-caption">
+              Alternativa manual no Windows: abra <code>%USERPROFILE%\.codex\config.toml</code>
+              e cole este bloco. Ele aponta para o servidor online do Trackbase.
+            </p>
             <div className="mcp-code-block" style={{ position: "relative" }}>
               <pre
                 style={{
