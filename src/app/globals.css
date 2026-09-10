@@ -6073,9 +6073,8 @@ textarea {
 
   .topbar-right .notifier-btn {
     min-width: 38px;
-    width: 42px;
     justify-content: center;
-    padding-inline: 5px;
+    padding-inline: 8px;
   }
 
   .topbar-right .notifier-btn-sound {
@@ -6230,7 +6229,6 @@ textarea {
   }
 
   .topbar-right .notifier-btn {
-    width: 38px;
     min-width: 38px;
   }
 
@@ -7280,9 +7278,12 @@ textarea {
   }
 
   .topbar-right .notifier-btn {
-    width: 40px;
     min-width: 40px;
-    padding: 0 5px;
+    padding: 0 8px;
+  }
+
+  .topbar-right .notifier-status-badge {
+    margin-left: 2px;
   }
 
   .topbar-right .notifier-btn-sound {
@@ -7314,7 +7315,6 @@ textarea {
   }
 
   .topbar-right .notifier-btn {
-    width: 38px;
     min-width: 38px;
   }
 
