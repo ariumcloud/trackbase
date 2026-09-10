@@ -1708,3 +1708,87 @@
   }
 }
 
+/* Mobile filters: keep each control compact and prevent the search field from
+   growing to the 260px flex basis that previously created a huge blank gap. */
+@media (max-width: 680px) {
+  .mining {
+    gap: 14px;
+  }
+
+  .mining-nav-tabs {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .mining-nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mining-tab-btn {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 9px 13px;
+  }
+
+  .mining-filter-panel {
+    gap: 14px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .mining-filter-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .mining-search-wrap {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mining-search-input {
+    min-height: 44px;
+    padding-left: 40px;
+    font-size: 14px;
+  }
+
+  .mining-filter-select-wrap,
+  .mining-filter-select {
+    width: 100%;
+  }
+
+  .mining-filter-select {
+    min-height: 42px;
+    font-size: 14px;
+  }
+
+  .mining-filter-extra {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding-top: 12px;
+  }
+
+  .mining-filter-item {
+    display: grid;
+    grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+
+  .mining-filter-item input {
+    width: 100% !important;
+    min-height: 40px;
+  }
+
+  .mining-clear-btn {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+    min-height: 40px;
+  }
+}
