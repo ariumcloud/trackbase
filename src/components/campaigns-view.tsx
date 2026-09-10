@@ -26,6 +26,7 @@ import {
 import type { Entity, InsightRow, SaleRow, Integration, Offer, TrackingEvent } from "@/lib/types";
 import { isApprovedSaleStatus } from "@/lib/sale-status";
 import { convertCurrencyAmount } from "@/lib/currency";
+import { campaignCheckouts } from "@/lib/campaign-checkouts";
 import { resolveSaleAttribution } from "@/lib/attribution";
 
 type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
@@ -673,10 +674,11 @@ export function CampaignsView({
   // o SCK/XCOD da sessão. Reconstitui a atribuição somente quando existe um
   // vínculo determinístico; nunca atribui uma venda ao último checkout por
   // proximidade de horário.
+  const knownTargetIds = useMemo(() => new Set(entities.filter(e => e.kind === kind).map(e => e.external_id)), [entities, kind]);
   const resolvedSales = useMemo(() => {
     return sales.map((sale) => ({
       sale,
-      attribution: resolveSaleAttribution(sale.attribution, events, sale.offer_id),
+      attribution: resolveSaleAttribution(sale.attribution, events, sale.offer_id, sale.occurred_at),
     }));
   }, [sales, events]);
 
@@ -693,7 +695,7 @@ export function CampaignsView({
           : kind === "adset"
           ? attribution.utm_term
           : attribution.utm_content;
-      if (!targetId) continue;
+      if (!targetId || !knownTargetIds.has(targetId)) continue;
       const current = map.get(targetId) || { count: 0, revenue: 0, netRevenue: 0 };
       current.count += 1;
       current.revenue +=
@@ -713,7 +715,7 @@ export function CampaignsView({
       map.set(targetId, current);
     }
     return map;
-  }, [resolvedSales, kind, selectedOffer, selectedCurrency, offers, exchangeRates]);
+  }, [resolvedSales, kind, knownTargetIds, selectedOffer, selectedCurrency, offers, exchangeRates]);
 
   const unattributedSalesSummary = useMemo(() => {
     let count = 0;
@@ -724,9 +726,7 @@ export function CampaignsView({
         sale.is_test ||
         !isApprovedSaleStatus(sale.status) ||
         (selectedOffer !== "all" && sale.offer_id !== selectedOffer) ||
-        attribution.utm_campaign ||
-        attribution.utm_term ||
-        attribution.utm_content
+        knownTargetIds.has((kind === "campaign" ? attribution.utm_campaign : kind === "adset" ? attribution.utm_term : attribution.utm_content) || "")
       ) {
         continue;
       }
@@ -746,34 +746,14 @@ export function CampaignsView({
       ) ?? 0;
     }
     return { count, revenue, netRevenue };
-  }, [resolvedSales, selectedOffer, offers, selectedCurrency, exchangeRates]);
+  }, [resolvedSales, kind, knownTargetIds, selectedOffer, offers, selectedCurrency, exchangeRates]);
 
   // Checkouts precisam ser eventos reais atribuídos ao mesmo identificador
   // usado pela entidade Meta. Nunca estime IC a partir de cliques: isso faz
   // o total da campanha divergir da soma dos anúncios.
-  const checkoutMap = useMemo(() => {
-    const map = new Map<string, number>();
-    const countedSessions = new Set<string>();
-    for (const event of events) {
-      if (event.event_type !== "checkout") continue;
-      if (selectedOffer !== "all" && event.offer_id !== selectedOffer) continue;
-      const attr = event.attribution || {};
-      const rawTargetId =
-        kind === "campaign"
-          ? attr.utm_campaign
-          : kind === "adset"
-            ? attr.utm_term
-            : attr.utm_content;
-      const targetId = typeof rawTargetId === "string" ? rawTargetId.trim() : "";
-      if (!targetId || targetId.includes("{{")) continue;
-      const sessionKey = event.session_id || event.id;
-      if (countedSessions.has(sessionKey)) continue;
-      countedSessions.add(sessionKey);
-      map.set(targetId, (map.get(targetId) || 0) + 1);
-    }
-    return map;
-  }, [events, kind, selectedOffer]);
 
+  const checkoutSummary = useMemo(() => campaignCheckouts(events, kind, knownTargetIds, selectedOffer), [events, kind, knownTargetIds, selectedOffer]);
+  const checkoutMap = checkoutSummary.counts;
   // A Meta mantém a árvore campanha → conjunto → anúncio. As seleções ficam
   // separadas por nível para que a seleção da campanha continue ativa ao
   // alternar para os filhos, sem misturar IDs de tipos diferentes.
@@ -879,12 +859,7 @@ export function CampaignsView({
       const cpm =
         ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
 
-      // Prefer the real InitiateCheckout action from Meta. Older insight rows
-      // predate this field, so keep the tracked checkout as a compatibility
-      // fallback until the next complete synchronization.
-      const ic = ins.metaInitiateCheckouts !== null
-        ? ins.metaInitiateCheckouts
-        : checkoutMap.get(e.external_id) || 0;
+      const ic = checkoutMap.get(e.external_id) || 0;
       const cpi = ic > 0 ? ins.spend / ic : null;
 
       const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";
@@ -1238,6 +1213,11 @@ export function CampaignsView({
         </div>
       </div>
 
+      <p role="status" style={{ fontSize: "0.85rem", margin: "0.75rem 0" }}>
+        IC: sessões com clique para checkout recebido pela Trackbase. Vendas: pagamentos aprovados recebidos do gateway.
+        Gastos, impressões e cliques de anúncio: Meta. Zero significa nenhum registro atribuído recebido, não ausência comprovada de atividade.
+        {checkoutSummary.unattributed > 0 && <strong> {checkoutSummary.unattributed} checkout(s) sem atribuição neste nível, considerando o período e produto selecionados.</strong>}
+      </p>
       {unattributedSalesSummary.count > 0 && (
         <div
           role="status"
@@ -1252,7 +1232,7 @@ export function CampaignsView({
           }}
         >
           <strong>{unattributedSalesSummary.count} venda(s) aprovada(s) sem atribuição de campanha.</strong>{" "}
-          A plataforma recebeu a venda, mas o webhook não trouxe UTM/SCK/XCOD. Ela não é colocada em um criativo por aproximação para evitar atribuição falsa; quando o vínculo existir, a venda aparecerá no anúncio exato.
+          A plataforma recebeu a venda, mas não encontrou um vínculo comprovado neste nível. Ela não é colocada em um criativo por aproximação para evitar atribuição falsa; quando o vínculo existir, a venda aparecerá no anúncio exato.
         </div>
       )}
 
@@ -1758,7 +1738,7 @@ export function CampaignsView({
                     onClick={() => handleSort("ic")}
                   >
                     <div className="th-content-right">
-                      <span>IC (i)</span>
+                      <span title="Sessões com clique para checkout registrado pela Trackbase. Não confirma carregamento da Hotmart.">IC Trackbase</span>
                       {renderSortIndicator("ic")}
                     </div>
                   </th>
