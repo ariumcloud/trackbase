@@ -7,9 +7,9 @@ export const REFUNDED_SALE_STATUSES = [
 ] as const;
 
 export function isApprovedSaleStatus(status: string): boolean {
-  return (APPROVED_SALE_STATUSES as readonly string[]).includes(status);
+  return (APPROVED_SALE_STATUSES as readonly string[]).includes(status.trim().toLowerCase());
 }
 
 export function isRefundedSaleStatus(status: string): boolean {
-  return (REFUNDED_SALE_STATUSES as readonly string[]).includes(status);
+  return (REFUNDED_SALE_STATUSES as readonly string[]).includes(status.trim().toLowerCase());
 }

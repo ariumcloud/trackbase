@@ -48,7 +48,7 @@ begin
   into v_approved_count, v_unique_buyers, v_gross_revenue, v_platform_fees, v_net_revenue
   from public.utm_sales
   where workspace_id = p_workspace
-    and status in ('approved', 'paid', 'completed')
+    and lower(status) in ('approved', 'paid', 'completed')
     and currency = p_currency
     and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
     and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
@@ -59,7 +59,7 @@ begin
   into v_refunded_count, v_refunded_amount
   from public.utm_sales
   where workspace_id = p_workspace
-    and status in ('refunded', 'chargeback', 'partial_refund', 'chargedback')
+    and lower(status) in ('refunded', 'chargeback', 'partial_refund', 'chargedback')
     and currency = p_currency
     and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
     and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
@@ -102,7 +102,7 @@ begin
       coalesce(sum(net_amount), 0) as n
     from public.utm_sales
     where workspace_id = p_workspace
-      and status in ('approved', 'paid', 'completed')
+      and lower(status) in ('approved', 'paid', 'completed')
       and currency = p_currency
       and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
       and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
@@ -118,7 +118,7 @@ begin
     select country, count(*) as cnt, coalesce(sum(gross_amount), 0) as rev
     from public.utm_sales
     where workspace_id = p_workspace
-      and status in ('approved', 'paid', 'completed')
+      and lower(status) in ('approved', 'paid', 'completed')
       and currency = p_currency
       and (occurred_at at time zone v_timezone)::date >= (p_since at time zone 'UTC')::date
       and (occurred_at at time zone v_timezone)::date <= (p_until at time zone 'UTC')::date
