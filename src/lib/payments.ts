@@ -177,10 +177,10 @@ export function normalizePayment(
     product_type: productType,
     parent_transaction_id: parentTransaction,
     country: normalizeCountryCode(
-      record(purchase.checkout_country).iso ||
-        record(purchase.checkout_country).code ||
-        record(purchase.checkout_country).name ||
-        data.country,
+      purchase.checkout_country ||
+        record(buyer).checkout_country ||
+        data.country ||
+        buyer.country,
     ),
     attribution,
     buyer_email: str(buyer.email) || null,

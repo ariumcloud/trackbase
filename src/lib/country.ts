@@ -70,7 +70,11 @@ export function normalizeCountryCode(raw: unknown): string | null {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const value = raw as Record<string, unknown>;
     return normalizeCountryCode(
-      value.iso ?? value.code ?? value.country_code ?? value.countryCode ?? value.name,
+      value.iso ||
+        value.code ||
+        value.country_code ||
+        value.countryCode ||
+        value.name,
     );
   }
 
