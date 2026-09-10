@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildLink, metaDefaults, mergeAttribution } from "../src/lib/utm";
 import { normalizePayment } from "../src/lib/payments";
 import { calculate, dayInZone } from "../src/lib/metrics";
+import { convertCurrencyAmount } from "../src/lib/currency";
 test("UTMs preservam macros, query e fragmento", () => {
   const r = buildLink("https://example.com/quiz?product=1#cta", metaDefaults);
   assert.ok(r.full.includes("product=1"));
@@ -113,6 +114,13 @@ test("timezone respeita virada do dia no Brasil", () =>
     dayInZone(new Date("2026-09-06T01:00:00Z"), "America/Sao_Paulo"),
     "2026-09-05",
   ));
+
+test("conversão de moeda não rotula valor bruto com a moeda de destino", () => {
+  const rates = { USD: 1, ARS: 1500, BRL: 5 };
+  assert.equal(convertCurrencyAmount(26000, "ARS", "USD", rates), 26000 / 1500);
+  assert.equal(convertCurrencyAmount(100, "USD", "USD", rates), 100);
+  assert.equal(convertCurrencyAmount(26000, "ARS", "USD", null), null);
+});
 
 test("validação estrita de checkouts autorizados rejeita domínios fraudulentos", async () => {
   const { isAllowedCheckout, decorateLink } = await import("../src/lib/tracker");
