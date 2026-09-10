@@ -9,6 +9,7 @@ import {
   type PaymentProvider,
 } from "@/lib/payment-contract";
 import { paymentAdapters } from "@/lib/payment-adapters";
+import { hotmartProductNamesMatch } from "@/lib/payment-product-matching";
 import { notifySalePush } from "@/lib/push-notifications";
 import { z } from "zod";
 
@@ -177,7 +178,7 @@ export async function POST(
     const { data: i } = await service
       .from("utm_integrations")
       .select(
-        "id,workspace_id,offer_id,external_product_id,external_offer_id,currency",
+        "id,workspace_id,offer_id,name,external_product_id,external_offer_id,currency",
       )
       .eq("id", integration)
       .eq("provider", provider)
@@ -274,24 +275,35 @@ export async function POST(
       );
     }
 
+    const webhookProductName = extractPayloadProductName(provider, payload);
+    let configuredProductId = i.external_product_id;
     let lastResultStatus = "processed";
     for (const event of normalizedEvents) {
-      if (
-        event.productId !== i.external_product_id ||
-        (i.external_offer_id && event.offerId !== i.external_offer_id)
-      ) {
-        await service.from("utm_webhook_logs").upsert(
-          {
-            workspace_id: i.workspace_id,
-            integration_id: integration,
-            event_id: `product_mismatch:${webhookEventIdentity(event)}`,
-            status: "ignored",
-            reason: "Produto/oferta não corresponde à integração.",
-            is_test: event.isTest,
-          },
-          { onConflict: "integration_id,event_id", ignoreDuplicates: true },
-        );
-        continue;
+      // Hotmart sometimes sends the canonical numeric product ID while an
+      // integration created from a checkout link was saved with a different
+      // identifier. Rebind only when the product name is an exact match and
+      // the configured offer still matches; never loosen this for other
+      // providers or unrelated products.
+      const productMatches = event.productId === configuredProductId;
+      const offerMatches = !i.external_offer_id || event.offerId === i.external_offer_id;
+      const canRepairHotmartProductId =
+        provider === "hotmart" &&
+        !productMatches &&
+        offerMatches &&
+        hotmartProductNamesMatch(i.name, webhookProductName);
+
+      if (canRepairHotmartProductId) {
+        const { error: repairError } = await service
+          .from("utm_integrations")
+          .update({ external_product_id: event.productId })
+          .eq("id", integration);
+        if (repairError) {
+          return NextResponse.json(
+            { error: "Falha temporária ao corrigir o produto da integração." },
+            { status: 503 },
+          );
+        }
+        configuredProductId = event.productId;
       }
 
       // Converte status do evento normalizado para persistência em utm_sales
@@ -343,6 +355,22 @@ export async function POST(
         buyer_email: event.buyer?.email || null,
       };
 
+      if (!productMatches && !canRepairHotmartProductId || !offerMatches) {
+        await service.from("utm_webhook_logs").upsert(
+          {
+            workspace_id: i.workspace_id,
+            integration_id: integration,
+            event_id: `product_mismatch:${webhookEventIdentity(event)}`,
+            status: "ignored",
+            reason: `Produto/oferta não corresponde à integração (recebido=${event.productId}; esperado=${configuredProductId}).`,
+            payment: dbPayment,
+            is_test: event.isTest,
+          },
+          { onConflict: "integration_id,event_id", ignoreDuplicates: true },
+        );
+        continue;
+      }
+
       const { data, error } = await service.rpc("utm_process_payment", {
         p_integration: integration,
         p_payment: dbPayment,
@@ -385,7 +413,6 @@ export async function POST(
           .eq("id", i.offer_id)
           .maybeSingle();
 
-        const webhookProductName = extractPayloadProductName(provider, payload);
         if (
           webhookProductName &&
           offer?.name &&
