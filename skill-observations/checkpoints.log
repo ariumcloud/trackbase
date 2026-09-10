@@ -5,3 +5,4 @@
 2026-09-08 — end-to-end audit checkpoint: public, auth, demo, integration, webhook, tracker, privacy, billing, and tester paths reviewed; report delivered.
 2026-09-08 — no observations after Meta controls, gateway wizard, audio validation, and local visual verification.
 2026-09-10 — no observations after compacting the mobile assistant chat and relocating custom notifications to Alerts.
+2026-09-10 — no observations after fixing Meta sync field compatibility and parent-child campaign filtering.
