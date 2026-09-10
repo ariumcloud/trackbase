@@ -5,6 +5,7 @@ import { body, sameOrigin, rateLimit } from "@/lib/security";
 import { credentials, pages, type RawInsight, MetaError } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { admin } from "@/lib/supabase/server";
+import { metaLinkClicks } from "@/lib/meta-clicks";
 
 export const maxDuration = 300;
 
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
       currency: r.account_currency,
       spend: Number(r.spend),
       impressions: Number(r.impressions),
-      clicks: Number(r.inline_link_clicks ?? 0),
+      clicks: metaLinkClicks(r),
       reach: Number(r.reach ?? 0),
       meta_purchases: Number(
         r.actions?.find((a) => a.action_type === "purchase")?.value ?? 0,

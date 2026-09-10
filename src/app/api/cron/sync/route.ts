@@ -1,6 +1,7 @@
 import { canUse } from "@/lib/plans";
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
+import { metaLinkClicks } from "@/lib/meta-clicks";
 import { credentials, pages, type RawInsight } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { processCapiOutbox } from "@/lib/capi-outbox";
@@ -140,7 +141,7 @@ export async function GET(request: Request) {
           currency: r.account_currency,
           spend: Number(r.spend),
           impressions: Number(r.impressions),
-          clicks: Number(r.inline_link_clicks ?? 0),
+          clicks: metaLinkClicks(r),
           reach: Number(r.reach ?? 0),
           meta_purchases: Number(
             r.actions?.find((a) => a.action_type === "purchase")?.value ?? 0,

@@ -235,7 +235,7 @@ export const DEFAULT_COLUMNS: Record<
   cpc: { label: "CPC", defaultVisible: false, numeric: true, tooltip: "Custo médio por clique" },
   ctr: { label: "CTR", defaultVisible: false, numeric: true, tooltip: "Taxa de cliques no anúncio" },
   cpm: { label: "CPM", defaultVisible: false, numeric: true, tooltip: "Custo por mil impressões" },
-  clicks: { label: "Cliques", defaultVisible: false, numeric: true },
+  clicks: { label: "Cliques no link", defaultVisible: false, numeric: true, tooltip: "Cliques no link registrados pela Meta; não inclui cliques totais em curtidas, comentários ou no perfil." },
   impressions: { label: "Impressões", defaultVisible: false, numeric: true },
 };
 
@@ -1663,7 +1663,7 @@ export function CampaignsView({
                     onClick={() => handleSort("clicks")}
                   >
                     <div className="th-content-right">
-                      <span>Cliques</span>
+                      <span>Cliques no link</span>
                       {renderSortIndicator("clicks")}
                     </div>
                   </th>
@@ -1934,7 +1934,7 @@ export function CampaignsView({
                       </td>
                     )}
 
-                    {/* Cliques */}
+                    {/* Cliques no link (não cliques totais) */}
                     {visibleCols.clicks && (
                       <td style={{ textAlign: "right" }}>
                         {new Intl.NumberFormat("pt-BR").format(row.clicks)}
