@@ -5755,3 +5755,287 @@ textarea {
   color: var(--ink, #0F172A);
 }
 
+/* ============================================================================
+   MOBILE POLISH: shell, bottom navigation, offers and MCP
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Keep fixed UI anchored to the viewport. An ancestor with overflow-x:hidden
+     can become a scroll container on iOS and make the bottom bar drift into
+     the document when the user scrolls. */
+  .app-shell,
+  .main-shell {
+    overflow: visible !important;
+  }
+
+  .topbar {
+    background: var(--surface) !important;
+    color: var(--ink);
+  }
+
+  .sidebar {
+    background: var(--surface) !important;
+    color: var(--ink);
+  }
+
+  .mobile-bottom-bar {
+    position: fixed !important;
+    inset: auto 0 0 !important;
+    display: flex !important;
+    height: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 6px 8px env(safe-area-inset-bottom, 0px) !important;
+    background: var(--surface) !important;
+    border-top: 1px solid var(--line) !important;
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.12) !important;
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  .bottom-bar-fixed-grid {
+    gap: 4px;
+    padding: 0;
+  }
+
+  .bottom-bar-item,
+  .bottom-bar-menu-trigger {
+    min-width: 0;
+    height: 58px;
+    gap: 3px;
+    padding: 5px 3px;
+    border: 0 !important;
+    border-radius: 14px;
+    color: var(--muted);
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+
+  .bottom-bar-item.active {
+    color: var(--brand-accent);
+    background: var(--brand-soft);
+  }
+
+  .bottom-bar-icon-wrap {
+    width: 32px;
+    height: 29px;
+    border-radius: 10px;
+  }
+
+  .bottom-bar-item.active .bottom-bar-icon-wrap {
+    color: #fff;
+    background: var(--brand-accent);
+    box-shadow: 0 4px 10px rgba(91, 52, 234, 0.24);
+  }
+
+  .bottom-bar-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 1.1;
+  }
+
+  .bottom-bar-item:not(.active) .bottom-bar-icon-wrap {
+    background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+  }
+
+  /* The header has several utility controls; let the page title yield space
+     instead of running underneath them on narrow phones. */
+  .topbar {
+    gap: 6px;
+  }
+
+  .breadcrumb {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none !important;
+  }
+
+  .topbar-right {
+    flex: 0 1 auto;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .topbar-right .live-dot,
+  .topbar-right .topbar-status-text {
+    display: none !important;
+  }
+
+  .topbar-right .notifier-btn {
+    min-width: 38px;
+    width: 42px;
+    justify-content: center;
+    padding-inline: 5px;
+  }
+
+  .topbar-right .notifier-btn-sound {
+    width: 34px;
+    justify-content: center;
+    padding-inline: 4px;
+  }
+
+  .topbar-right .admin-btn-topbar {
+    min-width: 32px !important;
+    padding-inline: 6px !important;
+  }
+
+  /* Offers: stack actions and destination links so no card relies on a
+     desktop minimum width. */
+  .offer-grid,
+  .offers-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .offer-card {
+    width: 100%;
+    padding: 16px !important;
+    border-radius: 14px;
+  }
+
+  .offer-card-topbar {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .offer-badges-row {
+    width: 100%;
+  }
+
+  .offer-actions-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .offer-actions-group > button {
+    width: 100%;
+    justify-content: center;
+    min-height: 36px;
+  }
+
+  .offer-title-wrap h2 {
+    font-size: 16px;
+  }
+
+  .offer-destination-box {
+    margin: 10px 0;
+    padding: 10px;
+  }
+
+  .offer-dest-link,
+  .offer-dest-link > span {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .offer-card-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .offer-create-link-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 38px;
+    margin: 0;
+    background: var(--brand-soft);
+  }
+
+  .offer-links-badge {
+    justify-content: center;
+  }
+
+  /* MCP cards and code snippets stay inside the viewport. */
+  .mcp-settings-view,
+  .mcp-settings-view * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mcp-settings-view {
+    width: 100%;
+    gap: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .mcp-settings-view .panel {
+    width: 100%;
+    padding: 1rem !important;
+    overflow: hidden;
+  }
+
+  .mcp-settings-view form {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    max-width: none !important;
+    gap: 8px !important;
+  }
+
+  .mcp-settings-view form > div,
+  .mcp-settings-view form > button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .mcp-settings-view form > div > input {
+    min-width: 0 !important;
+  }
+
+  .mcp-settings-view pre {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 0.72rem !important;
+    padding: 0.85rem !important;
+  }
+
+  .mcp-settings-view pre + button {
+    top: 8px !important;
+    right: 8px !important;
+    padding: 5px 8px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .mcp-settings-view code {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 430px) {
+  .breadcrumb {
+    font-size: 12px;
+  }
+
+  .topbar-right .admin-btn-topbar,
+  .topbar-right .notifier-btn-sound {
+    display: none !important;
+  }
+
+  .topbar-right .notifier-btn {
+    width: 38px;
+    min-width: 38px;
+  }
+
+  .top-avatar {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+[data-theme="dark"] .mobile-bottom-bar {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.32) !important;
+}
+
+[data-theme="dark"] .sidebar-overlay {
+  background: rgba(2, 6, 23, 0.68) !important;
+}
+

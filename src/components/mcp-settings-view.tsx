@@ -117,6 +117,7 @@ export function McpSettingsView({
 
   return (
     <div
+      className="mcp-settings-view"
       style={{
         display: "grid",
         gap: "1.5rem",
