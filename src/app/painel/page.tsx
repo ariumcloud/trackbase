@@ -81,6 +81,7 @@ export default async function Page({
         alerts={[]}
         summary={null}
         initialTab={p.tab}
+        account={{ name: null, document: null, email: null }}
         appUrl={process.env.APP_URL || "http://localhost:3000"}
       />
     );
@@ -88,6 +89,12 @@ export default async function Page({
   const user = await getAuthUser();
   if (!user) redirect("/login");
   const platformAdmin = await checkPlatformAdmin(user.id);
+  const userMeta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const account = {
+    name: typeof userMeta.full_name === "string" ? userMeta.full_name : null,
+    document: typeof userMeta.document === "string" ? userMeta.document : null,
+    email: user.email ?? null,
+  };
 
   const client = await db();
   const { data: workspaces, error: we } = await client
@@ -366,6 +373,7 @@ export default async function Page({
       initialProvider={p.provider}
       initialPeriod={p.period}
       metaSelectIntegrationId={p.meta_select}
+      account={account}
       appUrl={process.env.APP_URL || "http://localhost:3000"}
       error={error}
     />

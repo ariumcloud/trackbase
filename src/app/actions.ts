@@ -1648,5 +1648,165 @@ export async function revokeMcpApiKeyAction(workspace: string, keyId: string): P
   }
 }
 
+// ---------------------------------------------------------------------------
+// Conta do usuário: senha, 2FA e colaboradores do workspace
+// ---------------------------------------------------------------------------
 
+export async function updateAccountPassword(form: FormData): Promise<ActionResult> {
+  try {
+    const schema = z
+      .object({
+        currentPassword: z.string().min(1),
+        newPassword: z
+          .string()
+          .min(8)
+          .max(128)
+          .regex(/[A-Z]/, "precisa de maiúscula")
+          .regex(/[0-9]/, "precisa de número")
+          .regex(/[^A-Za-z0-9]/, "precisa de caractere especial"),
+      })
+      .safeParse(Object.fromEntries(form));
+    if (!schema.success) return { error: "Verifique os requisitos da nova senha." };
+    const client = await db();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user?.email) return { error: "Sessão inválida." };
+    if (!(await rateLimit(`pwd-change:${user.id}`, 5)))
+      return { error: "Muitas tentativas. Aguarde um minuto." };
+    const { error: reauthError } = await client.auth.signInWithPassword({
+      email: user.email,
+      password: schema.data.currentPassword,
+    });
+    if (reauthError) return { error: "Senha atual incorreta." };
+    const { error } = await client.auth.updateUser({ password: schema.data.newPassword });
+    if (error) return { error: "Não foi possível atualizar a senha." };
+    return { ok: true };
+  } catch (e) {
+    console.error("Account password update failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível atualizar a senha." };
+  }
+}
+
+type MfaActionResult = { ok?: boolean; error?: string; factorId?: string; qrCode?: string; secret?: string };
+
+export async function mfaListFactors(): Promise<MfaActionResult & { enrolled?: boolean }> {
+  try {
+    const client = await db();
+    const { data, error } = await client.auth.mfa.listFactors();
+    if (error) return { error: error.message };
+    const verified = data.totp.find((f) => f.status === "verified");
+    return { ok: true, enrolled: Boolean(verified), factorId: verified?.id };
+  } catch (e) {
+    console.error("mfaListFactors failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível carregar o status do 2FA." };
+  }
+}
+
+export async function mfaEnroll(): Promise<MfaActionResult> {
+  try {
+    const client = await db();
+    const { data, error } = await client.auth.mfa.enroll({ factorType: "totp" });
+    if (error) return { error: "Não foi possível iniciar o 2FA." };
+    return { ok: true, factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret };
+  } catch (e) {
+    console.error("mfaEnroll failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível iniciar o 2FA." };
+  }
+}
+
+export async function mfaVerify(factorId: string, code: string): Promise<MfaActionResult> {
+  try {
+    const client = await db();
+    const { data: challenge, error: chErr } = await client.auth.mfa.challenge({ factorId });
+    if (chErr) return { error: "Não foi possível validar o código." };
+    const { error } = await client.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
+    if (error) return { error: "Código inválido." };
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e) {
+    console.error("mfaVerify failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível validar o código." };
+  }
+}
+
+export async function mfaUnenroll(factorId: string): Promise<MfaActionResult> {
+  try {
+    const client = await db();
+    const { error } = await client.auth.mfa.unenroll({ factorId });
+    if (error) return { error: "Não foi possível desativar o 2FA." };
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e) {
+    console.error("mfaUnenroll failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível desativar o 2FA." };
+  }
+}
+
+export async function inviteMember(workspace: string, form: FormData): Promise<ActionResult> {
+  try {
+    const { role } = await requireFeature(workspace, "agency", true);
+    if (role !== "owner") return { error: "Apenas o proprietário pode convidar colaboradores." };
+    const email = z.string().email().safeParse(form.get("email"));
+    if (!email.success) return { error: "Informe um e-mail válido." };
+    const service = admin();
+    const { data: usersData, error: listError } = await service.auth.admin.listUsers({ perPage: 1000 });
+    if (listError) throw listError;
+    const found = usersData?.users.find((u) => u.email?.toLowerCase() === email.data.toLowerCase());
+    if (!found)
+      return { error: "Esse e-mail ainda não tem conta no Trackbase. Peça para a pessoa se cadastrar primeiro." };
+    const { error } = await service
+      .from("utm_members")
+      .upsert({ workspace_id: workspace, user_id: found.id, role: "member" }, { onConflict: "workspace_id,user_id" });
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e) {
+    console.error("Invite member failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível convidar este colaborador." };
+  }
+}
+
+export async function removeMember(workspace: string, userId: string): Promise<ActionResult> {
+  try {
+    const { role } = await authorize(workspace, true);
+    if (role !== "owner") return { error: "Apenas o proprietário pode remover colaboradores." };
+    const { error } = await admin()
+      .from("utm_members")
+      .delete()
+      .eq("workspace_id", workspace)
+      .eq("user_id", userId)
+      .neq("role", "owner");
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e) {
+    console.error("Remove member failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível remover este colaborador." };
+  }
+}
+
+export async function listMembersWithEmail(
+  workspace: string,
+): Promise<{ ok?: boolean; error?: string; members?: Array<{ userId: string; email: string; role: string }> }> {
+  try {
+    await authorize(workspace);
+    const service = admin();
+    const { data: members, error } = await service
+      .from("utm_members")
+      .select("user_id, role")
+      .eq("workspace_id", workspace);
+    if (error) throw error;
+    const { data: usersData, error: listError } = await service.auth.admin.listUsers({ perPage: 1000 });
+    if (listError) throw listError;
+    const byId = new Map(usersData.users.map((u) => [u.id, u.email ?? ""]));
+    return {
+      ok: true,
+      members: (members ?? []).map((m) => ({ userId: m.user_id, email: byId.get(m.user_id) ?? "—", role: m.role })),
+    };
+  } catch (e) {
+    console.error("List members failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível carregar os colaboradores." };
+  }
+}
 

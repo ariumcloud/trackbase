@@ -1,7 +1,7 @@
 "use client";
 import { gatewayWebhookUrl } from "@/lib/webhook-url";
 import { plans, canUse, normalizePlan } from "@/lib/plans";
-import { useState, useTransition, useEffect, useCallback, useMemo } from "react";
+import { useState, useTransition, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,8 +43,14 @@ import {
   Package,
   Search,
   Smartphone,
+  CreditCard,
+  UserCog,
+  SlidersHorizontal,
+  HelpCircle,
+  ChevronDown,
 } from "lucide-react";
 import { McpSettingsView } from "./mcp-settings-view";
+import { AccountPanels } from "./account-panels";
 import { UtmifySummary } from "./utmify-summary";
 import {
   ActionForm,
@@ -159,6 +165,7 @@ type Props = {
   shields?: ShieldRow[];
   shieldLogs?: ShieldLogRow[];
   events?: TrackingEvent[];
+  account: { name: string | null; document: string | null; email: string | null };
 };
 const tabs = [
   { id: "visao", name: "Visão geral", icon: LayoutDashboard },
@@ -301,7 +308,29 @@ export function Dashboard(p: Props) {
     [guideModalOpen, setGuideModalOpen] = useState(false),
     [deletingOfferId, setDeletingOfferId] = useState<string | null>(null),
     [viewingPixelSnippet, setViewingPixelSnippet] = useState<string | null>(null),
+    [accountView, setAccountView] = useState<null | "assinatura" | "conta" | "avancado">(null),
+    [accountMenuOpen, setAccountMenuOpen] = useState(false),
     [pending, start] = useTransition();
+
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [accountMenuOpen]);
 
   const universalKey = useMemo(
     () =>
@@ -407,6 +436,19 @@ export function Dashboard(p: Props) {
   const hasRadarAccess = canUse(currentPlan, "radar");
   const hasDiagnosticoAccess = canUse(currentPlan, "diagnostico");
   const hasMiningAccess = canUse(currentPlan, "mining");
+
+  const accountUsage = useMemo(() => {
+    const planInfo = plans[currentPlan];
+    const metaConnected = p.integrations.filter(
+      (c) => c.provider === "meta" && c.status === "connected" && Boolean(c.account_id),
+    ).length;
+    return [
+      { label: "Ofertas", used: p.offers.length, limit: planInfo.offers },
+      { label: "Links", used: p.links.length, limit: planInfo.links },
+      { label: "Contas Meta", used: metaConnected, limit: planInfo.meta },
+      { label: "Vendas no período", used: p.sales.length, limit: planInfo.sales },
+    ];
+  }, [currentPlan, p.offers, p.links, p.integrations, p.sales]);
 
   let since: string;
   let until: string;
@@ -938,7 +980,7 @@ export function Dashboard(p: Props) {
               className={tab === t.id ? "active" : ""}
               onClick={() => selectTab(t.id)}
             >
-              <t.icon size={19} />
+              <t.icon size={17} />
               {t.name}
               {isFreePlan &&
                 ["shield", "diagnostico", "radar", "mineracao", "mcp"].includes(
@@ -971,20 +1013,65 @@ export function Dashboard(p: Props) {
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="plan-box">
-            <span className="plan-spark">✦</span>
-            <strong>
-              Menos custo.
-              <br />
-              Mais clareza.
-            </strong>
-            <p>Seu primeiro passo para uma operação que dá resultado.</p>
-            <span className="tag">
-              {plans[normalizePlan(p.workspace?.plan ?? "devedor")].name}
-            </span>
-          </div>
-          <div className="sidebar-user">
+        <div className="sidebar-bottom" ref={accountMenuRef}>
+          {accountMenuOpen && (
+            <div className="account-menu-popover" role="menu">
+              <button
+                type="button"
+                className="account-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setAccountView("assinatura");
+                  setAccountMenuOpen(false);
+                }}
+              >
+                <CreditCard size={16} /> Assinatura
+              </button>
+              <button
+                type="button"
+                className="account-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setAccountView("conta");
+                  setAccountMenuOpen(false);
+                }}
+              >
+                <UserCog size={16} /> Minha conta
+              </button>
+              <button
+                type="button"
+                className="account-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setAccountView("avancado");
+                  setAccountMenuOpen(false);
+                }}
+              >
+                <SlidersHorizontal size={16} /> Avançado
+              </button>
+              <button
+                type="button"
+                className="account-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setAccountMenuOpen(false);
+                  window.open(
+                    "https://wa.me/55499999317620?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20com%20o%20Trackbase",
+                    "_blank",
+                  );
+                }}
+              >
+                <HelpCircle size={16} /> Suporte
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            className="sidebar-user sidebar-user-trigger"
+            onClick={() => setAccountMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={accountMenuOpen}
+          >
             <span className="user-avatar">
               {p.workspace?.name.slice(0, 1) || "U"}
             </span>
@@ -992,26 +1079,17 @@ export function Dashboard(p: Props) {
               <strong>{p.workspace?.name || "Bem-vindo"}</strong>
               <small>Powered by Trackbase</small>
             </span>
-            {!p.setup && (
-              <form action={logout}>
-                <button
-                  type="submit"
-                  className="icon-button logout-btn"
-                  aria-label="Sair da conta"
-                  title="Deslogar da Trackbase"
-                >
-                  <LogOut size={17} />
-                </button>
-              </form>
-            )}
-          </div>
+            <ChevronDown size={15} className="sidebar-user-chevron" />
+          </button>
           {!p.setup && (
             <form action={logout}>
               <button
                 type="submit"
-                className="button ghost small sidebar-logout-full"
+                className="icon-button logout-btn sidebar-logout-icon"
+                aria-label="Sair da conta"
+                title="Deslogar da Trackbase"
               >
-                <LogOut size={15} /> Desconectar da conta
+                <LogOut size={17} />
               </button>
             </form>
           )}
@@ -1067,6 +1145,22 @@ export function Dashboard(p: Props) {
           id="dashboard-content"
           className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""} ${tab === "ofertas" ? "main-ofertas" : ""}`}
         >
+          {accountView ? (
+            <AccountPanels
+              view={accountView}
+              onBack={() => setAccountView(null)}
+              onOpenMcp={() => {
+                setAccountView(null);
+                selectTab("mcp");
+              }}
+              workspace={workspace}
+              workspaceName={p.workspace?.name || ""}
+              plan={p.workspace?.plan || "devedor"}
+              account={p.account}
+              usage={accountUsage}
+            />
+          ) : (
+          <>
           <div className="page-heading">
             <div>
               <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>
@@ -3212,6 +3306,8 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 appUrl={p.appUrl}
               />
             ))}
+          </>
+          )}
         </main>
       </div>
       {modal && (
