@@ -24,6 +24,7 @@ import {
   Info,
 } from "lucide-react";
 import type { SaleRow, TrackingEvent, Offer } from "@/lib/types";
+import { isApprovedSaleStatus } from "@/lib/sale-status";
 
 export interface LeadSession {
   id: string;
@@ -35,12 +36,13 @@ export interface LeadSession {
   campaign: string;
   placement?: string;
   relativeTime: string;
-  maxScroll: number; // 0 a 100
-  timeSpentSeconds: number;
+  maxScroll: number | null; // null quando a profundidade não foi capturada
+  timeSpentSeconds: number | null;
   status: "purchased" | "checkout_clicked" | "cta_viewed" | "offer_viewed" | "bounced";
   statusLabel: string;
   statusColor: string;
   amount?: number;
+  currency?: string | null;
   events: {
     time: string;
     type: string;
@@ -48,6 +50,33 @@ export interface LeadSession {
     detail: string;
     color: string;
   }[];
+}
+
+const COUNTRY_NAMES: Record<string, string> = {
+  AR: "Argentina",
+  BO: "Bolívia",
+  BR: "Brasil",
+  CL: "Chile",
+  CO: "Colômbia",
+  MX: "México",
+  PE: "Peru",
+  PY: "Paraguai",
+  UY: "Uruguai",
+  US: "Estados Unidos",
+  PT: "Portugal",
+  ES: "Espanha",
+};
+
+function countryLabel(country: string | null | undefined): string {
+  const normalized = (country || "").trim().toUpperCase();
+  return COUNTRY_NAMES[normalized] || (normalized.length === 2 ? normalized : "País não informado");
+}
+
+function moneyLabel(amount: number, currency: string | null | undefined): string {
+  const normalized = (currency || "").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(normalized)) return `Valor sem moeda (${amount.toFixed(2)})`;
+  const locale = normalized === "BRL" ? "pt-BR" : normalized === "ARS" ? "es-AR" : "en-US";
+  return new Intl.NumberFormat(locale, { style: "currency", currency: normalized }).format(amount);
 }
 
 const initialMockLeads: LeadSession[] = [
@@ -380,6 +409,12 @@ export function LeadScrollVisualizer({
     }
 
     const result: LeadSession[] = [];
+    const approvedSales = (sales || []).filter(
+      (sale) =>
+        !sale.is_test &&
+        isApprovedSaleStatus(sale.status) &&
+        (selectedOfferId === "all" || sale.offer_id === selectedOfferId),
+    );
     let leadSeq = 1000;
 
     sessionMap.forEach((sessionEvents, sid) => {
@@ -394,7 +429,7 @@ export function LeadScrollVisualizer({
 
       const startMs = new Date(firstEv.created_at).getTime();
       const endMs = new Date(lastEv.created_at).getTime();
-      const timeSpent = Math.max(12, Math.min(3600, Math.round((endMs - startMs) / 1000)));
+      const timeSpent = Math.max(0, Math.min(3600, Math.round((endMs - startMs) / 1000)));
 
       let maxScroll = 0;
       let hasViewCTA = false;
@@ -422,14 +457,13 @@ export function LeadScrollVisualizer({
       });
 
       // Cruza com vendas reais pelo session_id ou fbp
-      const matchingSale = (sales || []).find((s) => {
+      const matchingSale = approvedSales.find((s) => {
         if (s.attribution?.session_id && s.attribution.session_id === sid) return true;
         if (s.attribution?.fbp && attr?.fbp && s.attribution.fbp === attr.fbp) return true;
         return false;
       });
 
       const isPurchased = !!matchingSale;
-      if (isPurchased) maxScroll = 100;
 
       let status: LeadSession["status"] = "bounced";
       let statusLabel = `Saiu em ${maxScroll}%`;
@@ -438,7 +472,7 @@ export function LeadScrollVisualizer({
       if (isPurchased) {
         status = "purchased";
         const amt = matchingSale?.gross_amount || matchingSale?.amount || 0;
-        statusLabel = `Comprou R$ ${amt.toFixed(2)}`;
+        statusLabel = `Comprou ${moneyLabel(amt, matchingSale?.currency)}`;
         statusColor = "#10B981";
       } else if (hasCheckout) {
         status = "checkout_clicked";
@@ -537,7 +571,7 @@ export function LeadScrollVisualizer({
           time: "Final",
           type: "Purchase",
           label: `Compra aprovada na ${(matchingSale?.provider || "Plataforma").toUpperCase()}!`,
-          detail: `Valor de R$ ${(matchingSale?.gross_amount || matchingSale?.amount || 0).toFixed(2)}`,
+          detail: `Valor de ${moneyLabel(matchingSale?.gross_amount || matchingSale?.amount || 0, matchingSale?.currency)}`,
           color: "#10B981",
         });
       }
@@ -558,7 +592,9 @@ export function LeadScrollVisualizer({
         id: `session_${sid}`,
         leadNumber: ++leadSeq,
         name: buyerName,
-        location: attr.location || "Brasil",
+        location: countryLabel(matchingSale?.country) !== "País não informado"
+          ? countryLabel(matchingSale?.country)
+          : attr.location || "País não informado",
         device: attr.device || "Mobile",
         source: src,
         campaign: camp,
@@ -570,18 +606,20 @@ export function LeadScrollVisualizer({
         statusLabel,
         statusColor,
         amount: matchingSale?.gross_amount || matchingSale?.amount,
+        currency: matchingSale?.currency,
         events: timelineEvents,
       });
     });
 
-    // Adiciona compradores reais do webhook que possam não ter sessão de evento
-    (sales || []).forEach((s, idx) => {
+    // Uma venda sem telemetria de sessão não pode virar uma jornada inventada.
+    // Exibimos somente a compra aprovada e deixamos profundidade/tempo como não capturados.
+    approvedSales.forEach((s, idx) => {
       const saleId = `sale_${s.id}`;
       if (result.some((r) => r.id === `session_${s.attribution?.session_id}` || r.id === saleId)) return;
       const buyerName = s.attribution?.buyer_name || s.attribution?.name || `Comprador #${idx + 1}`;
       const src = s.attribution?.utm_source || s.provider || "Tráfego Pago";
       const camp = s.attribution?.utm_campaign || "Campanha Principal";
-      const amt = s.gross_amount || s.amount || 0;
+      const amt = s.gross_amount ?? s.amount ?? 0;
 
       const rawSalePlacement = (s.attribution?.utm_placement || s.attribution?.placement || "").trim();
       let formattedSalePlacement: string | undefined = undefined;
@@ -599,59 +637,25 @@ export function LeadScrollVisualizer({
         id: saleId,
         leadNumber: 9000 + idx,
         name: buyerName,
-        location: "Brasil",
+        location: countryLabel(s.country),
         device: "Dispositivo do Comprador",
         source: src,
         campaign: camp,
         placement: formattedSalePlacement,
         relativeTime: "Venda Real",
-        maxScroll: 100,
-        timeSpentSeconds: 180,
+        maxScroll: null,
+        timeSpentSeconds: null,
         status: "purchased",
-        statusLabel: `Comprou R$ ${amt.toFixed(2)}`,
+        statusLabel: `Comprou ${moneyLabel(amt, s.currency)}`,
         statusColor: "#10B981",
         amount: amt,
+        currency: s.currency,
         events: [
           {
-            time: "00:00",
-            type: "PageView",
-            label: "Acesso registrado no funil",
-            detail: `Origem: ${src} · Campanha: ${camp}`,
-            color: "#3B82F6",
-          },
-          {
-            time: "00:25",
-            type: "ScrollDepth_25",
-            label: "Passou da dobra 1 (25%)",
-            detail: "Iniciou consumo do conteúdo",
-            color: "#10B981",
-          },
-          {
-            time: "01:30",
-            type: "ScrollDepth_50",
-            label: "Metade da página alcançada (50%)",
-            detail: "Interesse validado na VSL",
-            color: "#10B981",
-          },
-          {
-            time: "02:20",
-            type: "ScrollDepth_75",
-            label: "Visualizou Oferta & Preço (75%)",
-            detail: "Lead quente na tabela de ancoragem",
-            color: "#F59E0B",
-          },
-          {
-            time: "02:45",
-            type: "ViewCTA",
-            label: "Botão de Compra no Visor (90%)",
-            detail: "Visualizou o botão de checkout",
-            color: "#8B5CF6",
-          },
-          {
-            time: "03:00",
+            time: "—",
             type: "Purchase",
             label: `Compra aprovada na ${s.provider.toUpperCase()}!`,
-            detail: `Valor de R$ ${amt.toFixed(2)}`,
+            detail: `Valor de ${moneyLabel(amt, s.currency)} · Profundidade e tempo de sessão não capturados`,
             color: "#10B981",
           },
         ],
@@ -684,6 +688,9 @@ export function LeadScrollVisualizer({
   }, [activeLeads, selectedLeadId]);
 
   const selectedLead = activeLeads.find((l) => l.id === selectedLeadId) || activeLeads[0] || null;
+  const selectedLeadHasPageView = Boolean(
+    selectedLead?.events.some((event) => event.type.toLowerCase() === "pageview"),
+  );
 
   // Atualiza a posição do celular ao trocar de lead selecionado
   useEffect(() => {
@@ -693,9 +700,10 @@ export function LeadScrollVisualizer({
     if (!el) return;
 
     const maxScrollHeight = el.scrollHeight - el.clientHeight;
-    const targetScrollTop = (selectedLead.maxScroll / 100) * maxScrollHeight;
+    const selectedScroll = selectedLead.maxScroll ?? 0;
+    const targetScrollTop = (selectedScroll / 100) * maxScrollHeight;
     el.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-    setCurrentScrollPct(selectedLead.maxScroll);
+    setCurrentScrollPct(selectedScroll);
   }, [selectedLeadId, selectedLead]);
 
   // Modo Replay da Sessão (animação passo a passo do lead descendo a página)
@@ -714,12 +722,13 @@ export function LeadScrollVisualizer({
         if (!container) return;
 
         const maxScrollHeight = container.scrollHeight - container.clientHeight;
-        const targetScrollTop = (selectedLead.maxScroll / 100) * maxScrollHeight;
+        const selectedScroll = selectedLead.maxScroll ?? 0;
+        const targetScrollTop = (selectedScroll / 100) * maxScrollHeight;
 
         step += 35;
         if (step >= targetScrollTop) {
           container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-          setCurrentScrollPct(selectedLead.maxScroll);
+          setCurrentScrollPct(selectedScroll);
           setIsReplaying(false);
           return;
         }
@@ -841,9 +850,9 @@ export function LeadScrollVisualizer({
 
   const filteredLeads = activeLeads.filter((l) => {
     if (filterType === "purchased") return l.status === "purchased";
-    if (filterType === "hot") return l.maxScroll >= 75;
+    if (filterType === "hot") return (l.maxScroll ?? 0) >= 75;
     if (filterType === "cta") return l.status === "cta_viewed" || l.status === "checkout_clicked";
-    if (filterType === "cold") return l.maxScroll < 50;
+    if (filterType === "cold") return l.maxScroll !== null && l.maxScroll < 50;
     return true;
   });
 
@@ -1278,7 +1287,7 @@ export function LeadScrollVisualizer({
                       {lead.statusLabel}
                     </span>
                     <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink)" }}>
-                      {lead.maxScroll}% rolado
+                      {lead.maxScroll === null ? "Profundidade não capturada" : `${lead.maxScroll}% rolado`}
                     </span>
                   </div>
                 </div>
@@ -1626,7 +1635,7 @@ export function LeadScrollVisualizer({
                     color: selectedLead.statusColor,
                   }}
                 >
-                  📍 Ponto de parada do Lead #{selectedLead.leadNumber} ({selectedLead.maxScroll}%)
+                  📍 Ponto de parada do Lead #{selectedLead.leadNumber} ({selectedLead.maxScroll === null ? "não capturado" : `${selectedLead.maxScroll}%`})
                 </div>
               </div>
             </div>
@@ -1669,7 +1678,7 @@ export function LeadScrollVisualizer({
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <Clock size={15} color="var(--muted)" />
                   <span style={{ fontSize: "0.82rem", color: "var(--ink)", fontWeight: 600 }}>
-                    Tempo na tela: <strong>{formatSecs(selectedLead.timeSpentSeconds)}</strong>
+                    Tempo na tela: <strong>{selectedLead.timeSpentSeconds === null ? "Não capturado" : formatSecs(selectedLead.timeSpentSeconds)}</strong>
                   </span>
                 </div>
               </div>
@@ -1679,14 +1688,14 @@ export function LeadScrollVisualizer({
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
                   <span style={{ fontWeight: 600, color: "var(--ink)" }}>Profundidade Máxima Alcançada pelo Lead</span>
                   <strong style={{ color: selectedLead.statusColor, fontSize: "1.15rem" }}>
-                    {selectedLead.maxScroll}% da página
+                    {selectedLead.maxScroll === null ? "Não capturada" : `${selectedLead.maxScroll}% da página`}
                   </strong>
                 </div>
                 <div style={{ width: "100%", height: "10px", background: "var(--line)", borderRadius: "6px", overflow: "hidden" }}>
                   <div
                     style={{
                       height: "100%",
-                      width: `${selectedLead.maxScroll}%`,
+                      width: `${selectedLead.maxScroll ?? 0}%`,
                       background: selectedLead.statusColor,
                       transition: "width 0.2s ease",
                     }}
@@ -1737,11 +1746,11 @@ export function LeadScrollVisualizer({
                 }}
               >
                 {[
-                  { label: "0% · PageView", active: true, desc: "Entrou na página" },
-                  { label: "25% · Dobra 1", active: selectedLead.maxScroll >= 25, desc: "Passou da introdução" },
-                  { label: "50% · Meio/VSL", active: selectedLead.maxScroll >= 50, desc: "Engajado no conteúdo" },
-                  { label: "75% · Oferta", active: selectedLead.maxScroll >= 75, desc: "Viu a ancoragem" },
-                  { label: "90% · CTA Visível", active: selectedLead.maxScroll >= 85, desc: "Botão no ecrã" },
+                  { label: "0% · PageView", active: selectedLeadHasPageView, desc: "Entrou na página" },
+                  { label: "25% · Dobra 1", active: (selectedLead.maxScroll ?? 0) >= 25, desc: "Passou da introdução" },
+                  { label: "50% · Meio/VSL", active: (selectedLead.maxScroll ?? 0) >= 50, desc: "Engajado no conteúdo" },
+                  { label: "75% · Oferta", active: (selectedLead.maxScroll ?? 0) >= 75, desc: "Viu a ancoragem" },
+                  { label: "90% · CTA Visível", active: (selectedLead.maxScroll ?? 0) >= 85, desc: "Botão no ecrã" },
                   { label: "Checkout/Compra", active: selectedLead.status === "purchased" || selectedLead.status === "checkout_clicked", desc: "Ação de conversão" },
                 ].map((m, idx) => (
                   <div
