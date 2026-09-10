@@ -79,6 +79,7 @@ import {
   type ExchangeRates,
 } from "@/lib/currency";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
+import { countryName, normalizeCountryCode } from "@/lib/country";
 import type { AlertItem } from "@/lib/alerts";
 import type {
   Workspace,
@@ -487,7 +488,13 @@ export function Dashboard(p: Props) {
           : field === "fee_amount"
             ? sale.fee_amount ?? 0
             : sale.net_amount ?? sale.gross_amount ?? sale.amount;
-      return total + (convertAmount(raw, sale.currency) ?? 0);
+      const sourceCurrency =
+        field === "net_amount"
+          ? sale.net_currency ?? sale.currency
+          : field === "fee_amount"
+            ? sale.fee_currency ?? sale.currency
+            : sale.currency;
+      return total + (convertAmount(raw, sourceCurrency) ?? 0);
     }, 0);
   const grossRevenue = sumSales(approvedSales, "gross_amount");
   const platformFees = sumSales(approvedSales, "fee_amount");
@@ -546,7 +553,11 @@ export function Dashboard(p: Props) {
   );
   const byCountry = approvedSales.reduce<Record<string, { count: number; revenue: number }>>(
     (result, sale) => {
-      const key = sale.country || "BR";
+      const attr = sale.attribution || {};
+      const key =
+        normalizeCountryCode(
+          sale.country || attr.utm_country || attr.country || attr.country_code,
+        ) || "UNKNOWN";
       const current = result[key] || { count: 0, revenue: 0 };
       current.count += 1;
       current.revenue +=
@@ -565,7 +576,13 @@ export function Dashboard(p: Props) {
     for (const sale of sales) {
       if (sale.is_test || !isApprovedSaleStatus(sale.status)) continue;
       const attr = sale.attribution || {};
-      const raw = (attr.utm_placement || attr.placement || "").trim();
+      const raw = (
+        attr.utm_placement ||
+        attr.placement ||
+        attr.position ||
+        attr.ad_placement ||
+        ""
+      ).trim();
       if (!raw) continue;
 
       let displayName = raw;
@@ -1853,7 +1870,7 @@ export function Dashboard(p: Props) {
                           {Object.entries(byCountry).map(([code, stats]) => (
                             <tr key={code}>
                               <td>
-                                <strong>{code.toUpperCase()}</strong>
+                                <strong>{countryName(code)}</strong>
                               </td>
                               <td>{stats.count}</td>
                               <td>{money(stats.revenue)}</td>

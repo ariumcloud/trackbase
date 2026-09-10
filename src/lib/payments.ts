@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeCountryCode } from "./country";
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v)
@@ -175,7 +176,12 @@ export function normalizePayment(
     ),
     product_type: productType,
     parent_transaction_id: parentTransaction,
-    country: str(record(purchase.checkout_country).iso) || str(data.country) || null,
+    country: normalizeCountryCode(
+      record(purchase.checkout_country).iso ||
+        record(purchase.checkout_country).code ||
+        record(purchase.checkout_country).name ||
+        data.country,
+    ),
     attribution,
     buyer_email: str(buyer.email) || null,
     buyer_phone: str(buyer.phone ?? buyer.checkout_phone) || null,

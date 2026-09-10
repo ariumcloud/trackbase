@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { SaleRow, TrackingEvent, Offer } from "@/lib/types";
 import { isApprovedSaleStatus } from "@/lib/sale-status";
+import { countryName } from "@/lib/country";
 
 export interface LeadSession {
   id: string;
@@ -52,24 +53,8 @@ export interface LeadSession {
   }[];
 }
 
-const COUNTRY_NAMES: Record<string, string> = {
-  AR: "Argentina",
-  BO: "Bolívia",
-  BR: "Brasil",
-  CL: "Chile",
-  CO: "Colômbia",
-  MX: "México",
-  PE: "Peru",
-  PY: "Paraguai",
-  UY: "Uruguai",
-  US: "Estados Unidos",
-  PT: "Portugal",
-  ES: "Espanha",
-};
-
 function countryLabel(country: string | null | undefined): string {
-  const normalized = (country || "").trim().toUpperCase();
-  return COUNTRY_NAMES[normalized] || (normalized.length === 2 ? normalized : "País não informado");
+  return countryName(country);
 }
 
 function moneyLabel(amount: number, currency: string | null | undefined): string {

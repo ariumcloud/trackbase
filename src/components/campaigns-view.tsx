@@ -229,7 +229,7 @@ export const DEFAULT_COLUMNS: Record<
   spend: { label: "Gastos", defaultVisible: true, numeric: true },
   revenue: { label: "Faturamento", defaultVisible: false, numeric: true, tooltip: "Faturamento bruto gerado" },
   ic: { label: "IC", defaultVisible: true, numeric: true, tooltip: "Início de Checkout (Initiate Checkouts)" },
-  profit: { label: "Lucro", defaultVisible: true, numeric: true, tooltip: "Faturamento gerado menos Gastos em anúncios" },
+  profit: { label: "Lucro", defaultVisible: true, numeric: true, tooltip: "Comissão líquida menos gastos em anúncios" },
   cpi: { label: "CPI", defaultVisible: true, numeric: true, tooltip: "Custo por Início de Checkout" },
   roas: { label: "ROAS", defaultVisible: true, numeric: true, tooltip: "Retorno sobre o investimento em anúncios" },
   margin: { label: "Margem", defaultVisible: false, numeric: true, tooltip: "Margem de lucro líquida" },
@@ -666,7 +666,7 @@ export function CampaignsView({
 
   // 2. Agregação de vendas aprovadas e rastreadas pelas UTMs
   const salesMap = useMemo(() => {
-    const map = new Map<string, { count: number; revenue: number }>();
+    const map = new Map<string, { count: number; revenue: number; netRevenue: number }>();
     for (const sale of sales) {
       if (sale.is_test || !isApprovedSaleStatus(sale.status)) continue;
       if (selectedOffer !== "all" && sale.offer_id !== selectedOffer) continue;
@@ -679,12 +679,19 @@ export function CampaignsView({
           ? attr.utm_term
           : attr.utm_content;
       if (!targetId) continue;
-      const current = map.get(targetId) || { count: 0, revenue: 0 };
+      const current = map.get(targetId) || { count: 0, revenue: 0, netRevenue: 0 };
       current.count += 1;
       current.revenue +=
         convertCurrencyAmount(
           Number(sale.gross_amount ?? sale.amount ?? 0),
           saleCurrency,
+          selectedCurrency,
+          exchangeRates,
+        ) ?? 0;
+      current.netRevenue +=
+        convertCurrencyAmount(
+          Number(sale.net_amount ?? sale.gross_amount ?? sale.amount ?? 0),
+          sale.net_currency ?? saleCurrency,
           selectedCurrency,
           exchangeRates,
         ) ?? 0;
@@ -807,8 +814,8 @@ export function CampaignsView({
         clicks: 0,
         impressions: 0,
       };
-      const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0 };
-      const profit = sls.revenue - ins.spend;
+      const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0, netRevenue: 0 };
+      const profit = sls.netRevenue - ins.spend;
       const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
       const cpa = sls.count > 0 ? ins.spend / sls.count : null;
       const margin = sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;

@@ -59,6 +59,29 @@ test("Hotmart: normaliza compra aprovada, order bump, reembolso e UTMs", () => {
   assert.equal(arsEvent.grossCurrency, "ARS");
 });
 
+test("Hotmart: normaliza país por nome e preserva placement sem prefixo UTM", () => {
+  const [event] = paymentAdapters.hotmart.normalize(
+    {
+      event: "PURCHASE_APPROVED",
+      id: "evt_hotmart_country_placement",
+      creation_date: 1725624000000,
+      data: {
+        product: { id: 12345 },
+        buyer: { name: "Comprador AR", checkout_country: "Argentina" },
+        purchase: {
+          transaction: "HP-AR-001",
+          price: { value: 26000, currency_value: "ARS" },
+          tracking: { placement: "instagram_reels" },
+        },
+      },
+    },
+    { receivedAt },
+  );
+
+  assert.equal(event.country, "AR");
+  assert.equal(event.attribution.utm_placement, "instagram_reels");
+});
+
 test("Kiwify: normaliza compra aprovada, boleto, order bump e comprador", () => {
   const payload = {
     order_status: "paid",

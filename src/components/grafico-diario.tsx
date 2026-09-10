@@ -21,6 +21,7 @@ interface DayData {
   dateStr: string; // YYYY-MM-DD
   label: string;   // DD/MM
   revenue: number;
+  netRevenue: number;
   spend: number;
   profit: number;
   roas: number | null;
@@ -54,6 +55,7 @@ export function GraficoDiario({
         dateStr,
         label,
         revenue: 0,
+        netRevenue: 0,
         spend: 0,
         profit: 0,
         roas: null,
@@ -76,6 +78,13 @@ export function GraficoDiario({
             currency,
             exchangeRates,
           ) ?? 0;
+        entry.netRevenue +=
+          convertCurrencyAmount(
+            s.net_amount ?? s.gross_amount ?? s.amount ?? 0,
+            s.net_currency ?? s.currency,
+            currency,
+            exchangeRates,
+          ) ?? 0;
         entry.salesCount += 1;
       }
     }
@@ -91,7 +100,7 @@ export function GraficoDiario({
 
     // Calculate profit and roas
     for (const item of result) {
-      item.profit = item.revenue - item.spend;
+      item.profit = item.netRevenue - item.spend;
       item.roas = item.spend > 0 ? item.revenue / item.spend : null;
     }
 
@@ -110,14 +119,16 @@ export function GraficoDiario({
 
   const totals = useMemo(() => {
     let rev = 0;
+    let netRev = 0;
     let spd = 0;
     let salesCount = 0;
     for (const d of daysData) {
       rev += d.revenue;
+      netRev += d.netRevenue;
       spd += d.spend;
       salesCount += d.salesCount;
     }
-    const prof = rev - spd;
+    const prof = netRev - spd;
     const roas = spd > 0 ? rev / spd : null;
     return { rev, spd, prof, roas, salesCount };
   }, [daysData]);

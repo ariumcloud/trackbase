@@ -79,7 +79,9 @@ export type SaleRow = {
   amount: number;
   gross_amount?: number;
   fee_amount?: number;
+  fee_currency?: string | null;
   net_amount?: number;
+  net_currency?: string | null;
   product_type?:
     | "main"
     | "order_bump"

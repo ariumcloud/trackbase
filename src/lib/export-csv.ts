@@ -1,5 +1,6 @@
 import type { SaleRow, InsightRow, Entity, LinkRow } from "./types";
 import { buildLink } from "./utm";
+import { normalizeCountryCode } from "./country";
 
 function downloadCsv(filename: string, content: string) {
   const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
@@ -56,7 +57,7 @@ export function exportSalesCsv(sales: SaleRow[], filename = "vendas-trackbase.cs
       escapeCsv(Number(fee).toFixed(2)),
       escapeCsv(Number(net).toFixed(2)),
       escapeCsv(s.currency || "BRL"),
-      escapeCsv(s.country || "BR"),
+      escapeCsv(normalizeCountryCode(s.country) || ""),
       escapeCsv(attr.utm_source || ""),
       escapeCsv(attr.utm_medium || ""),
       escapeCsv(attr.utm_campaign || ""),

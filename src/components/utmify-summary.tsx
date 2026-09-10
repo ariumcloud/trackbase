@@ -187,9 +187,9 @@ export function UtmifySummary({
 
   const kpis = [
     {
-      title: "Faturamento Líquido",
-      value: formatMoney(metrics.netRevenue),
-      tooltip: "Valor líquido faturado após dedução de taxas das plataformas.",
+      title: "Faturamento",
+      value: formatMoney(metrics.grossRevenue),
+      tooltip: "Valor bruto das vendas aprovadas, antes das taxas da plataforma.",
       tone: "neutral",
     },
     {
@@ -213,7 +213,7 @@ export function UtmifySummary({
         metrics.operatingProfit !== null
           ? formatMoney(metrics.operatingProfit)
           : "—",
-      tooltip: "Lucro operacional real (Faturamento Líquido menos Gastos com anúncios).",
+      tooltip: "Lucro operacional real (comissão líquida menos gastos com anúncios).",
       tone:
         metrics.operatingProfit !== null && metrics.operatingProfit > 0
           ? "positive"
@@ -323,7 +323,7 @@ export function UtmifySummary({
         </div>
         <div className="overview-share-stats">
           <span>{metrics.purchases} vendas</span>
-          <span>{formatMoney(metrics.netRevenue)} líquido</span>
+          <span>{formatMoney(metrics.grossRevenue)} faturamento</span>
           <span>trackbase.com.br</span>
         </div>
       </section>

@@ -5,6 +5,7 @@ import {
   type PaymentEventType,
   type PaymentProvider,
 } from "./payment-contract";
+import { normalizeCountryCode } from "./country";
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v)
@@ -36,14 +37,21 @@ const parseDate = (v: unknown, fallback: string): string => {
 const extractAttribution = (raw: unknown): Record<string, string> => {
   const obj = record(raw);
   const result: Record<string, string> = {};
+  const placementAliases = new Set([
+    "placement",
+    "position",
+    "ad_placement",
+    "adplacement",
+  ]);
   for (const [k, v] of Object.entries(obj)) {
     const key = k.toLowerCase();
+    const normalizedKey = placementAliases.has(key) ? "utm_placement" : key;
     if (
-      key.startsWith("utm_") ||
-      ["src", "sck", "source_sck", "fbclid", "fbp", "fbc", "gclid", "ttclid"].includes(key)
+      normalizedKey.startsWith("utm_") ||
+      ["src", "sck", "source_sck", "fbclid", "fbp", "fbc", "gclid", "ttclid"].includes(normalizedKey)
     ) {
       if (typeof v === "string" || typeof v === "number") {
-        result[key] = String(v).slice(0, 300);
+        result[normalizedKey] = String(v).slice(0, 300);
       }
     }
   }
@@ -56,8 +64,7 @@ const cleanCurrency = (raw: unknown, fallback: string = "BRL"): string => {
 };
 
 const cleanCountry = (raw: unknown): string | null => {
-  const s = str(raw).toUpperCase();
-  return /^[A-Z]{2}$/.test(s) ? s : null;
+  return normalizeCountryCode(raw);
 };
 
 // 1. ADAPTADOR HOTMART

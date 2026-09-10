@@ -184,7 +184,7 @@ export default async function Page({
               client
                 .from("utm_sales")
                 .select(
-                  "id,offer_id,provider,status,amount,gross_amount,fee_amount,net_amount,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
+                  "id,offer_id,provider,status,amount,gross_amount,fee_amount,fee_currency,net_amount,net_currency,product_type,parent_transaction_id,currency,country,attribution,is_test,occurred_at",
                 )
                 .eq("workspace_id", w.id)
                 .gte("occurred_at", querySince)
