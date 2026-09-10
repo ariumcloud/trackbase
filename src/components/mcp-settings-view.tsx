@@ -977,8 +977,9 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
             <div className="mcp-guide-intro">
               <strong>Conectar no Codex Desktop, CLI ou extensão</strong>
               <span>
-                No Codex Desktop, a configuração fica em <strong>Geral → Servidores MCP</strong>.
-                CLI e extensão usam o mesmo arquivo de configuração do Codex.
+                No Codex Desktop, abra <strong>Plug-ins → MCPs</strong> e use o botão
+                <strong> Adicionar</strong>. CLI e extensão usam o mesmo arquivo de configuração
+                do Codex.
               </span>
             </div>
 
@@ -986,23 +987,22 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
               <div className="mcp-guide-step">
                 <span>1</span>
                 <div>
-                  <strong>Abra Geral → Servidores MCP</strong>
+                  <strong>Abra Plug-ins → MCPs</strong>
                   <p>
-                    No painel de Configurações, clique em <strong>Servidores MCP</strong>,
-                    dentro de <strong>Geral</strong>. Não use <strong>Plug-ins → MCPs</strong>:
-                    essa é outra área, destinada ao catálogo de plugins.
+                    Nas Configurações, entre em <strong>Plug-ins</strong>, selecione a aba
+                    <strong> MCPs</strong> e clique em <strong>Adicionar → MCP personalizado</strong>.
                   </p>
                 </div>
               </div>
               <div className="mcp-guide-step">
                 <span>2</span>
                 <div>
-                  <strong>Adicione o servidor Trackbase</strong>
+                  <strong>Preencha os campos do servidor</strong>
                   <p>
-                    Clique em <strong>Adicionar servidor</strong>, escolha
-                    <strong> Streamable HTTP</strong>, use o nome <code>trackbase</code> e a URL
-                    <code> {appUrl.replace(/\/$/, "")}/api/mcp</code>. Se aparecer um campo
-                    Bearer token, cole a chave gerada nele.
+                    Nome: <code>trackbase</code>. Em <strong>Tipo</strong>, escolha
+                    <strong> HTTP com streaming</strong> e informe a URL
+                    <code> {appUrl.replace(/\/$/, "")}/api/mcp</code>. No campo de autenticação,
+                    use a chave MCP gerada acima como Bearer token.
                   </p>
                 </div>
               </div>
@@ -1011,9 +1011,8 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
                 <div>
                   <strong>Salve, reinicie e confira</strong>
                   <p>
-                    Se a tela não tiver campo de token, use o TOML abaixo e execute o comando
-                    de ambiente. Depois reinicie o Codex e digite <code>/mcp</code> em uma nova
-                    tarefa.
+                    Salve o MCP, reinicie o Codex e abra uma nova tarefa. Digite <code>/mcp</code>
+                    para confirmar que o Trackbase apareceu como servidor conectado.
                   </p>
                 </div>
               </div>
