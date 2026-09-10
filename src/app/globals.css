@@ -6039,3 +6039,177 @@ textarea {
   background: rgba(2, 6, 23, 0.68) !important;
 }
 
+/* Keep the desktop HUD and its controls on the same theme surface. */
+[data-theme="dark"] .app-shell,
+[data-theme="dark"] .main-shell {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .sidebar {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .topbar {
+  border-bottom-color: var(--line);
+}
+
+[data-theme="dark"] .sidebar {
+  border-right-color: var(--line);
+}
+
+.topbar > * {
+  min-width: 0;
+}
+
+.topbar .breadcrumb {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.topbar .topbar-right {
+  flex-shrink: 0;
+}
+
+/* A flex/grid child with an implicit min-content width is the usual source
+   of one-pixel-to-several-hundred-pixel horizontal drift on mobile. */
+@media (max-width: 768px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-shell,
+  .main-shell,
+  .main-shell > main,
+  .main-shell > main > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-heading,
+  .filterbar,
+  .panel-heading,
+  .card-heading {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-heading h1,
+  .page-heading p,
+  .panel-heading h1,
+  .panel-heading h2,
+  .panel-heading h3 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Diagnóstico: remove desktop control widths and protect long analysis text. */
+.diagnostico-view {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.diagnostico-view .panel,
+.diagnostico-view .panel > *,
+.diagnostico-view h2,
+.diagnostico-view h3,
+.diagnostico-view p,
+.diagnostico-view strong,
+.diagnostico-view small {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .diagnostico-view {
+    overflow-x: hidden;
+  }
+
+  .diagnostico-view .panel {
+    width: 100%;
+    padding: 1rem !important;
+    overflow: hidden;
+  }
+
+  .diagnostico-controls {
+    align-items: stretch !important;
+    flex-direction: column;
+    gap: 10px !important;
+  }
+
+  .diagnostico-controls > div,
+  .diagnostico-controls select,
+  .diagnostico-controls button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .diagnostico-controls select {
+    height: 42px;
+  }
+
+  .diagnostico-retention-header {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .diagnostico-retention-header > div,
+  .diagnostico-retention-header button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .diagnostico-retention-header button {
+    justify-content: center;
+    white-space: normal;
+  }
+
+  .diagnostico-funnel-grid,
+  .diagnostico-category-grid,
+  .diagnostico-waterfall-grid {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .diagnostico-funnel-grid,
+  .diagnostico-waterfall-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .diagnostico-category-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .diagnostico-view .panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .diagnostico-view .button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 390px) {
+  .diagnostico-funnel-grid,
+  .diagnostico-waterfall-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+

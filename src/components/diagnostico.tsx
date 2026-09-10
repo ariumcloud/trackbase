@@ -149,10 +149,10 @@ Aja como um estrategista veterano de direct response e CRO. Responda em tópicos
         : "#EF4444";
 
   return (
-    <div style={{ display: "grid", gap: "1.25rem" }}>
+    <div className="diagnostico-view" style={{ display: "grid", gap: "1.25rem" }}>
       {/* 1. Cabeçalho e Seletor */}
       <section className="panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+        <div className="diagnostico-controls" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--ink)" }}>Diagnóstico de Funil</h2>
             <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
@@ -312,7 +312,7 @@ Aja como um estrategista veterano de direct response e CRO. Responda em tópicos
       {/* 2.5. Card do Radar de Retenção & Diagnóstico de Vazamento */}
       {currentResult.retentionAnalysis && (
         <section className="panel" style={{ padding: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
+          <div className="diagnostico-retention-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Radio size={18} color="#5B34EA" />
               <div>
@@ -338,6 +338,7 @@ Aja como um estrategista veterano de direct response e CRO. Responda em tópicos
 
           {/* Funil Visual Progressivo dos Marcos de Rolagem */}
           <div
+            className="diagnostico-funnel-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
@@ -438,7 +439,7 @@ Aja como um estrategista veterano de direct response e CRO. Responda em tópicos
       )}
 
       {/* 3. Notas por Categoria */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem" }}>
+      <div className="diagnostico-category-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem" }}>
         {currentResult.categoryScores.map((cat) => (
           <section key={cat.category} className="panel" style={{ padding: "1.1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -472,6 +473,7 @@ Aja como um estrategista veterano de direct response e CRO. Responda em tópicos
         </div>
 
         <div
+          className="diagnostico-waterfall-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
