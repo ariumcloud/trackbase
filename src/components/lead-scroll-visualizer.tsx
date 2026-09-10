@@ -65,6 +65,28 @@ function moneyLabel(amount: number, currency: string | null | undefined): string
   return new Intl.NumberFormat(locale, { style: "currency", currency: normalized }).format(amount);
 }
 
+/**
+ * Validation traffic must never look like a real visitor in the radar. These
+ * markers are only used by our internal tracker validation flow; normal
+ * production UTMs are left untouched.
+ */
+function isSyntheticTestEvent(event: TrackingEvent): boolean {
+  const attribution = event.attribution || {};
+  const markerText = [
+    event.session_id,
+    event.url,
+    ...Object.entries(attribution).flatMap(([key, value]) => [key, value]),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    markerText.includes("codex_test") ||
+    markerText.includes("tracker_validation") ||
+    event.session_id.toLowerCase().startsWith("s_codex_validation")
+  );
+}
+
 const initialMockLeads: LeadSession[] = [
   {
     id: "lead_8491",
@@ -365,14 +387,16 @@ export function LeadScrollVisualizer({
   const scriptSnippet = `<script src="${appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`;
 
   const filteredEventsForView = useMemo(
-    () =>
-      selectedOfferId && selectedOfferId !== "all"
-        ? (events || []).filter(
+    () => {
+      const productionEvents = (events || []).filter((event) => !isSyntheticTestEvent(event));
+      return selectedOfferId && selectedOfferId !== "all"
+        ? productionEvents.filter(
             (event) =>
               event.offer_id === selectedOfferId ||
               event.attribution?.offer_id === selectedOfferId,
           )
-        : events || [],
+        : productionEvents;
+    },
     [events, selectedOfferId],
   );
   const realPageviewCount = filteredEventsForView.filter(
@@ -433,6 +457,7 @@ export function LeadScrollVisualizer({
       let maxScroll = 0;
       let hasViewCTA = false;
       let hasCheckout = false;
+      const hasPageView = sessionEvents.some((e) => e.event_type === "pageview");
 
       sessionEvents.forEach((e) => {
         const type = (e.event_type || "").toLowerCase();
@@ -487,7 +512,9 @@ export function LeadScrollVisualizer({
         statusColor = "#3B82F6";
       } else {
         status = "bounced";
-        statusLabel = `Rejeição Rápida (${maxScroll}%)`;
+        statusLabel = hasPageView
+          ? "Sem rolagem capturada"
+          : "Sem PageView capturado";
         statusColor = "#94A3B8";
       }
 
