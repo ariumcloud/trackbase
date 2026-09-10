@@ -157,7 +157,10 @@ export function normalizePayment(
       (
         str(
           provider === "hotmart"
-            ? price.currency_value
+            ? (price.currency_value ??
+              price.currency_code ??
+              price.currency_value_code ??
+              price.currency_code_value)
             : (data.currency ?? data.currency_code),
         ) ||
         fallbackCurrency ||

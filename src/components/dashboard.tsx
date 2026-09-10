@@ -72,7 +72,12 @@ import {
   sendTestPushAction,
 } from "@/app/actions";
 import { buildLink, metaDefaults } from "@/lib/utm";
-import { calculate, dayInZone } from "@/lib/metrics";
+import { dayInZone } from "@/lib/metrics";
+import {
+  convertCurrencyAmount,
+  formatCurrencyAmount,
+  type ExchangeRates,
+} from "@/lib/currency";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 import type { AlertItem } from "@/lib/alerts";
 import type {
@@ -285,6 +290,7 @@ export function Dashboard(p: Props) {
     [modal, setModal] = useState<string | null>(null),
     [period, setPeriod] = useState(p.initialPeriod || "7"),
     [currency, setCurrency] = useState(p.initialCurrency || "BRL"),
+    [exchangeRates, setExchangeRates] = useState<ExchangeRates | null>(null),
     [offer, setOffer] = useState("all"),
     [provider, setProvider] = useState(p.initialProvider || "all"),
     [notice, setNotice] = useState(""),
@@ -318,6 +324,19 @@ export function Dashboard(p: Props) {
   useEffect(() => {
     setProvider(p.initialProvider || "all");
   }, [p.initialProvider]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/exchange-rates")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (alive && data?.rates) setExchangeRates({ USD: 1, ...data.rates });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -413,7 +432,6 @@ export function Dashboard(p: Props) {
     return (
       sDay >= since &&
       sDay <= until &&
-      s.currency === currency &&
       (offer === "all" || s.offer_id === offer) &&
       (provider === "all" || s.provider === provider)
     );
@@ -435,7 +453,6 @@ export function Dashboard(p: Props) {
           (i) =>
             i.day >= since &&
             i.day <= until &&
-            i.currency === currency &&
             (!i.integration_id || allowedInsightIntegrations.has(i.integration_id)),
         )
       : [];
@@ -448,46 +465,54 @@ export function Dashboard(p: Props) {
   );
 
   const s = p.summary;
-  const useSummary = Boolean(s && provider === "all");
-  const fallback = calculate(sales, insights, currency);
-
-  // Keep the rows loaded for this same period as a defensive fallback. If
-  // the RPC is briefly stale (or returns NULL while Meta data is present),
-  // the UI must not disguise a real spend as an indistinguishable $0.00.
-  const loadedCurrencyInsights = insights.filter(
-    (insight) => insight.currency === currency,
+  const convertAmount = useCallback(
+    (amount: number | null | undefined, sourceCurrency: string | null | undefined) =>
+      convertCurrencyAmount(amount, sourceCurrency, currency, exchangeRates),
+    [currency, exchangeRates],
   );
-  const loadedInsightSpend = loadedCurrencyInsights.reduce(
-    (total, insight) => total + Number(insight.spend || 0),
+  const approvedSales = sales.filter(
+    (sale) => !sale.is_test && isApprovedSaleStatus(sale.status),
+  );
+  const refundedSales = sales.filter(
+    (sale) => !sale.is_test && isRefundedSaleStatus(sale.status),
+  );
+  const sumSales = (
+    rows: SaleRow[],
+    field: "gross_amount" | "fee_amount" | "net_amount",
+  ) =>
+    rows.reduce((total, sale) => {
+      const raw =
+        field === "gross_amount"
+          ? sale.gross_amount ?? sale.amount
+          : field === "fee_amount"
+            ? sale.fee_amount ?? 0
+            : sale.net_amount ?? sale.gross_amount ?? sale.amount;
+      return total + (convertAmount(raw, sale.currency) ?? 0);
+    }, 0);
+  const grossRevenue = sumSales(approvedSales, "gross_amount");
+  const platformFees = sumSales(approvedSales, "fee_amount");
+  const netRevenue = sumSales(approvedSales, "net_amount");
+  const purchases = approvedSales.length;
+  const uniqueBuyers = new Set(
+    approvedSales.map((sale) => sale.parent_transaction_id || sale.id),
+  ).size;
+  const convertedInsights = insights.reduce(
+    (total, insight) =>
+      total + (convertAmount(insight.spend, insight.currency) ?? 0),
     0,
   );
-  const summarySpend = s?.meta_spend == null ? null : Number(s.meta_spend);
-
-  const grossRevenue = useSummary ? Number(s!.gross_revenue) : fallback.revenue;
-  const platformFees = useSummary ? Number(s!.platform_fees || 0) : 0;
-  const netRevenue = useSummary
-    ? Number(s!.net_revenue || s!.gross_revenue)
-    : fallback.revenue;
-  const purchases = useSummary ? Number(s!.sales_count) : fallback.purchases;
-  const uniqueBuyers = useSummary
-    ? Number(s!.unique_buyers || s!.sales_count)
-    : fallback.purchases;
-  const spend = useSummary
-    ? summarySpend === null
-      ? loadedCurrencyInsights.length > 0
-        ? loadedInsightSpend
-        : null
-      : summarySpend > 0 || loadedInsightSpend === 0
-        ? summarySpend
-        : loadedInsightSpend
-    : fallback.spend;
-  const clicks = useSummary ? Number(s!.meta_clicks) : fallback.clicks;
-  const impressions = useSummary
-    ? Number(s!.meta_impressions)
-    : fallback.impressions;
-  const pageviews = useSummary ? Number(s!.pageviews) : 0;
-  const ctas = useSummary ? Number(s!.ctas) : 0;
-  const checkouts = useSummary ? Number(s!.checkouts) : 0;
+  const spend = insights.length > 0 ? convertedInsights : null;
+  const clicks = insights.reduce(
+    (total, insight) => total + Number(insight.clicks || 0),
+    0,
+  );
+  const impressions = insights.reduce(
+    (total, insight) => total + Number(insight.impressions || 0),
+    0,
+  );
+  const pageviews = provider === "all" ? Number(s?.pageviews || 0) : 0;
+  const ctas = provider === "all" ? Number(s?.ctas || 0) : 0;
+  const checkouts = provider === "all" ? Number(s?.checkouts || 0) : 0;
 
   const operatingProfit = spend === null ? null : netRevenue - spend;
   const netMargin =
@@ -501,16 +526,36 @@ export function Dashboard(p: Props) {
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
   const cpc = clicks > 0 && spend !== null ? spend / clicks : null;
 
-  const refundedCount = useSummary
-    ? Number(s!.refunded_count)
-    : sales.filter((x) => isRefundedSaleStatus(x.status)).length;
-  const refundedAmount = useSummary ? Number(s!.refunded_amount) : 0;
+  const refundedCount = refundedSales.length;
+  const refundedAmount = sumSales(refundedSales, "gross_amount");
   const totalOrders = purchases + refundedCount;
   const refundRate =
     totalOrders > 0 ? (refundedCount / totalOrders) * 100 : null;
 
-  const byProduct = s?.by_product_type || {};
-  const byCountry = s?.by_country || {};
+  const byProduct = approvedSales.reduce<Record<string, { count: number; revenue: number }>>(
+    (result, sale) => {
+      const key = sale.product_type || "main";
+      const current = result[key] || { count: 0, revenue: 0 };
+      current.count += 1;
+      current.revenue +=
+        convertAmount(sale.gross_amount ?? sale.amount, sale.currency) ?? 0;
+      result[key] = current;
+      return result;
+    },
+    {},
+  );
+  const byCountry = approvedSales.reduce<Record<string, { count: number; revenue: number }>>(
+    (result, sale) => {
+      const key = sale.country || "BR";
+      const current = result[key] || { count: 0, revenue: 0 };
+      current.count += 1;
+      current.revenue +=
+        convertAmount(sale.gross_amount ?? sale.amount, sale.currency) ?? 0;
+      result[key] = current;
+      return result;
+    },
+    {},
+  );
 
   const byPlacement = useMemo(() => {
     const map = new Map<
@@ -575,7 +620,8 @@ export function Dashboard(p: Props) {
 
       const curr = map.get(displayName) || { count: 0, revenue: 0, platform, icon, name: displayName };
       curr.count += 1;
-      curr.revenue += Number(sale.gross_amount ?? sale.amount ?? 0);
+      curr.revenue +=
+        convertAmount(sale.gross_amount ?? sale.amount ?? 0, sale.currency) ?? 0;
       map.set(displayName, curr);
     }
 
@@ -589,7 +635,7 @@ export function Dashboard(p: Props) {
       top: list[0] || null,
       totalCount,
     };
-  }, [sales]);
+  }, [sales, convertAmount]);
 
   const metrics = {
     revenue: grossRevenue,
@@ -624,12 +670,11 @@ export function Dashboard(p: Props) {
     (i) => i.provider !== "meta" && i.status === "connected",
   );
   const money = (v: number | null) =>
-    v === null
-      ? "—"
-      : new Intl.NumberFormat(currency === "USD" ? "en-US" : "pt-BR", {
-          style: "currency",
-          currency,
-        }).format(v);
+    formatCurrencyAmount(
+      v,
+      currency,
+      currency === "USD" ? "en-US" : "pt-BR",
+    );
 
   const changePeriod = (val: string) => {
     setPeriod(val);
@@ -1231,6 +1276,7 @@ export function Dashboard(p: Props) {
                 offers={p.offers}
                 integrations={p.integrations}
                 currency={currency}
+                exchangeRates={exchangeRates}
                 period={period}
                 changePeriod={changePeriod}
                 selectedOffer={offer}
@@ -1254,6 +1300,7 @@ export function Dashboard(p: Props) {
                 endDate={until}
                 timezone={timezone}
                 currency={currency}
+                exchangeRates={exchangeRates}
               />
 
               <div
@@ -1450,16 +1497,24 @@ export function Dashboard(p: Props) {
                           .filter(
                             (s) =>
                               isApprovedSaleStatus(s.status) &&
-                              s.currency === currency &&
                               dayInZone(new Date(s.occurred_at), timezone) ===
                                 key,
                           )
-                          .reduce((a, s) => a + Number(s.gross_amount ?? s.amount), 0);
+                          .reduce(
+                            (a, s) =>
+                              a +
+                              (convertAmount(
+                                s.gross_amount ?? s.amount,
+                                s.currency,
+                              ) ?? 0),
+                            0,
+                          );
                         const spend = insights
-                          .filter(
-                            (s) => s.currency === currency && s.day === key,
-                          )
-                          .reduce((a, s) => a + Number(s.spend), 0);
+                          .filter((s) => s.day === key)
+                          .reduce(
+                            (a, s) => a + (convertAmount(s.spend, s.currency) ?? 0),
+                            0,
+                          );
                         const max = Math.max(
                           metrics.revenue,
                           metrics.spend ?? 0,
@@ -1585,8 +1640,7 @@ export function Dashboard(p: Props) {
                           const paid = sales.filter(
                             (s) =>
                               s.offer_id === o.id &&
-                              isApprovedSaleStatus(s.status) &&
-                              s.currency === currency,
+                              isApprovedSaleStatus(s.status),
                           );
                           return (
                             <tr key={o.id}>
@@ -1597,7 +1651,12 @@ export function Dashboard(p: Props) {
                               <td>
                                 {money(
                                   paid.reduce(
-                                    (n, s) => n + Number(s.gross_amount ?? s.amount),
+                                    (n, s) =>
+                                      n +
+                                      (convertAmount(
+                                        s.gross_amount ?? s.amount,
+                                        s.currency,
+                                      ) ?? 0),
                                     0,
                                   ),
                                 )}

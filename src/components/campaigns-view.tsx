@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration, Offer, TrackingEvent } from "@/lib/types";
 import { isApprovedSaleStatus } from "@/lib/sale-status";
+import { convertCurrencyAmount } from "@/lib/currency";
 
 type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
 
@@ -639,7 +640,6 @@ export function CampaignsView({
   const insightsMap = useMemo(() => {
     const map = new Map<string, { spend: number; clicks: number; impressions: number }>();
     for (const ins of insights) {
-      if (ins.currency?.toUpperCase() !== selectedCurrency.toUpperCase()) continue;
       if (selectedIntegration !== "all" && ins.integration_id !== selectedIntegration) continue;
       const targetId =
         kind === "campaign"
@@ -650,13 +650,19 @@ export function CampaignsView({
       if (!targetId) continue;
       const key = `${ins.integration_id || ""}:${targetId}`;
       const current = map.get(key) || { spend: 0, clicks: 0, impressions: 0 };
-      current.spend += Number(ins.spend || 0);
+      current.spend +=
+        convertCurrencyAmount(
+          Number(ins.spend || 0),
+          ins.currency,
+          selectedCurrency,
+          exchangeRates,
+        ) ?? 0;
       current.clicks += Number(ins.clicks || 0);
       current.impressions += Number(ins.impressions || 0);
       map.set(key, current);
     }
     return map;
-  }, [insights, kind, selectedCurrency, selectedIntegration]);
+  }, [insights, kind, selectedCurrency, selectedIntegration, exchangeRates]);
 
   // 2. Agregação de vendas aprovadas e rastreadas pelas UTMs
   const salesMap = useMemo(() => {
@@ -665,7 +671,6 @@ export function CampaignsView({
       if (sale.is_test || !isApprovedSaleStatus(sale.status)) continue;
       if (selectedOffer !== "all" && sale.offer_id !== selectedOffer) continue;
       const saleCurrency = (sale.currency || offers.find((offer) => offer.id === sale.offer_id)?.currency || "").toUpperCase();
-      if (saleCurrency !== selectedCurrency.toUpperCase()) continue;
       const attr = sale.attribution || {};
       const targetId =
         kind === "campaign"
@@ -676,11 +681,17 @@ export function CampaignsView({
       if (!targetId) continue;
       const current = map.get(targetId) || { count: 0, revenue: 0 };
       current.count += 1;
-      current.revenue += Number(sale.gross_amount ?? sale.amount ?? 0);
+      current.revenue +=
+        convertCurrencyAmount(
+          Number(sale.gross_amount ?? sale.amount ?? 0),
+          saleCurrency,
+          selectedCurrency,
+          exchangeRates,
+        ) ?? 0;
       map.set(targetId, current);
     }
     return map;
-  }, [sales, kind, selectedOffer, selectedCurrency, offers]);
+  }, [sales, kind, selectedOffer, selectedCurrency, offers, exchangeRates]);
 
   // Checkouts precisam ser eventos reais atribuídos ao mesmo identificador
   // usado pela entidade Meta. Nunca estime IC a partir de cliques: isso faz

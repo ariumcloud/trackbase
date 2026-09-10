@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { SaleRow, InsightRow, Offer, Integration } from "@/lib/types";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
+import { convertCurrencyAmount, type ExchangeRates } from "@/lib/currency";
 
 interface UtmifySummaryProps {
   sales: SaleRow[];
@@ -16,6 +17,7 @@ interface UtmifySummaryProps {
   offers: Offer[];
   integrations: Integration[];
   currency: string;
+  exchangeRates?: ExchangeRates | null;
   period: string;
   changePeriod: (val: string) => void;
   selectedOffer: string;
@@ -48,6 +50,7 @@ export function UtmifySummary({
   offers,
   integrations,
   currency,
+  exchangeRates,
   changeCurrency,
   period,
   changePeriod,
@@ -80,7 +83,14 @@ export function UtmifySummary({
     )
   );
   const pendingRevenue = pendingSales.reduce(
-    (acc, s) => acc + (s.gross_amount || s.amount || 0),
+    (acc, s) =>
+      acc +
+      (convertCurrencyAmount(
+        s.gross_amount || s.amount || 0,
+        s.currency,
+        currency,
+        exchangeRates,
+      ) ?? 0),
     0
   );
 

@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import type { SaleRow, InsightRow } from "@/lib/types";
 import { dayInZone } from "@/lib/metrics";
 import { isApprovedSaleStatus } from "@/lib/sale-status";
+import { convertCurrencyAmount, formatCurrencyAmount, type ExchangeRates } from "@/lib/currency";
 import { Calendar } from "lucide-react";
 
 interface DailyChartProps {
@@ -13,6 +14,7 @@ interface DailyChartProps {
   endDate: string;
   timezone: string;
   currency: string;
+  exchangeRates?: ExchangeRates | null;
 }
 
 interface DayData {
@@ -32,6 +34,7 @@ export function GraficoDiario({
   endDate,
   timezone,
   currency,
+  exchangeRates,
 }: DailyChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -66,17 +69,23 @@ export function GraficoDiario({
       const sDay = dayInZone(new Date(s.occurred_at), timezone);
       const entry = dayMap.get(sDay);
       if (entry) {
-        entry.revenue += Number(s.gross_amount ?? s.amount ?? 0);
+        entry.revenue +=
+          convertCurrencyAmount(
+            s.gross_amount ?? s.amount ?? 0,
+            s.currency,
+            currency,
+            exchangeRates,
+          ) ?? 0;
         entry.salesCount += 1;
       }
     }
 
     // Aggregate insights (spend)
     for (const inst of insights) {
-      if (inst.currency !== currency) continue;
       const entry = dayMap.get(inst.day);
       if (entry) {
-        entry.spend += Number(inst.spend || 0);
+        entry.spend +=
+          convertCurrencyAmount(inst.spend || 0, inst.currency, currency, exchangeRates) ?? 0;
       }
     }
 
@@ -87,7 +96,7 @@ export function GraficoDiario({
     }
 
     return result;
-  }, [sales, insights, periodDays, endDate, timezone, currency]);
+  }, [sales, insights, periodDays, endDate, timezone, currency, exchangeRates]);
 
   const maxVal = useMemo(() => {
     let max = 100;
@@ -113,8 +122,7 @@ export function GraficoDiario({
     return { rev, spd, prof, roas, salesCount };
   }, [daysData]);
 
-  const money = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(v);
+  const money = (v: number) => formatCurrencyAmount(v, currency);
 
   const chartHeight = 220;
   const paddingBottom = 28;

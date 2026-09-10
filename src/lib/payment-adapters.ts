@@ -122,8 +122,20 @@ export const hotmartAdapter: PaymentAdapter = {
         grossAmount: gross,
         netAmount: net,
         fees: fee,
-        grossCurrency: cleanCurrency(price.currency_code_value || price.currency_value_code, context.fallbackCurrency),
-        netCurrency: cleanCurrency(price.currency_code_value || price.currency_value_code, context.fallbackCurrency),
+        grossCurrency: cleanCurrency(
+          price.currency_value ||
+            price.currency_code ||
+            price.currency_value_code ||
+            price.currency_code_value,
+          context.fallbackCurrency,
+        ),
+        netCurrency: cleanCurrency(
+          price.currency_value ||
+            price.currency_code ||
+            price.currency_value_code ||
+            price.currency_code_value,
+          context.fallbackCurrency,
+        ),
         country: cleanCountry(buyer.checkout_country || buyer.country),
         buyer: {
           name: str(buyer.name) || null,

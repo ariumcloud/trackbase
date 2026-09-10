@@ -42,6 +42,21 @@ test("Hotmart: normaliza compra aprovada, order bump, reembolso e UTMs", () => {
     { receivedAt },
   );
   assert.equal(refundEvent.type, "purchase_refunded");
+
+  const [arsEvent] = paymentAdapters.hotmart.normalize(
+    {
+      ...payload,
+      data: {
+        ...payload.data,
+        purchase: {
+          ...payload.data.purchase,
+          price: { value: 26000, currency_value: "ARS" },
+        },
+      },
+    },
+    { receivedAt, fallbackCurrency: "USD" },
+  );
+  assert.equal(arsEvent.grossCurrency, "ARS");
 });
 
 test("Kiwify: normaliza compra aprovada, boleto, order bump e comprador", () => {
@@ -306,4 +321,3 @@ test("Stripe: normaliza checkout.session.completed, conversão de centavos e met
   assert.equal(event.buyer?.name, "John Stripe");
   assert.equal(event.attribution.utm_source, "google_ads");
 });
-
