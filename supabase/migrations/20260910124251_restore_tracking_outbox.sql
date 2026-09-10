@@ -116,3 +116,4 @@ $$;
 
 revoke all on function public.utm_track_event(text, jsonb), public.utm_claim_capi_outbox(integer) from public, anon, authenticated;
 grant execute on function public.utm_track_event(text, jsonb), public.utm_claim_capi_outbox(integer) to service_role;
+
