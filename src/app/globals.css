@@ -6497,8 +6497,7 @@ textarea {
 
 .overview-share-card-brand,
 .overview-share-card-content,
-.overview-share-stats,
-.overview-share-button {
+.overview-share-stats {
   position: relative;
   z-index: 1;
 }
@@ -6575,32 +6574,6 @@ textarea {
   color: rgba(255, 255, 255, 0.78);
   font-size: 11px;
   font-weight: 600;
-}
-
-.overview-share-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: start;
-  gap: 7px;
-  min-height: 34px;
-  padding: 7px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.13);
-  color: #fff;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 750;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.overview-share-button:hover,
-.overview-share-button:focus-visible {
-  border-color: rgba(255, 255, 255, 0.62);
-  background: rgba(255, 255, 255, 0.22);
-  outline: none;
 }
 
 @media (max-width: 768px) {
