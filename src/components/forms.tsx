@@ -100,6 +100,30 @@ export function AuthForm({ configured }: { configured: boolean }) {
             }
             label={register ? "Criar minha conta" : "Entrar na minha conta"}
           >
+            {register && (
+              <label>
+                <span className="auth-field-label">Nome completo</span>
+                <input
+                  name="full_name"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Seu nome e sobrenome"
+                  minLength={3}
+                  maxLength={120}
+                  required
+                />
+                <small
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--muted)",
+                    marginTop: "2px",
+                    display: "block",
+                  }}
+                >
+                  Use nome e sobrenome para identificar sua operação
+                </small>
+              </label>
+            )}
             <label>
               <span className="auth-field-label">E-mail</span>
               <input

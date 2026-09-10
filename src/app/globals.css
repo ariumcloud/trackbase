@@ -6341,3 +6341,307 @@ textarea {
   }
 }
 
+/* Campaign status: show Meta's effective state instead of reducing every
+   non-ACTIVE response to the same gray/green dot. */
+.campaign-status-cell {
+  min-width: 150px;
+  text-align: center;
+}
+
+.campaign-status-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.campaign-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.campaign-status-success {
+  color: #047857;
+  background: #D1FAE5;
+  border-color: #A7F3D0;
+}
+
+.campaign-status-muted {
+  color: #475569;
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.campaign-status-warning {
+  color: #92400E;
+  background: #FEF3C7;
+  border-color: #FCD34D;
+}
+
+.campaign-status-info {
+  color: #1D4ED8;
+  background: #DBEAFE;
+  border-color: #93C5FD;
+}
+
+.campaign-status-danger {
+  color: #B91C1C;
+  background: #FEE2E2;
+  border-color: #FCA5A5;
+}
+
+.utmify-toggle.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.utmify-toggle input:disabled + .utmify-toggle-slider {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.campaign-id-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+}
+
+.campaign-id-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.campaign-id-toggle:hover,
+.campaign-id-toggle:focus-visible {
+  border-color: var(--brand-accent);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}
+
+[data-theme="dark"] .campaign-status-success {
+  color: #6EE7B7;
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.36);
+}
+
+[data-theme="dark"] .campaign-status-muted {
+  color: #CBD5E1;
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="dark"] .campaign-status-warning {
+  color: #FCD34D;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(251, 191, 36, 0.36);
+}
+
+[data-theme="dark"] .campaign-status-info {
+  color: #93C5FD;
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(96, 165, 250, 0.36);
+}
+
+[data-theme="dark"] .campaign-status-danger {
+  color: #FCA5A5;
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(248, 113, 113, 0.36);
+}
+
+/* A compact, branded block makes the overview safe to screenshot and share. */
+.overview-share-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+  margin: 18px 0;
+  padding: 18px 20px;
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #26145F 0%, #4321A5 58%, #5B34EA 100%);
+  color: #fff;
+  box-shadow: 0 14px 32px rgba(67, 33, 165, 0.18);
+}
+
+.overview-share-card::after {
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  right: -55px;
+  top: -85px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  content: "";
+}
+
+.overview-share-card-brand,
+.overview-share-card-content,
+.overview-share-stats,
+.overview-share-button {
+  position: relative;
+  z-index: 1;
+}
+
+.overview-share-card-brand {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.overview-share-card-brand span:first-child {
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.overview-share-card-content {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 0;
+}
+
+.overview-share-product,
+.overview-share-profit {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.overview-share-product small,
+.overview-share-profit small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.overview-share-product strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-share-profit {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.overview-share-profit strong {
+  color: #A7F3D0;
+  font-size: 24px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.overview-share-profit strong.negative {
+  color: #FCA5A5;
+}
+
+.overview-share-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.overview-share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.overview-share-button:hover,
+.overview-share-button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.22);
+  outline: none;
+}
+
+@media (max-width: 768px) {
+  .campaign-status-cell {
+    min-width: 136px;
+  }
+
+  .campaign-status-badge {
+    font-size: 9px;
+  }
+
+  .campaign-id-toggle {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (max-width: 600px) {
+  .overview-share-card {
+    padding: 16px;
+  }
+
+  .overview-share-card-brand {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .overview-share-card-content {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .overview-share-product strong {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .overview-share-profit {
+    text-align: left;
+  }
+}
+

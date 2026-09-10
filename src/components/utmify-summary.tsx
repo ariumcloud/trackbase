@@ -6,6 +6,7 @@ import {
   Info,
   Calendar,
   ChevronDown,
+  Share2,
 } from "lucide-react";
 import type { SaleRow, InsightRow, Offer, Integration } from "@/lib/types";
 
@@ -62,6 +63,7 @@ export function UtmifySummary({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "shared">("idle");
 
   const formatMoney = (val: number | null | undefined) => {
     if (val === null || val === undefined) return "—";
@@ -162,6 +164,51 @@ export function UtmifySummary({
       return `${s.slice(5)} até ${e.slice(5)}`;
     }
     return `Período (${period})`;
+  };
+
+  const selectedOfferName =
+    selectedOffer === "all"
+      ? offers.length === 1
+        ? offers[0].name
+        : "Todas as ofertas"
+      : offers.find((offer) => offer.id === selectedOffer)?.name || "Oferta selecionada";
+
+  const shareText = `${selectedOfferName} · Lucro ${formatMoney(metrics.operatingProfit)} · ${metrics.purchases} vendas · Trackbase`;
+
+  const handleShare = async () => {
+    if (typeof window === "undefined") return;
+    const shareData = {
+      title: `${selectedOfferName} · Trackbase`,
+      text: shareText,
+      url: window.location.href,
+    };
+
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share(shareData);
+        setShareStatus("shared");
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText);
+        setShareStatus("copied");
+      } else {
+        const fallback = document.createElement("textarea");
+        fallback.value = shareText;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.appendChild(fallback);
+        fallback.select();
+        document.execCommand("copy");
+        fallback.remove();
+        setShareStatus("copied");
+      }
+      window.setTimeout(() => setShareStatus("idle"), 2200);
+    } catch (error) {
+      // Cancelar o compartilhamento nativo não deve exibir erro para o usuário.
+      if ((error as DOMException)?.name !== "AbortError") {
+        console.error("Share overview failed", error);
+      }
+    }
   };
 
   const applyCustomDates = () => {
@@ -286,6 +333,43 @@ export function UtmifySummary({
           </button>
         </div>
       </div>
+
+      <section className="overview-share-card" aria-label="Resumo compartilhável da operação">
+        <div className="overview-share-card-brand">
+          <span>Trackbase</span>
+          <span>Visão geral · {getDateLabel()}</span>
+        </div>
+        <div className="overview-share-card-content">
+          <div className="overview-share-product">
+            <small>Produto</small>
+            <strong title={selectedOfferName}>{selectedOfferName}</strong>
+          </div>
+          <div className="overview-share-profit">
+            <small>Lucro operacional</small>
+            <strong className={metrics.operatingProfit === null ? "" : metrics.operatingProfit >= 0 ? "positive" : "negative"}>
+              {formatMoney(metrics.operatingProfit)}
+            </strong>
+          </div>
+        </div>
+        <div className="overview-share-stats">
+          <span>{metrics.purchases} vendas</span>
+          <span>{formatMoney(metrics.netRevenue)} líquido</span>
+          <span>trackbase.com.br</span>
+        </div>
+        <button
+          type="button"
+          className="overview-share-button"
+          onClick={handleShare}
+          title="Compartilhar este resumo com a marca Trackbase"
+        >
+          <Share2 size={15} />
+          {shareStatus === "shared"
+            ? "Compartilhado"
+            : shareStatus === "copied"
+            ? "Resumo copiado"
+            : "Compartilhar resumo"}
+        </button>
+      </section>
 
       {/* 2. Barra de 4 Filtros Alinhados */}
       <div className="utmify-filters-bar">

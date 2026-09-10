@@ -20,8 +20,178 @@ import {
   Pencil,
   Check,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration, Offer } from "@/lib/types";
+
+type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
+
+type EntityStatusMeta = {
+  label: string;
+  tone: EntityStatusTone;
+  color: string;
+  description: string;
+  toggleable: boolean;
+};
+
+const ENTITY_STATUS_META: Record<string, EntityStatusMeta> = {
+  ACTIVE: {
+    label: "Veiculando",
+    tone: "success",
+    color: "#10B981",
+    description: "Ativo na Meta e elegível para entrega.",
+    toggleable: true,
+  },
+  PAUSED: {
+    label: "Pausado",
+    tone: "muted",
+    color: "#94A3B8",
+    description: "Pausado manualmente na Meta.",
+    toggleable: true,
+  },
+  PENDING: {
+    label: "Programado",
+    tone: "info",
+    color: "#3B82F6",
+    description: "A Meta ainda não iniciou a veiculação.",
+    toggleable: false,
+  },
+  SCHEDULED: {
+    label: "Programado",
+    tone: "info",
+    color: "#3B82F6",
+    description: "A data de início configurada na Meta ainda não chegou.",
+    toggleable: false,
+  },
+  PENDING_REVIEW: {
+    label: "Em análise",
+    tone: "warning",
+    color: "#F59E0B",
+    description: "A Meta está revisando este anúncio.",
+    toggleable: false,
+  },
+  IN_PROCESS: {
+    label: "Processando",
+    tone: "info",
+    color: "#3B82F6",
+    description: "A Meta está processando alterações.",
+    toggleable: false,
+  },
+  PREAPPROVED: {
+    label: "Aprovado",
+    tone: "info",
+    color: "#3B82F6",
+    description: "Aprovado, aguardando as condições para entrega.",
+    toggleable: false,
+  },
+  LEARNING: {
+    label: "Em aprendizado",
+    tone: "info",
+    color: "#3B82F6",
+    description: "A Meta ainda está aprendendo a otimizar a entrega.",
+    toggleable: false,
+  },
+  LEARNING_LIMITED: {
+    label: "Aprendizado limitado",
+    tone: "warning",
+    color: "#F59E0B",
+    description: "A entrega está ativa, mas com aprendizado limitado.",
+    toggleable: false,
+  },
+  CAMPAIGN_PAUSED: {
+    label: "Campanha pausada",
+    tone: "warning",
+    color: "#F59E0B",
+    description: "A campanha acima deste item está pausada.",
+    toggleable: false,
+  },
+  ADSET_PAUSED: {
+    label: "Conjunto pausado",
+    tone: "warning",
+    color: "#F59E0B",
+    description: "O conjunto acima deste anúncio está pausado.",
+    toggleable: false,
+  },
+  WITH_ISSUES: {
+    label: "Com problemas",
+    tone: "danger",
+    color: "#EF4444",
+    description: "A Meta sinalizou problemas que impedem a entrega.",
+    toggleable: false,
+  },
+  DISAPPROVED: {
+    label: "Reprovado",
+    tone: "danger",
+    color: "#EF4444",
+    description: "Reprovado pela política da Meta.",
+    toggleable: false,
+  },
+  PENDING_BILLING_INFO: {
+    label: "Aguardando pagamento",
+    tone: "warning",
+    color: "#F59E0B",
+    description: "A Meta aguarda informações de cobrança.",
+    toggleable: false,
+  },
+  COMPLETED: {
+    label: "Concluído",
+    tone: "muted",
+    color: "#64748B",
+    description: "A veiculação foi concluída.",
+    toggleable: false,
+  },
+  ARCHIVED: {
+    label: "Arquivado",
+    tone: "muted",
+    color: "#64748B",
+    description: "Arquivado na Meta.",
+    toggleable: false,
+  },
+  DELETED: {
+    label: "Excluído",
+    tone: "danger",
+    color: "#EF4444",
+    description: "Excluído na Meta.",
+    toggleable: false,
+  },
+  DISABLED: {
+    label: "Desativado",
+    tone: "muted",
+    color: "#64748B",
+    description: "Desativado na Meta.",
+    toggleable: false,
+  },
+  ERROR: {
+    label: "Erro",
+    tone: "danger",
+    color: "#EF4444",
+    description: "A Meta retornou um erro para este item.",
+    toggleable: false,
+  },
+};
+
+function getEntityStatusMeta(status: string): EntityStatusMeta {
+  const normalized = status.trim().toUpperCase();
+  return ENTITY_STATUS_META[normalized] ?? {
+    label: normalized
+      ? normalized.replaceAll("_", " ").toLocaleLowerCase("pt-BR")
+      : "Sem status",
+    tone: "muted",
+    color: "#94A3B8",
+    description: "Status informado pela Meta, sem ação disponível no painel.",
+    toggleable: false,
+  };
+}
+
+function maskMetaId(id: string): string {
+  if (id.length <= 6) return "••••";
+  return `${id.slice(0, 3)}••••${id.slice(-4)}`;
+}
+
+function isEntityDelivering(status: string): boolean {
+  return ["ACTIVE", "LEARNING", "LEARNING_LIMITED"].includes(status.trim().toUpperCase());
+}
 
 export type ColumnKey =
   | "status"
@@ -207,6 +377,7 @@ export function CampaignsView({
   const [selectedOffer, setSelectedOffer] = useState("all");
   const [selectedCurrency, setSelectedCurrency] = useState<string>(currency || "BRL");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [budgetEditor, setBudgetEditor] = useState<{ integration: string; id: string; kind: "campaign" | "adset"; name: string; amount: number | null; currency: string; type: "daily" | "lifetime" | null } | null>(null);
@@ -499,7 +670,7 @@ export function CampaignsView({
         cpm,
       };
     });
-  }, [filteredEntities, insightsMap, salesMap, period, integrations]);
+  }, [filteredEntities, insightsMap, salesMap, integrations]);
 
   // 5. Ordenação dinâmica
   const sortedRows = useMemo(() => {
@@ -710,6 +881,8 @@ export function CampaignsView({
   };
 
   const toggleEntityStatus = (entity: Entity) => {
+    const currentStatus = getEntityStatusMeta(entity.status);
+    if (!currentStatus.toggleable) return;
     const nextStatus = entity.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
     if (
       nextStatus === "PAUSED" &&
@@ -1020,8 +1193,12 @@ export function CampaignsView({
             aria-label="Status da Campanha"
           >
             <option value="all">Status: Todos</option>
-            <option value="ACTIVE">Apenas Ativos</option>
-            <option value="PAUSED">Apenas Pausados</option>
+            <option value="ACTIVE">Veiculando</option>
+            <option value="PAUSED">Pausados</option>
+            <option value="SCHEDULED">Programados</option>
+            <option value="PENDING_REVIEW">Em análise</option>
+            <option value="WITH_ISSUES">Com problemas</option>
+            <option value="DISAPPROVED">Reprovados</option>
           </select>
         </div>
 
@@ -1176,9 +1353,9 @@ export function CampaignsView({
                 </th>
                 {visibleCols.status && (
                   <th
-                    style={{ width: "65px", textAlign: "center" }}
+                    className="campaign-status-cell th-sortable"
+                    style={{ textAlign: "center" }}
                     onClick={() => handleSort("status")}
-                    className="th-sortable"
                   >
                     <div className="th-content-center">
                       <span>Status</span>
@@ -1401,6 +1578,8 @@ export function CampaignsView({
             <tbody>
               {sortedRows.map((row) => {
                 const isSelected = selectedIds.has(row.entity.external_id);
+                const statusMeta = getEntityStatusMeta(row.entity.status);
+                const isIdRevealed = revealedIds.has(row.entity.external_id);
                 return (
                   <tr
                     key={row.entity.external_id}
@@ -1417,18 +1596,28 @@ export function CampaignsView({
 
                     {/* Status com iOS Toggle Switch */}
                     {visibleCols.status && (
-                      <td style={{ textAlign: "center" }}>
+                      <td className="campaign-status-cell">
+                        <div className="campaign-status-control">
                         <label
-                          className="utmify-toggle"
-                          title={`Status: ${row.entity.status}`}
+                          className={`utmify-toggle ${statusMeta.toggleable ? "" : "is-disabled"}`}
+                          title={`${statusMeta.label}: ${statusMeta.description}`}
                         >
                           <input
                             type="checkbox"
-                            checked={row.entity.status === "ACTIVE"}
+                            checked={isEntityDelivering(row.entity.status)}
+                            disabled={!statusMeta.toggleable || pending}
                             onChange={() => toggleEntityStatus(row.entity)}
+                            aria-label={`${statusMeta.label}. ${statusMeta.toggleable ? "Alternar status" : "Status somente leitura"}`}
                           />
                           <span className="utmify-toggle-slider" />
                         </label>
+                          <span
+                            className={`campaign-status-badge campaign-status-${statusMeta.tone}`}
+                            title={statusMeta.description}
+                          >
+                            {statusMeta.label}
+                          </span>
+                        </div>
                       </td>
                     )}
 
@@ -1439,16 +1628,9 @@ export function CampaignsView({
                           <span
                             className="utmify-entity-indicator"
                             style={{
-                              background:
-                                row.entity.status === "ACTIVE"
-                                  ? "#10B981"
-                                  : "#9CA3AF",
+                              background: statusMeta.color,
                             }}
-                            title={
-                              row.entity.status === "ACTIVE"
-                                ? "Ativo"
-                                : "Pausado"
-                            }
+                            title={`${statusMeta.label}: ${statusMeta.description}`}
                           />
                           <div style={{ minWidth: 0 }}>
                             <strong
@@ -1463,14 +1645,32 @@ export function CampaignsView({
                             >
                               {row.entity.name}
                             </strong>
-                            <small
-                              style={{
-                                color: "var(--muted, #9CA3AF)",
-                                fontSize: "0.72rem",
-                              }}
-                            >
-                              ID: {row.entity.external_id}
-                            </small>
+                            <div className="campaign-id-row">
+                              <small
+                                style={{
+                                  color: "var(--muted, #9CA3AF)",
+                                  fontSize: "0.72rem",
+                                }}
+                              >
+                                ID: {isIdRevealed ? row.entity.external_id : maskMetaId(row.entity.external_id)}
+                              </small>
+                              <button
+                                type="button"
+                                className="campaign-id-toggle"
+                                onClick={() => {
+                                  setRevealedIds((previous) => {
+                                    const next = new Set(previous);
+                                    if (next.has(row.entity.external_id)) next.delete(row.entity.external_id);
+                                    else next.add(row.entity.external_id);
+                                    return next;
+                                  });
+                                }}
+                                aria-label={isIdRevealed ? "Ocultar ID da Meta" : "Mostrar ID da Meta"}
+                                title={isIdRevealed ? "Ocultar ID da Meta" : "Mostrar ID da Meta"}
+                              >
+                                {isIdRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </td>

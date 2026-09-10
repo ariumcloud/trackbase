@@ -55,21 +55,33 @@ export async function POST(request: Request) {
         id: string;
         name: string;
         status: string;
+        effective_status?: string;
+        start_time?: string;
         campaign_id?: string;
         adset_id?: string;
         daily_budget?: string;
         lifetime_budget?: string;
         created_time?: string;
       }>(`${integration.account_id}/${edge}`, token, {
-        fields: `id,name,status,created_time${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget" : kind === "campaign" ? ",daily_budget,lifetime_budget" : ",adset_id"}`,
+        fields: `id,name,status,effective_status,start_time,created_time${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget" : kind === "campaign" ? ",daily_budget,lifetime_budget" : ",adset_id"}`,
       });
+      const now = Date.now();
       entities.push(
         ...rows.map((r) => ({
           workspace_id: v.workspace,
           integration_id: v.integration,
           external_id: r.id,
           name: r.name,
-          status: r.status,
+          // effective_status reflects inherited pauses, review and policy
+          // decisions; raw status alone is almost always ACTIVE/PAUSED.
+          // A future start_time is kept explicit so the panel can say
+          // "Programado" instead of misleadingly showing "Veiculando".
+          status:
+            (r.effective_status ?? r.status) === "ACTIVE" &&
+            r.start_time &&
+            new Date(r.start_time).getTime() > now
+              ? "SCHEDULED"
+              : r.effective_status ?? r.status,
           kind,
           parent_id: kind === "ad" ? r.adset_id ?? null : kind === "adset" ? r.campaign_id ?? null : null,
           budget_minor: kind === "ad" ? null : Number(r.daily_budget ?? r.lifetime_budget ?? 0) || null,

@@ -62,7 +62,14 @@ export async function updatePassword(form: FormData): Promise<ActionResult> {
   redirect("/login?password=updated");
 }
 export async function signup(form: FormData): Promise<ActionResult> {
-  const email = z.string().email().safeParse(form.get("email")),
+  const fullName = z
+    .string()
+    .trim()
+    .min(3)
+    .max(120)
+    .refine((value) => value.split(/\s+/).filter(Boolean).length >= 2)
+    .safeParse(form.get("full_name")),
+    email = z.string().email().safeParse(form.get("email")),
     phone = z
       .string()
       .trim()
@@ -71,10 +78,10 @@ export async function signup(form: FormData): Promise<ActionResult> {
     rawDoc = form.get("document"),
     password = z.string().min(10).max(128).safeParse(form.get("password"));
 
-  if (!email.success || !phone.success || !password.success) {
+  if (!fullName.success || !email.success || !phone.success || !password.success) {
     return {
       error:
-        "Use um e-mail válido, celular válido e senha com pelo menos 10 caracteres.",
+        "Informe seu nome completo, além de e-mail, celular e uma senha com pelo menos 10 caracteres.",
     };
   }
 
@@ -133,6 +140,8 @@ export async function signup(form: FormData): Promise<ActionResult> {
     options: {
       emailRedirectTo: `${process.env.APP_URL}/auth/callback`,
       data: {
+        full_name: fullName.data,
+        name: fullName.data,
         phone: phone.data,
         document: docValidation.clean,
         document_formatted: docValidation.formatted,
