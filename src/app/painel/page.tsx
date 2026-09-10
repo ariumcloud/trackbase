@@ -1,4 +1,4 @@
-import { db, configured } from "@/lib/supabase/server";
+import { admin, db, configured } from "@/lib/supabase/server";
 import { getAuthUser, checkPlatformAdmin } from "@/lib/platform-admin";
 import { redirect } from "next/navigation";
 import type { PostgrestError } from "@supabase/supabase-js";
@@ -96,6 +96,13 @@ export default async function Page({
     .order("created_at");
   const w: Workspace | null =
     workspaces?.find((w) => w.id === p.workspace) ?? workspaces?.[0] ?? null;
+
+  // O tracker grava eventos via RPC com service_role. A leitura autenticada
+  // dessa tabela pode retornar uma lista vazia quando a política de membro do
+  // ambiente ainda não foi aplicada de forma consistente. O workspace já foi
+  // resolvido pela consulta autenticada acima; o cliente administrativo fica
+  // restrito a esse mesmo workspace e evita perder IC/pageviews no painel.
+  const eventsClient = w ? admin() : client;
 
   const empty = Promise.resolve({ data: [], error: null });
 
@@ -271,7 +278,7 @@ export default async function Page({
           : empty,
         needsEvents
           ? fetchAllRows((from, to) =>
-              client
+              eventsClient
                 .from("utm_events")
                 .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
                 .eq("workspace_id", w.id)
