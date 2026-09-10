@@ -36,6 +36,12 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260908183000_shield_custom_domain.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260910150000_preserve_sale_money_currencies.sql", "utf8"),
+  );
+  await db.exec(
+    readFileSync("supabase/migrations/20260910170000_allow_webhook_replays.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -125,13 +131,28 @@ async function main() {
     db.query<{ status: string }>(
       "select public.utm_process_payment($1,$2) status",
       [integration, JSON.stringify(p)],
-    );
+  );
   assert.equal((await process(payment)).rows[0].status, "processed");
-  assert.equal((await process(payment)).rows[0].status, "duplicate");
+  assert.equal((await process(payment)).rows[0].status, "processed");
   assert.equal(
     (await db.query("select * from public.utm_sales")).rows.length,
     1,
   );
+  assert.equal(
+    (await process({
+      ...payment,
+      country: "AR",
+      attribution: { xcod: "session-ar-1" },
+    })).rows[0].status,
+    "processed",
+  );
+  const repairedSale = (
+    await db.query<{ country: string; attribution: Record<string, string> }>(
+      "select country, attribution from public.utm_sales where transaction_id='tx1'",
+    )
+  ).rows[0];
+  assert.equal(repairedSale.country, "AR");
+  assert.equal(repairedSale.attribution.xcod, "session-ar-1");
   await process({
     ...payment,
     event_id: "refund",
