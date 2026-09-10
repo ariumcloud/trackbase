@@ -15,3 +15,4 @@
 2026-09-10 — deliverable flush: mobile and desktop spend now share period state and resilient Meta insight fallback.
 2026-09-10 — deliverable flush: campaigns poll Meta every two minutes only while visible, with overlap and rate-limit guards.
 2026-09-10 — deliverable flush: full metric audit aligned Meta link clicks, approved/refunded statuses, gross revenue, workspace currency/timezone, paginated loading, campaign IC attribution, alerts and MCP; tests/build/lint passed.
+2026-09-10 — checkpoint: production logs proved Hotmart was calling a deleted integration endpoint (404); desktop push subscription restriction removed, 74 tests/typecheck passed, and production deploy 4d97d83 became ready.
