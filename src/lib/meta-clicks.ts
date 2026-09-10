@@ -12,6 +12,35 @@ function nonNegativeNumber(value: string | number | undefined): number | null {
 }
 
 /**
+ * Returns Meta Ads InitiateCheckout actions across the names used by the
+ * Marketing API (standard, omni and pixel/offsite variants).
+ */
+export function metaInitiateCheckouts(actions?: MetaAction[]): number {
+  const candidates = actions || [];
+  // Meta can return the same conversion under web, standard and omni action
+  // names in one response. Pick one canonical value instead of summing those
+  // aliases and inflating the campaign total.
+  const preferredTypes = [
+    "offsite_conversion.fb_pixel_initiate_checkout",
+    "initiate_checkout",
+    "omni_initiated_checkout",
+  ];
+  for (const preferredType of preferredTypes) {
+    const action = candidates.find(
+      (item) => String(item.action_type || "").toLowerCase() === preferredType,
+    );
+    const value = nonNegativeNumber(action?.value);
+    if (value !== null) return value;
+  }
+
+  const fallback = candidates.find((action) => {
+    const actionType = String(action.action_type || "").toLowerCase();
+    return actionType.includes("initiate_checkout") || actionType.includes("initiated_checkout");
+  });
+  return nonNegativeNumber(fallback?.value) ?? 0;
+}
+
+/**
  * Returns the Meta Ads "link_click" action, never the aggregate "clicks"
  * metric. Older API responses may omit actions, so inline_link_clicks is kept
  * only as a compatibility fallback.

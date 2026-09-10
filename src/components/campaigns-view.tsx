@@ -229,7 +229,7 @@ export const DEFAULT_COLUMNS: Record<
   cpa: { label: "CPA", defaultVisible: true, numeric: true, tooltip: "Custo por aquisição (Gastos / Vendas)" },
   spend: { label: "Gastos", defaultVisible: true, numeric: true },
   revenue: { label: "Faturamento", defaultVisible: false, numeric: true, tooltip: "Faturamento bruto gerado" },
-  ic: { label: "IC", defaultVisible: true, numeric: true, tooltip: "Início de Checkout (Initiate Checkouts)" },
+  ic: { label: "IC", defaultVisible: true, numeric: true, tooltip: "Inícios de checkout reportados pela Meta; cargas antigas usam o tracker." },
   profit: { label: "Lucro", defaultVisible: true, numeric: true, tooltip: "Comissão líquida menos gastos em anúncios" },
   cpi: { label: "CPI", defaultVisible: true, numeric: true, tooltip: "Custo por Início de Checkout" },
   roas: { label: "ROAS", defaultVisible: true, numeric: true, tooltip: "Retorno sobre o investimento em anúncios" },
@@ -639,7 +639,7 @@ export function CampaignsView({
 
   // 1. Agregação de dados dos insights da Meta por ID
   const insightsMap = useMemo(() => {
-    const map = new Map<string, { spend: number; clicks: number; impressions: number }>();
+    const map = new Map<string, { spend: number; clicks: number; impressions: number; metaInitiateCheckouts: number | null }>();
     for (const ins of insights) {
       if (selectedIntegration !== "all" && ins.integration_id !== selectedIntegration) continue;
       const targetId =
@@ -650,7 +650,7 @@ export function CampaignsView({
           : ins.ad_id;
       if (!targetId) continue;
       const key = `${ins.integration_id || ""}:${targetId}`;
-      const current = map.get(key) || { spend: 0, clicks: 0, impressions: 0 };
+      const current = map.get(key) || { spend: 0, clicks: 0, impressions: 0, metaInitiateCheckouts: null };
       current.spend +=
         convertCurrencyAmount(
           Number(ins.spend || 0),
@@ -660,6 +660,10 @@ export function CampaignsView({
         ) ?? 0;
       current.clicks += Number(ins.clicks || 0);
       current.impressions += Number(ins.impressions || 0);
+      if (ins.meta_initiate_checkouts !== null && ins.meta_initiate_checkouts !== undefined) {
+        current.metaInitiateCheckouts =
+          (current.metaInitiateCheckouts ?? 0) + Number(ins.meta_initiate_checkouts || 0);
+      }
       map.set(key, current);
     }
     return map;
@@ -861,6 +865,7 @@ export function CampaignsView({
         spend: 0,
         clicks: 0,
         impressions: 0,
+        metaInitiateCheckouts: null,
       };
       const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0, netRevenue: 0 };
       const profit = sls.netRevenue - ins.spend;
@@ -874,8 +879,12 @@ export function CampaignsView({
       const cpm =
         ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
 
-      // IC (Initiate Checkout) vem somente de eventos de checkout rastreados.
-      const ic = checkoutMap.get(e.external_id) || 0;
+      // Prefer the real InitiateCheckout action from Meta. Older insight rows
+      // predate this field, so keep the tracked checkout as a compatibility
+      // fallback until the next complete synchronization.
+      const ic = ins.metaInitiateCheckouts !== null
+        ? ins.metaInitiateCheckouts
+        : checkoutMap.get(e.external_id) || 0;
       const cpi = ic > 0 ? ins.spend / ic : null;
 
       const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";

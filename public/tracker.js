@@ -274,7 +274,9 @@
         /cta|btn|comprar|quero|assinar|garantir/i.test(cls) ||
         /comprar|quero|garantir|iniciar|assinar|continuar/i.test(text)
       ) {
-        sendEvent('cta');
+        // Keep CTA clicks distinct from scroll milestones and CTA visibility
+        // events, which are stored as `cta` for backwards-compatible schemas.
+        sendEvent('cta', null, { action: 'cta_click' });
       }
     }, true);
 

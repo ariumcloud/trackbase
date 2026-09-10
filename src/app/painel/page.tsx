@@ -205,7 +205,7 @@ export default async function Page({
               client
                 .from("utm_insights")
                 .select(
-                  "integration_id,ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
+                  "integration_id,ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions,meta_initiate_checkouts",
                 )
                 .eq("workspace_id", w.id)
                 .gte("day", since.slice(0, 10))

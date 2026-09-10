@@ -108,6 +108,7 @@ export type InsightRow = {
   spend: number;
   clicks: number;
   impressions: number;
+  meta_initiate_checkouts?: number | null;
 };
 export type Entity = {
   integration_id: string;

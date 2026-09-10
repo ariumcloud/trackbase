@@ -1362,6 +1362,8 @@ export function Dashboard(p: Props) {
                     <p>
                       Visitas na página → Cliques em CTA → Checkouts iniciados →
                       Compras aprovadas
+                      <br />
+                      <small>Contagem própria da Trackbase; scroll e visualização do CTA ficam fora dos cliques.</small>
                     </p>
                   </div>
                   <span className="chip">Rastreamento ponta a ponta</span>

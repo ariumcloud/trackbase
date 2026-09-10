@@ -23,3 +23,5 @@
 2026-09-10 — deliverable flush: Hotmart attribution now reads country/tracking variants, sends XCOD alongside SCK, joins webhook sales to first-party sessions, and recovers campaign/ad/placement data without guessing.
 2026-09-10 — checkpoint: removed the verified tracker-validation sessions from production, added a radar guard for legacy test markers, clarified that pageview-only sessions have no captured scroll proof, and passed tests/lint/build.
 2026-09-10 — checkpoint: preserved and shipped the pending Hotmart replay clarification alongside the radar fix; production verification showed the cleaned radar state.
+2026-09-10 — checkpoint: campaign IC now persists Meta InitiateCheckout actions per ad/day, keeps legacy tracker fallback, and the production Supabase migrations are applied; tests/build passed.
+2026-09-10 — checkpoint: production audit confirmed Meta LPV and Trackbase PageView are different sources; funnel now excludes scroll/CTA-view events from CTA clicks, tags future CTA clicks, and the production summary RPC was updated; tests/build passed.
