@@ -2551,7 +2551,8 @@ export function Dashboard(p: Props) {
                   <div>
                     <h2>Recebimentos de webhook</h2>
                     <p>
-                      Últimos 50 eventos · registros inválidos não geram vendas
+                      Últimos 50 eventos · registros inválidos não geram vendas.
+                      Para enviar o POST original novamente, use “Reenviar Post” na Hotmart.
                     </p>
                   </div>
                 </div>
@@ -2588,12 +2589,20 @@ export function Dashboard(p: Props) {
                                 className="text-button"
                                 disabled={pending}
                                 onClick={() =>
-                                  run(() =>
-                                    request("/api/webhooks/reprocess", {
-                                      workspace,
-                                      id: l.id,
-                                    }),
-                                  )
+                                  run(async () => {
+                                    const result = await request(
+                                      "/api/webhooks/reprocess",
+                                      {
+                                        workspace,
+                                        id: l.id,
+                                      },
+                                    );
+                                    if (result?.status === "duplicate") {
+                                      throw new Error(
+                                        "Este evento já foi processado. Para reenviar o POST original, use “Reenviar Post” na Hotmart.",
+                                      );
+                                    }
+                                  })
                                 }
                               >
                                 Reprocessar
