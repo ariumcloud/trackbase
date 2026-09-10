@@ -33,6 +33,7 @@ export default async function Page({
     period?: string;
     currency?: string;
     offer?: string;
+    provider?: string;
     meta_select?: string;
   }>;
 }) {
@@ -118,7 +119,7 @@ export default async function Page({
   const needsAlerts = activeTab === "alertas";
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
   const needsShield = activeTab === "shield";
-  const needsEvents = ["radar", "simulador", "visao"].includes(activeTab);
+  const needsEvents = ["radar", "simulador", "visao", "campanhas"].includes(activeTab);
 
   const [
     offers,
@@ -244,8 +245,10 @@ export default async function Page({
               .from("utm_events")
               .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
               .eq("workspace_id", w.id)
+              .gte("created_at", querySince)
+              .lte("created_at", queryUntil)
               .order("created_at", { ascending: false })
-              .limit(300)
+              .limit(2000)
           : empty,
       ])
     : [
@@ -275,6 +278,7 @@ export default async function Page({
     { name: "entities", error: entities.error },
     { name: "logs", error: logs.error },
     { name: "pixels", error: pixels.error },
+    { name: "events", error: events.error },
   ];
 
   const failedQuery = queries.find((q) => q.error);
@@ -301,16 +305,17 @@ export default async function Page({
       sales={(sales.data ?? []) as SaleRow[]}
       insights={(insights.data ?? []) as InsightRow[]}
       entities={(entities.data ?? []) as Entity[]}
+      events={(events.data ?? []) as TrackingEvent[]}
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       shields={(shields.data ?? []) as ShieldRow[]}
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
-      events={(events.data ?? []) as TrackingEvent[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
-        initialTab={p.tab}
-        initialCurrency={currency}
+      initialTab={p.tab}
+      initialCurrency={currency}
+      initialProvider={p.provider}
       initialPeriod={p.period}
       metaSelectIntegrationId={p.meta_select}
       appUrl={process.env.APP_URL || "http://localhost:3000"}

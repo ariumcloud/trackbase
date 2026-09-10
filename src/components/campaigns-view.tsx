@@ -23,7 +23,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import type { Entity, InsightRow, SaleRow, Integration, Offer } from "@/lib/types";
+import type { Entity, InsightRow, SaleRow, Integration, Offer, TrackingEvent } from "@/lib/types";
 
 type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
 
@@ -346,6 +346,7 @@ export function CampaignsView({
   entities,
   insights = [],
   sales = [],
+  events = [],
   offers = [],
   integrations = [],
   currency = "BRL",
@@ -361,6 +362,7 @@ export function CampaignsView({
   entities: Entity[];
   insights?: InsightRow[];
   sales?: SaleRow[];
+  events?: TrackingEvent[];
   offers?: Offer[];
   integrations?: Integration[];
   currency?: string;
@@ -590,6 +592,28 @@ export function CampaignsView({
     return map;
   }, [sales, kind, selectedOffer]);
 
+  // Checkouts precisam ser eventos reais atribuídos ao mesmo identificador
+  // usado pela entidade Meta. Nunca estime IC a partir de cliques: isso faz
+  // o total da campanha divergir da soma dos anúncios.
+  const checkoutMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const event of events) {
+      if (event.event_type !== "checkout") continue;
+      if (selectedOffer !== "all" && event.offer_id !== selectedOffer) continue;
+      const attr = event.attribution || {};
+      const rawTargetId =
+        kind === "campaign"
+          ? attr.utm_campaign
+          : kind === "adset"
+            ? attr.utm_term
+            : attr.utm_content;
+      const targetId = typeof rawTargetId === "string" ? rawTargetId.trim() : "";
+      if (!targetId || targetId.includes("{{")) continue;
+      map.set(targetId, (map.get(targetId) || 0) + 1);
+    }
+    return map;
+  }, [events, kind, selectedOffer]);
+
   // A Meta mantém a árvore campanha → conjunto → anúncio. As seleções ficam
   // separadas por nível para que a seleção da campanha continue ativa ao
   // alternar para os filhos, sem misturar IDs de tipos diferentes.
@@ -694,8 +718,8 @@ export function CampaignsView({
       const cpm =
         ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
 
-      // IC (Initiate Checkout) estimado ou baseado em vendas
-      const ic = Math.round(sls.count > 0 ? sls.count * 1.5 : ins.clicks > 0 ? Math.max(1, Math.round(ins.clicks * 0.08)) : 0);
+      // IC (Initiate Checkout) vem somente de eventos de checkout rastreados.
+      const ic = checkoutMap.get(e.external_id) || 0;
       const cpi = ic > 0 ? ins.spend / ic : null;
 
       const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";
@@ -724,7 +748,7 @@ export function CampaignsView({
         cpm,
       };
     });
-  }, [filteredEntities, insightsMap, salesMap, integrations]);
+  }, [filteredEntities, insightsMap, salesMap, checkoutMap, integrations]);
 
   // 5. Ordenação dinâmica
   const sortedRows = useMemo(() => {

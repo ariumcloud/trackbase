@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Radio,
   Play,
@@ -315,6 +316,7 @@ export function LeadScrollVisualizer({
   appUrl?: string;
   workspaceId?: string;
 }) {
+  const router = useRouter();
   const phoneScrollRef = useRef<HTMLDivElement>(null);
 
   // Estados de Configuração e Oferta
@@ -388,7 +390,7 @@ export function LeadScrollVisualizer({
       const endMs = new Date(lastEv.created_at).getTime();
       const timeSpent = Math.max(12, Math.min(3600, Math.round((endMs - startMs) / 1000)));
 
-      let maxScroll = 15;
+      let maxScroll = 0;
       let hasViewCTA = false;
       let hasCheckout = false;
 
@@ -508,6 +510,11 @@ export function LeadScrollVisualizer({
           label = "Passou da primeira dobra (25%)";
           detail = "Iniciou consumo da página";
           color = "#10B981";
+        } else if (t === "cta") {
+          type = "CTA";
+          label = "Lead interagiu com um CTA";
+          detail = "Interação com chamada para ação registrada";
+          color = "#8B5CF6";
         }
 
         return {
@@ -648,17 +655,18 @@ export function LeadScrollVisualizer({
     return result;
   }, [events, sales, selectedOfferId]);
 
-  // Define se usa dados reais ou demonstração
+  // Define se usa dados reais ou demonstração. Dados de demonstração só
+  // aparecem quando o usuário escolhe explicitamente esse modo.
   const hasRealData = realSessions.length > 0;
-  
-  // Atualiza modo automaticamente quando houver dados reais pela primeira vez
-  useEffect(() => {
-    if (hasRealData && dataSourceMode !== "real") {
-      setDataSourceMode("real");
-    }
-  }, [hasRealData, dataSourceMode]);
+  const activeLeads = dataSourceMode === "real" ? realSessions : demoLeads;
 
-  const activeLeads = dataSourceMode === "real" && hasRealData ? realSessions : demoLeads;
+  // Atualiza o Radar sem exigir reload manual. O refresh preserva o estado
+  // visual e faz o Server Component buscar eventos recém-gravados.
+  useEffect(() => {
+    if (dataSourceMode !== "real") return;
+    const refreshId = window.setInterval(() => router.refresh(), 10000);
+    return () => window.clearInterval(refreshId);
+  }, [dataSourceMode, router]);
 
   // Garante seleção válida de lead
   useEffect(() => {
@@ -871,7 +879,7 @@ export function LeadScrollVisualizer({
                 }}
               >
                 <Radio size={12} className={hasRealData ? "spin" : ""} />
-                {hasRealData ? "RADAR ATIVO · DADOS EM TEMPO REAL" : "RADAR DE LEADS · SCRIPT DE TELEMETRIA"}
+                {hasRealData ? "RADAR ATIVO · DADOS EM TEMPO REAL" : "RADAR AO VIVO · AGUARDANDO EVENTOS"}
               </span>
 
               {/* Toggle Real vs Demonstração */}
@@ -938,15 +946,17 @@ export function LeadScrollVisualizer({
               <HelpCircle size={14} /> Como instalar? {showInstallHelp ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
 
-            <button
-              type="button"
-              className="button ghost small"
-              onClick={handleAddLiveLead}
-              style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.78rem" }}
-              title="Adiciona um lead simulado ao radar"
-            >
-              <Plus size={14} /> Simular Novo Lead
-            </button>
+            {dataSourceMode === "demo" && (
+              <button
+                type="button"
+                className="button ghost small"
+                onClick={handleAddLiveLead}
+                style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.78rem" }}
+                title="Adiciona um lead apenas para demonstração"
+              >
+                <Plus size={14} /> Adicionar Lead Demo
+              </button>
+            )}
           </div>
         </div>
 
@@ -1110,7 +1120,7 @@ export function LeadScrollVisualizer({
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Compass size={18} color="#5B34EA" />
             <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
-              {dataSourceMode === "real" && hasRealData
+              {dataSourceMode === "real"
                 ? `Visitantes Reais no Funil (${activeLeads.length})`
                 : `Leads e Sessões de Exemplo (${activeLeads.length})`}
             </h3>

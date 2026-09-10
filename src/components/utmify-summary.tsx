@@ -187,8 +187,11 @@ export function UtmifySummary({
     },
     {
       title: "Gastos com anúncios",
-      value: formatMoney(metrics.spend || 0),
-      tooltip: "Total investido em tráfego pago nas contas sincronizadas.",
+      value: formatMoney(metrics.spend),
+      tooltip:
+        metrics.spend === null
+          ? "Nenhum gasto de Meta foi sincronizado para o período selecionado."
+          : "Total investido em tráfego pago nas contas sincronizadas.",
       tone: "neutral",
     },
     {

@@ -143,6 +143,7 @@ type Props = {
   initialTab?: string;
   initialPeriod?: string;
   initialCurrency?: string;
+  initialProvider?: string;
   metaSelectIntegrationId?: string;
   appUrl: string;
   error?: string;
@@ -284,7 +285,7 @@ export function Dashboard(p: Props) {
     [period, setPeriod] = useState(p.initialPeriod || "7"),
     [currency, setCurrency] = useState(p.initialCurrency || "BRL"),
     [offer, setOffer] = useState("all"),
-    [provider, setProvider] = useState("all"),
+    [provider, setProvider] = useState(p.initialProvider || "all"),
     [notice, setNotice] = useState(""),
     [showExportMenu, setShowExportMenu] = useState(false),
     [guideModalOpen, setGuideModalOpen] = useState(false),
@@ -308,6 +309,14 @@ export function Dashboard(p: Props) {
   useEffect(() => {
     setCurrency(p.initialCurrency || "BRL");
   }, [p.initialCurrency]);
+
+  useEffect(() => {
+    setPeriod(p.initialPeriod || "7");
+  }, [p.initialPeriod]);
+
+  useEffect(() => {
+    setProvider(p.initialProvider || "all");
+  }, [p.initialProvider]);
 
   useEffect(() => {
     try {
@@ -417,6 +426,18 @@ export function Dashboard(p: Props) {
   const useSummary = Boolean(s && provider === "all");
   const fallback = calculate(sales, insights, currency);
 
+  // Keep the rows loaded for this same period as a defensive fallback. If
+  // the RPC is briefly stale (or returns NULL while Meta data is present),
+  // the UI must not disguise a real spend as an indistinguishable $0.00.
+  const loadedCurrencyInsights = insights.filter(
+    (insight) => insight.currency === currency,
+  );
+  const loadedInsightSpend = loadedCurrencyInsights.reduce(
+    (total, insight) => total + Number(insight.spend || 0),
+    0,
+  );
+  const summarySpend = s?.meta_spend == null ? null : Number(s.meta_spend);
+
   const grossRevenue = useSummary ? Number(s!.gross_revenue) : fallback.revenue;
   const platformFees = useSummary ? Number(s!.platform_fees || 0) : 0;
   const netRevenue = useSummary
@@ -427,9 +448,13 @@ export function Dashboard(p: Props) {
     ? Number(s!.unique_buyers || s!.sales_count)
     : fallback.purchases;
   const spend = useSummary
-    ? s!.meta_spend !== null
-      ? Number(s!.meta_spend)
-      : null
+    ? summarySpend === null
+      ? loadedCurrencyInsights.length > 0
+        ? loadedInsightSpend
+        : null
+      : summarySpend > 0 || loadedInsightSpend === 0
+        ? summarySpend
+        : loadedInsightSpend
     : fallback.spend;
   const clicks = useSummary ? Number(s!.meta_clicks) : fallback.clicks;
   const impressions = useSummary
@@ -590,6 +615,7 @@ export function Dashboard(p: Props) {
         period: val,
         currency,
         ...(offer !== "all" ? { offer } : {}),
+        ...(provider !== "all" ? { provider } : {}),
       })}`,
       { scroll: false },
     );
@@ -604,6 +630,7 @@ export function Dashboard(p: Props) {
         period,
         currency: val,
         ...(offer !== "all" ? { offer } : {}),
+        ...(provider !== "all" ? { provider } : {}),
       })}`,
       { scroll: false },
     );
@@ -647,7 +674,14 @@ export function Dashboard(p: Props) {
     // Reset before changing the URL so mobile and desktop behave identically.
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     router.replace(
-      `/painel?${new URLSearchParams({ ...(workspace ? { workspace } : {}), tab: value })}`,
+      `/painel?${new URLSearchParams({
+        ...(workspace ? { workspace } : {}),
+        tab: value,
+        period,
+        currency,
+        ...(offer !== "all" ? { offer } : {}),
+        ...(provider !== "all" ? { provider } : {}),
+      })}`,
       { scroll: false },
     );
   };
@@ -2743,6 +2777,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
               entities={p.entities}
               insights={insights}
               sales={sales}
+              events={p.events}
               offers={p.offers}
               integrations={p.integrations}
               currency={currency}

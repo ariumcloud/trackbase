@@ -14,13 +14,12 @@
 
     function getSession() {
       var s = '';
-      try { s = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY) || ''; } catch(e) {}
+      // Keep a session scoped to this tab/visit. localStorage merges
+      // unrelated tabs and makes separate lead journeys look like one path.
+      try { s = sessionStorage.getItem(SESSION_KEY) || ''; } catch(e) {}
       if (!s || s.length < 5) {
         s = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
-        try {
-          sessionStorage.setItem(SESSION_KEY, s);
-          localStorage.setItem(SESSION_KEY, s);
-        } catch(e) {}
+        try { sessionStorage.setItem(SESSION_KEY, s); } catch(e) {}
       }
       return s;
     }
@@ -100,15 +99,21 @@
           attribution: eventAttr
         });
 
+        var beaconSent = false;
         if (navigator.sendBeacon) {
-          navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }));
-        } else {
+          try {
+            // text/plain avoids a cross-origin preflight for Beacon requests.
+            // The API parses the request body as JSON independently.
+            beaconSent = navigator.sendBeacon(endpoint, new Blob([payload], { type: 'text/plain;charset=UTF-8' }));
+          } catch(err) {}
+        }
+        if (!beaconSent) {
           fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: payload,
             keepalive: true
-          });
+          }).catch(function() {});
         }
       } catch(e) {}
     }

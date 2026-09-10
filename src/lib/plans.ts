@@ -74,6 +74,11 @@ export function normalizePlan(value: string): PlanId {
 }
 
 export function canUse(plan: string, feature: PlanFeature): boolean {
+  // Normalização mantém compatibilidade visual com registros antigos, mas não
+  // deve transformar um valor forjado ou corrompido em acesso ao plano Free.
+  if (!["devedor", "liso", "vorcaro", "rico", "classe_media"].includes(plan)) {
+    return false;
+  }
   return plans[normalizePlan(plan)].features.includes(feature);
 }
 
