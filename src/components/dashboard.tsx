@@ -910,7 +910,7 @@ export function Dashboard(p: Props) {
         </header>
         <main
           id="dashboard-content"
-          className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""}`}
+          className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""} ${tab === "ofertas" ? "main-ofertas" : ""}`}
         >
           <div className="page-heading">
             <div>
@@ -1565,6 +1565,7 @@ export function Dashboard(p: Props) {
                 )}
               </section>
               <div
+                className="offers-script-banner"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
