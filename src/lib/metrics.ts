@@ -1,3 +1,5 @@
+import { isApprovedSaleStatus } from "./sale-status";
+
 export type Sale = {
   currency: string | null;
   amount: number;
@@ -17,7 +19,7 @@ export function calculate(
   currency: string,
 ) {
   const paid = sales.filter(
-    (s) => !s.is_test && s.currency === currency && s.status === "approved",
+    (s) => !s.is_test && s.currency === currency && isApprovedSaleStatus(s.status),
   );
   const ads = insights.filter((i) => i.currency === currency);
   const revenue = paid.reduce((s, v) => s + Number(v.amount), 0),

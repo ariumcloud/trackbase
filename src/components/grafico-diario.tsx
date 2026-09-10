@@ -3,12 +3,14 @@
 import React, { useState, useMemo } from "react";
 import type { SaleRow, InsightRow } from "@/lib/types";
 import { dayInZone } from "@/lib/metrics";
+import { isApprovedSaleStatus } from "@/lib/sale-status";
 import { Calendar } from "lucide-react";
 
 interface DailyChartProps {
   sales: SaleRow[];
   insights: InsightRow[];
   periodDays: number;
+  endDate: string;
   timezone: string;
   currency: string;
 }
@@ -27,18 +29,19 @@ export function GraficoDiario({
   sales,
   insights,
   periodDays,
+  endDate,
   timezone,
   currency,
 }: DailyChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const daysData = useMemo(() => {
-    const today = dayInZone(new Date(), timezone);
     const result: DayData[] = [];
+    const periodEnd = new Date(`${endDate}T12:00:00Z`);
 
     // Generate list of days in ascending order
     for (let i = periodDays - 1; i >= 0; i--) {
-      const d = new Date(`${today}T12:00:00Z`);
+      const d = new Date(periodEnd);
       d.setUTCDate(d.getUTCDate() - i);
       const dateStr = d.toISOString().slice(0, 10);
       const parts = dateStr.split("-");
@@ -59,8 +62,7 @@ export function GraficoDiario({
 
     // Aggregate sales
     for (const s of sales) {
-      if (s.is_test) continue;
-      if (["refunded", "chargeback"].includes(s.status)) continue;
+      if (s.is_test || !isApprovedSaleStatus(s.status)) continue;
       const sDay = dayInZone(new Date(s.occurred_at), timezone);
       const entry = dayMap.get(sDay);
       if (entry) {
@@ -71,6 +73,7 @@ export function GraficoDiario({
 
     // Aggregate insights (spend)
     for (const inst of insights) {
+      if (inst.currency !== currency) continue;
       const entry = dayMap.get(inst.day);
       if (entry) {
         entry.spend += Number(inst.spend || 0);
@@ -84,7 +87,7 @@ export function GraficoDiario({
     }
 
     return result;
-  }, [sales, insights, periodDays, timezone]);
+  }, [sales, insights, periodDays, endDate, timezone, currency]);
 
   const maxVal = useMemo(() => {
     let max = 100;

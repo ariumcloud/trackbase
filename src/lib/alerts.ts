@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { admin } from "./supabase/server";
+import { isApprovedSaleStatus, isRefundedSaleStatus } from "./sale-status";
 
 export type AlertSeverity = "low" | "medium" | "high" | "critical";
 
@@ -36,7 +37,12 @@ export async function evaluateAlerts(workspaceId: string): Promise<AlertItem[]> 
   const todayKey = new Date().toISOString().slice(0, 10);
 
   // 1. Busca dados agregados de vendas, eventos e insights
-  const [salesRes, eventsRes, insightsRes, webhookLogsRes, capiLogsRes, credentialsRes] = await Promise.all([
+  const [workspaceRes, salesRes, eventsRes, insightsRes, webhookLogsRes, capiLogsRes, credentialsRes] = await Promise.all([
+    service
+      .from("utm_workspaces")
+      .select("default_currency")
+      .eq("id", workspaceId)
+      .maybeSingle(),
     service
       .from("utm_sales")
       .select("offer_id, status, gross_amount, net_amount, attribution, currency, occurred_at, is_test")
@@ -72,20 +78,27 @@ export async function evaluateAlerts(workspaceId: string): Promise<AlertItem[]> 
       .eq("workspace_id", workspaceId),
   ]);
 
+  const workspaceCurrency = workspaceRes.data?.default_currency || null;
   const sales = salesRes.data || [];
   const events = eventsRes.data || [];
   const insights = insightsRes.data || [];
   const capiFailures = capiLogsRes.data || [];
   const credentials = credentialsRes.data || [];
 
-  const approvedSales = sales.filter((s) => s.status === "approved");
-  const refundedSales = sales.filter((s) => ["refunded", "chargeback"].includes(s.status));
+  const salesInCurrency = workspaceCurrency
+    ? sales.filter((s) => s.currency === workspaceCurrency)
+    : sales;
+  const insightsInCurrency = workspaceCurrency
+    ? insights.filter((i) => i.currency === workspaceCurrency)
+    : insights;
+  const approvedSales = salesInCurrency.filter((s) => isApprovedSaleStatus(s.status));
+  const refundedSales = salesInCurrency.filter((s) => isRefundedSaleStatus(s.status));
   const totalSalesCount = approvedSales.length;
   const totalRevenue = approvedSales.reduce((acc, s) => acc + Number(s.gross_amount || 0), 0);
 
-  const totalSpend = insights.reduce((acc, i) => acc + Number(i.spend || 0), 0);
-  const totalClicks = insights.reduce((acc, i) => acc + Number(i.clicks || 0), 0);
-  const totalImpressions = insights.reduce((acc, i) => acc + Number(i.impressions || 0), 0);
+  const totalSpend = insightsInCurrency.reduce((acc, i) => acc + Number(i.spend || 0), 0);
+  const totalClicks = insightsInCurrency.reduce((acc, i) => acc + Number(i.clicks || 0), 0);
+  const totalImpressions = insightsInCurrency.reduce((acc, i) => acc + Number(i.impressions || 0), 0);
 
   const pageviews = events.filter((e) => e.event_type === "pageview").length;
   const ctas = events.filter((e) => e.event_type === "cta").length;

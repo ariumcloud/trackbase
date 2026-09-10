@@ -8,6 +8,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { SaleRow, InsightRow, Offer, Integration } from "@/lib/types";
+import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 
 interface UtmifySummaryProps {
   sales: SaleRow[];
@@ -84,17 +85,13 @@ export function UtmifySummary({
   );
 
   // Chargeback rate
-  const chargebackSales = sales.filter((s) =>
-    ["chargeback", "chargedback"].includes(s.status)
-  );
+  const chargebackSales = sales.filter((s) => isRefundedSaleStatus(s.status) && s.status !== "refunded" && s.status !== "partial_refund");
   const totalOrders = metrics.purchases + metrics.refundedCount;
   const chargebackRate =
     totalOrders > 0 ? (chargebackSales.length / totalOrders) * 100 : 0;
 
   // Distribuição de métodos de pagamento para o Donut
-  const approvedSales = sales.filter((s) =>
-    ["paid", "approved", "completed"].includes(s.status)
-  );
+  const approvedSales = sales.filter((s) => isApprovedSaleStatus(s.status));
 
   let pixCount = 0;
   let cardCount = 0;
@@ -197,7 +194,7 @@ export function UtmifySummary({
     {
       title: "ROAS",
       value: metrics.roas !== null ? `${metrics.roas.toFixed(2)}x` : "—",
-      tooltip: "Retorno sobre investimento em anúncios (Faturamento Líquido / Gastos).",
+      tooltip: "Retorno sobre investimento em anúncios (Faturamento Bruto / Gastos).",
       tone: metrics.roas !== null && metrics.roas >= 1.0 ? "positive" : metrics.roas !== null && metrics.roas < 1.0 ? "negative" : "neutral",
     },
     {

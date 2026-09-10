@@ -172,7 +172,7 @@ export default async function Page({
           ? client
               .from("utm_insights")
               .select(
-                "ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
+                "integration_id,ad_id,campaign_id,adset_id,day,currency,spend,clicks,impressions",
               )
               .eq("workspace_id", w.id)
               .gte("day", since.slice(0, 10))
@@ -293,6 +293,16 @@ export default async function Page({
       : undefined;
 
   const resolvedIntegrations = (integrations.data ?? []) as Integration[];
+  const periodStartDay = since.slice(0, 10);
+  const periodEndDay = until.slice(0, 10);
+  const periodSales = ((sales.data ?? []) as SaleRow[]).filter((sale) => {
+    const day = dayInZone(new Date(sale.occurred_at), timezone);
+    return day >= periodStartDay && day <= periodEndDay;
+  });
+  const periodEvents = ((events.data ?? []) as TrackingEvent[]).filter((event) => {
+    const day = dayInZone(new Date(event.created_at), timezone);
+    return day >= periodStartDay && day <= periodEndDay;
+  });
 
   return (
     <Dashboard
@@ -302,10 +312,10 @@ export default async function Page({
       offers={(offers.data ?? []) as Offer[]}
       links={(links.data ?? []) as LinkRow[]}
       integrations={resolvedIntegrations}
-      sales={(sales.data ?? []) as SaleRow[]}
+      sales={periodSales}
       insights={(insights.data ?? []) as InsightRow[]}
       entities={(entities.data ?? []) as Entity[]}
-      events={(events.data ?? []) as TrackingEvent[]}
+      events={periodEvents}
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}

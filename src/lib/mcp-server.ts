@@ -1,6 +1,7 @@
 import "server-only";
 import { admin } from "./supabase/server";
 import { randomBytes } from "node:crypto";
+import { isApprovedSaleStatus, isRefundedSaleStatus } from "./sale-status";
 
 export type McpRequest = {
   jsonrpc: "2.0";
@@ -143,25 +144,38 @@ export async function executeMcpMethod(
             startDate = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
           }
 
+          const { data: workspace } = await service
+            .from("utm_workspaces")
+            .select("default_currency")
+            .eq("id", workspaceId)
+            .maybeSingle();
+          const reportCurrency = workspace?.default_currency || null;
+
           const { data: sales } = await service
             .from("utm_sales")
-            .select("amount, net_amount, status, created_at, currency")
+            .select("amount, gross_amount, net_amount, status, occurred_at, currency, is_test")
             .eq("workspace_id", workspaceId)
-            .gte("created_at", startDate.toISOString());
+            .eq("is_test", false)
+            .gte("occurred_at", startDate.toISOString())
+            .lte("occurred_at", now.toISOString());
 
-          const approvedSales = sales?.filter((s) => s.status === "approved" || s.status === "completed") || [];
-          const refundSales = sales?.filter((s) => s.status === "refunded" || s.status === "chargedback") || [];
+          const salesInCurrency = (sales || []).filter((s) => !reportCurrency || s.currency === reportCurrency);
+          const approvedSales = salesInCurrency.filter((s) => isApprovedSaleStatus(s.status));
+          const refundSales = salesInCurrency.filter((s) => isRefundedSaleStatus(s.status));
 
-          const totalRevenue = approvedSales.reduce((acc, s) => acc + (Number(s.amount) || 0), 0);
-          const totalNetRevenue = approvedSales.reduce((acc, s) => acc + (Number(s.net_amount) || Number(s.amount) || 0), 0);
-          const totalRefunded = refundSales.reduce((acc, s) => acc + (Number(s.amount) || 0), 0);
+          const totalRevenue = approvedSales.reduce((acc, s) => acc + (Number(s.gross_amount) || Number(s.amount) || 0), 0);
+          const totalNetRevenue = approvedSales.reduce((acc, s) => acc + (Number(s.net_amount) || Number(s.gross_amount) || Number(s.amount) || 0), 0);
+          const totalRefunded = refundSales.reduce((acc, s) => acc + (Number(s.gross_amount) || Number(s.amount) || 0), 0);
           const ticketMedio = approvedSales.length ? totalRevenue / approvedSales.length : 0;
 
-          const { data: insights } = await service
-            .from("utm_ad_insights")
-            .select("spend, clicks, impressions")
+          let insightsQuery = service
+            .from("utm_insights")
+            .select("spend, clicks, impressions, day, currency")
             .eq("workspace_id", workspaceId)
-            .gte("date", startDate.toISOString().slice(0, 10));
+            .gte("day", startDate.toISOString().slice(0, 10))
+            .lte("day", now.toISOString().slice(0, 10));
+          if (reportCurrency) insightsQuery = insightsQuery.eq("currency", reportCurrency);
+          const { data: insights } = await insightsQuery;
 
           const totalSpend = insights?.reduce((acc, i) => acc + (Number(i.spend) || 0), 0) || 0;
           const totalClicks = insights?.reduce((acc, i) => acc + (Number(i.clicks) || 0), 0) || 0;
@@ -174,17 +188,18 @@ export async function executeMcpMethod(
                 text: JSON.stringify(
                   {
                     periodo: period,
-                    faturamento_bruto: `R$ ${totalRevenue.toFixed(2)}`,
-                    faturamento_liquido: `R$ ${totalNetRevenue.toFixed(2)}`,
+                    moeda: reportCurrency || "várias",
+                    faturamento_bruto: `${reportCurrency || ""} ${totalRevenue.toFixed(2)}`.trim(),
+                    faturamento_liquido: `${reportCurrency || ""} ${totalNetRevenue.toFixed(2)}`.trim(),
                     vendas_aprovadas: approvedSales.length,
                     reembolsos_quantidade: refundSales.length,
-                    valor_reembolsado: `R$ ${totalRefunded.toFixed(2)}`,
+                    valor_reembolsado: `${reportCurrency || ""} ${totalRefunded.toFixed(2)}`.trim(),
                     taxa_reembolso: approvedSales.length ? `${((refundSales.length / approvedSales.length) * 100).toFixed(1)}%` : "0%",
-                    ticket_medio: `R$ ${ticketMedio.toFixed(2)}`,
-                    gasto_anuncios: `R$ ${totalSpend.toFixed(2)}`,
+                    ticket_medio: `${reportCurrency || ""} ${ticketMedio.toFixed(2)}`.trim(),
+                    gasto_anuncios: `${reportCurrency || ""} ${totalSpend.toFixed(2)}`.trim(),
                     cliques_anuncios: totalClicks,
                     roas: `${roas.toFixed(2)}x`,
-                    lucro_estimado: `R$ ${(totalNetRevenue - totalSpend).toFixed(2)}`,
+                    lucro_estimado: `${reportCurrency || ""} ${(totalNetRevenue - totalSpend).toFixed(2)}`.trim(),
                   },
                   null,
                   2,
@@ -197,33 +212,40 @@ export async function executeMcpMethod(
         case "list_campaigns": {
           const { data: entities } = await service
             .from("utm_ad_entities")
-            .select("id, name, type, status, provider, external_id")
+            .select("integration_id, external_id, name, kind, status")
             .eq("workspace_id", workspaceId)
-            .eq("type", "campaign")
-            .order("created_at", { ascending: false })
+            .eq("kind", "campaign")
+            .order("name", { ascending: true })
             .limit(25);
 
           const { data: insights } = await service
-            .from("utm_ad_insights")
-            .select("entity_id, spend, clicks, impressions, conversions")
+            .from("utm_insights")
+            .select("integration_id, campaign_id, spend, clicks, impressions, currency")
             .eq("workspace_id", workspaceId);
+
+          const { data: integrations } = await service
+            .from("utm_integrations")
+            .select("id, provider, currency")
+            .eq("workspace_id", workspaceId);
+          const providerByIntegration = new Map((integrations || []).map((i) => [i.id, i.provider]));
 
           const insightsMap = new Map<string, { spend: number; clicks: number }>();
           insights?.forEach((ins) => {
-            const current = insightsMap.get(ins.entity_id) || { spend: 0, clicks: 0 };
+            const key = `${ins.integration_id}:${ins.campaign_id}`;
+            const current = insightsMap.get(key) || { spend: 0, clicks: 0 };
             current.spend += Number(ins.spend) || 0;
             current.clicks += Number(ins.clicks) || 0;
-            insightsMap.set(ins.entity_id, current);
+            insightsMap.set(key, current);
           });
 
           const formatted = (entities || []).map((ent) => {
-            const ins = insightsMap.get(ent.id) || { spend: 0, clicks: 0 };
+            const ins = insightsMap.get(`${ent.integration_id}:${ent.external_id}`) || { spend: 0, clicks: 0 };
             return {
-              id: ent.id,
+              id: ent.external_id,
               nome: ent.name,
-              plataforma: ent.provider,
+              plataforma: providerByIntegration.get(ent.integration_id) || "desconhecida",
               status: ent.status,
-              gasto: `R$ ${ins.spend.toFixed(2)}`,
+              gasto: `${integrations?.find((i) => i.id === ent.integration_id)?.currency || ""} ${ins.spend.toFixed(2)}`.trim(),
               cliques: ins.clicks,
             };
           });
@@ -327,21 +349,21 @@ export async function executeMcpMethod(
           const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 50);
           const { data: sales } = await service
             .from("utm_sales")
-            .select("id, transaction_id, amount, currency, status, product_type, buyer_name, buyer_email, utm_source, utm_campaign, created_at")
+            .select("id, transaction_id, amount, gross_amount, currency, status, product_type, buyer_name, buyer_email, attribution, occurred_at")
             .eq("workspace_id", workspaceId)
-            .order("created_at", { ascending: false })
+            .order("occurred_at", { ascending: false })
             .limit(limit);
 
           const masked = (sales || []).map((s) => ({
             id: s.id,
             transacao: s.transaction_id,
-            valor: `${s.currency || "BRL"} ${Number(s.amount).toFixed(2)}`,
+            valor: `${s.currency || "BRL"} ${(Number(s.gross_amount) || Number(s.amount) || 0).toFixed(2)}`,
             status: s.status,
             tipo_produto: s.product_type || "main",
             comprador: s.buyer_name ? `${s.buyer_name.slice(0, 3)}***` : "Comprador",
-            origem_utm: s.utm_source || "direto",
-            campanha_utm: s.utm_campaign || "-",
-            data: s.created_at,
+            origem_utm: s.attribution?.utm_source || "direto",
+            campanha_utm: s.attribution?.utm_campaign || "-",
+            data: s.occurred_at,
           }));
 
           return {

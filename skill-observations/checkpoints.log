@@ -13,3 +13,4 @@
 2026-09-10 — checkpoint: isolated click discrepancy to Meta link_click versus inline_link_clicks; added a regression test and explicit UI label.
 2026-09-10 — deliverable flush: click metric now prioritizes Meta actions.link_click, with regression coverage passing.
 2026-09-10 — deliverable flush: mobile and desktop spend now share period state and resilient Meta insight fallback.
+2026-09-10 — deliverable flush: campaigns poll Meta every two minutes only while visible, with overlap and rate-limit guards.

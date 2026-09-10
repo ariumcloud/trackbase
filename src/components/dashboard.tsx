@@ -73,6 +73,7 @@ import {
 } from "@/app/actions";
 import { buildLink, metaDefaults } from "@/lib/utm";
 import { calculate, dayInZone } from "@/lib/metrics";
+import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 import type { AlertItem } from "@/lib/alerts";
 import type {
   Workspace,
@@ -412,15 +413,39 @@ export function Dashboard(p: Props) {
     return (
       sDay >= since &&
       sDay <= until &&
+      s.currency === currency &&
       (offer === "all" || s.offer_id === offer) &&
       (provider === "all" || s.provider === provider)
     );
   });
 
+  const allowedInsightIntegrations = new Set(
+    p.integrations
+      .filter(
+        (integration) =>
+          integration.provider === "meta" &&
+          (provider === "all" || provider === "meta") &&
+          (offer === "all" || integration.offer_id === offer),
+      )
+      .map((integration) => integration.id),
+  );
   const insights =
-    offer === "all" && provider === "all"
-      ? p.insights.filter((i) => i.day >= since && i.day <= until)
+    offer === "all" && (provider === "all" || provider === "meta")
+      ? p.insights.filter(
+          (i) =>
+            i.day >= since &&
+            i.day <= until &&
+            i.currency === currency &&
+            (!i.integration_id || allowedInsightIntegrations.has(i.integration_id)),
+        )
       : [];
+
+  const chartStartDate = new Date(`${since}T12:00:00Z`);
+  const chartEndDate = new Date(`${until}T12:00:00Z`);
+  const chartPeriodDays = Math.max(
+    1,
+    Math.round((chartEndDate.getTime() - chartStartDate.getTime()) / 86400000) + 1,
+  );
 
   const s = p.summary;
   const useSummary = Boolean(s && provider === "all");
@@ -472,13 +497,13 @@ export function Dashboard(p: Props) {
   const roas = spend && spend > 0 ? grossRevenue / spend : null;
   const roi = spend && spend > 0 ? ((netRevenue - spend) / spend) * 100 : null;
   const cpa = spend !== null && uniqueBuyers > 0 ? spend / uniqueBuyers : null;
-  const averageTicket = purchases > 0 ? grossRevenue / purchases : null;
+  const averageTicket = uniqueBuyers > 0 ? grossRevenue / uniqueBuyers : null;
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
   const cpc = clicks > 0 && spend !== null ? spend / clicks : null;
 
   const refundedCount = useSummary
     ? Number(s!.refunded_count)
-    : sales.filter((x) => ["refunded", "chargeback"].includes(x.status)).length;
+    : sales.filter((x) => isRefundedSaleStatus(x.status)).length;
   const refundedAmount = useSummary ? Number(s!.refunded_amount) : 0;
   const totalOrders = purchases + refundedCount;
   const refundRate =
@@ -493,7 +518,7 @@ export function Dashboard(p: Props) {
       { count: number; revenue: number; platform: string; icon: string; name: string }
     >();
     for (const sale of sales) {
-      if (sale.is_test || !["paid", "approved", "completed"].includes(sale.status)) continue;
+      if (sale.is_test || !isApprovedSaleStatus(sale.status)) continue;
       const attr = sale.attribution || {};
       const raw = (attr.utm_placement || attr.placement || "").trim();
       if (!raw) continue;
@@ -550,7 +575,7 @@ export function Dashboard(p: Props) {
 
       const curr = map.get(displayName) || { count: 0, revenue: 0, platform, icon, name: displayName };
       curr.count += 1;
-      curr.revenue += Number(sale.amount || 0);
+      curr.revenue += Number(sale.gross_amount ?? sale.amount ?? 0);
       map.set(displayName, curr);
     }
 
@@ -692,7 +717,7 @@ export function Dashboard(p: Props) {
     }
     setModal(workspace ? type : "workspace");
   };
-  const request = async (path: string, data: unknown) => {
+  const request = useCallback(async (path: string, data: unknown) => {
     const response = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -706,7 +731,8 @@ export function Dashboard(p: Props) {
           : r.error?.message || "Não foi possível concluir.",
       );
     return r;
-  };
+  }, []);
+  const refreshDashboard = useCallback(() => router.refresh(), [router]);
   const run = (fn: () => Promise<unknown>) =>
     start(async () => {
       try {
@@ -988,7 +1014,7 @@ export function Dashboard(p: Props) {
                     <button
                       type="button"
                       onClick={() => {
-                        exportSalesCsv(p.sales);
+                        exportSalesCsv(sales);
                         setShowExportMenu(false);
                       }}
                       style={{
@@ -1003,12 +1029,12 @@ export function Dashboard(p: Props) {
                         borderBottom: "1px solid #F1F5F9",
                       }}
                     >
-                      📄 Vendas ({p.sales.length})
+                      📄 Vendas ({sales.length})
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        exportCampaignsCsv(p.insights, p.entities);
+                        exportCampaignsCsv(insights, p.entities);
                         setShowExportMenu(false);
                       }}
                       style={{
@@ -1196,7 +1222,7 @@ export function Dashboard(p: Props) {
                   (i) => i.provider === "meta" && i.status === "connected",
                 )}
                 hasShieldConfigured={(p.shields?.length ?? 0) > 0}
-                salesCount={p.sales.length}
+                salesCount={sales.length}
                 onNavigateTab={selectTab}
               />
               <UtmifySummary
@@ -1224,7 +1250,8 @@ export function Dashboard(p: Props) {
               <GraficoDiario
                 sales={sales}
                 insights={insights}
-                periodDays={Number(period) || 7}
+                periodDays={chartPeriodDays}
+                endDate={until}
                 timezone={timezone}
                 currency={currency}
               />
@@ -1422,12 +1449,12 @@ export function Dashboard(p: Props) {
                         const revenue = sales
                           .filter(
                             (s) =>
-                              s.status === "approved" &&
+                              isApprovedSaleStatus(s.status) &&
                               s.currency === currency &&
                               dayInZone(new Date(s.occurred_at), timezone) ===
                                 key,
                           )
-                          .reduce((a, s) => a + Number(s.amount), 0);
+                          .reduce((a, s) => a + Number(s.gross_amount ?? s.amount), 0);
                         const spend = insights
                           .filter(
                             (s) => s.currency === currency && s.day === key,
@@ -1558,7 +1585,7 @@ export function Dashboard(p: Props) {
                           const paid = sales.filter(
                             (s) =>
                               s.offer_id === o.id &&
-                              s.status === "approved" &&
+                              isApprovedSaleStatus(s.status) &&
                               s.currency === currency,
                           );
                           return (
@@ -1570,7 +1597,7 @@ export function Dashboard(p: Props) {
                               <td>
                                 {money(
                                   paid.reduce(
-                                    (n, s) => n + Number(s.amount),
+                                    (n, s) => n + Number(s.gross_amount ?? s.amount),
                                     0,
                                   ),
                                 )}
@@ -2779,6 +2806,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
               sales={sales}
               events={p.events}
               offers={p.offers}
+              offerFilter={offer}
               integrations={p.integrations}
               currency={currency}
               changeCurrency={changeCurrency}
@@ -2787,6 +2815,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
               changePeriod={changePeriod}
               run={run}
               request={request}
+              onRefresh={refreshDashboard}
               connect={() => selectTab("integracoes")}
             />
           )}
@@ -2823,7 +2852,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
               currency={currency}
               offers={p.offers}
               links={p.links}
-              insights={p.insights}
+              insights={insights}
               entities={p.entities}
               diagnostics={p.diagnostics}
             />

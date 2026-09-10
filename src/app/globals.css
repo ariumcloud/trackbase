@@ -5044,6 +5044,39 @@ textarea {
   gap: 0.85rem;
 }
 
+.utmify-auto-refresh-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.utmify-auto-refresh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+.utmify-auto-refresh-status.syncing .utmify-auto-refresh-dot {
+  background: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  animation: utmify-auto-refresh-pulse 1s ease-in-out infinite;
+}
+
+.utmify-auto-refresh-status.error .utmify-auto-refresh-dot {
+  background: #F59E0B;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
+@keyframes utmify-auto-refresh-pulse {
+  50% { opacity: 0.35; }
+}
+
 .utmify-last-updated {
   font-size: 0.8rem;
   color: var(--muted);
@@ -5481,6 +5514,22 @@ textarea {
 }
 
 @media (max-width: 600px) {
+  .utmify-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .utmify-updated-text {
+    flex: 1 1 100%;
+    font-size: 0.72rem;
+  }
+
+  .utmify-auto-refresh-status {
+    font-size: 0.68rem;
+  }
+
   .utmify-filter-row {
     grid-template-columns: 1fr;
   }

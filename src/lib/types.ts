@@ -97,6 +97,7 @@ export type SaleRow = {
   occurred_at: string;
 };
 export type InsightRow = {
+  integration_id?: string;
   ad_id: string;
   campaign_id: string;
   adset_id: string;

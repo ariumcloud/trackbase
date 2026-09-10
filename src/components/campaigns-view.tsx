@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   BarChart3,
   Layers,
@@ -24,6 +24,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import type { Entity, InsightRow, SaleRow, Integration, Offer, TrackingEvent } from "@/lib/types";
+import { isApprovedSaleStatus } from "@/lib/sale-status";
 
 type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
 
@@ -350,12 +351,14 @@ export function CampaignsView({
   offers = [],
   integrations = [],
   currency = "BRL",
+  offerFilter = "all",
   changeCurrency,
   pending,
   period = "7",
   changePeriod,
   run,
   request,
+  onRefresh,
   connect,
 }: {
   workspace: string;
@@ -366,19 +369,21 @@ export function CampaignsView({
   offers?: Offer[];
   integrations?: Integration[];
   currency?: string;
+  offerFilter?: string;
   changeCurrency?: (val: string) => void;
   pending: boolean;
   period?: string;
   changePeriod?: (val: string) => void;
   run: (fn: () => Promise<unknown>) => void;
   request: (path: string, data: unknown) => Promise<unknown>;
+  onRefresh?: () => void;
   connect: () => void;
 }) {
   const [kind, setKind] = useState<CampaignEntityKind>("campaign");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
-  const [selectedOffer, setSelectedOffer] = useState("all");
+  const [selectedOffer, setSelectedOffer] = useState(offerFilter || "all");
   const [selectedCurrency, setSelectedCurrency] = useState<string>(currency || "BRL");
   const [selectedByKind, setSelectedByKind] = useState<Record<CampaignEntityKind, Set<string>>>(() => ({
     campaign: new Set<string>(),
@@ -392,6 +397,11 @@ export function CampaignsView({
   const [exchangeRates, setExchangeRates] = useState<Record<string, number> | null>(null);
   const [activeModel, setActiveModel] = useState<string>("desempenho");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [autoRefreshStatus, setAutoRefreshStatus] = useState<"idle" | "syncing" | "error">("idle");
+  const autoRefreshInFlight = useRef(false);
+  const requestRef = useRef(request);
+  const refreshRef = useRef(onRefresh);
+  const pendingRef = useRef(pending);
   const selectedIds = selectedByKind[kind];
   const selectedCampaignIds = selectedByKind.campaign;
   const selectedAdsetIds = selectedByKind.adset;
@@ -402,6 +412,83 @@ export function CampaignsView({
   useEffect(() => {
     if (currency) setSelectedCurrency(currency);
   }, [currency]);
+
+  useEffect(() => {
+    setSelectedOffer(offerFilter || "all");
+  }, [offerFilter]);
+
+  useEffect(() => {
+    requestRef.current = request;
+  }, [request]);
+
+  useEffect(() => {
+    refreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+
+  // Meta data changes throughout the day. Keep this view fresh while it is
+  // open, but only sync a visible tab and never overlap a manual refresh.
+  // The API limits each integration to two syncs per minute, so two minutes
+  // gives a useful cadence without turning every open tab into a Meta poller.
+  useEffect(() => {
+    const metaTargets = integrations.filter(
+      (integration) =>
+        integration.provider === "meta" &&
+        integration.status !== "token_expired" &&
+        (selectedIntegration === "all" || integration.id === selectedIntegration),
+    );
+    if (!workspace || metaTargets.length === 0) return;
+
+    let disposed = false;
+    const syncInBackground = async () => {
+      if (
+        disposed ||
+        document.visibilityState !== "visible" ||
+        pendingRef.current ||
+        autoRefreshInFlight.current
+      ) {
+        return;
+      }
+
+      autoRefreshInFlight.current = true;
+      setAutoRefreshStatus("syncing");
+      try {
+        await Promise.all(
+          metaTargets.map((integration) =>
+            requestRef.current("/api/meta/sync", {
+              workspace,
+              integration: integration.id,
+            }),
+          ),
+        );
+        if (!disposed) {
+          setAutoRefreshStatus("idle");
+          refreshRef.current?.();
+        }
+      } catch {
+        // Keep the last known snapshot on transient Meta/rate-limit failures;
+        // the manual button remains available and exposes the real error.
+        if (!disposed) setAutoRefreshStatus("error");
+      } finally {
+        autoRefreshInFlight.current = false;
+      }
+    };
+
+    const interval = window.setInterval(syncInBackground, 120_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncInBackground();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [integrations, selectedIntegration, workspace]);
 
   useEffect(() => {
     let alive = true;
@@ -531,9 +618,7 @@ export function CampaignsView({
     if (changeCurrency) changeCurrency(newCurr);
   };
 
-  const metricCurrency = (selectedIntegration !== "all"
-    ? integrations.find((integration) => integration.id === selectedIntegration)?.currency
-    : integrations.find((integration) => integration.provider === "meta")?.currency) || "USD";
+  const metricCurrency = selectedCurrency || "USD";
 
   const formatMoney = (val: number | null | undefined, sourceCurrency = metricCurrency) => {
     if (val === null || val === undefined) return "—";
@@ -554,6 +639,8 @@ export function CampaignsView({
   const insightsMap = useMemo(() => {
     const map = new Map<string, { spend: number; clicks: number; impressions: number }>();
     for (const ins of insights) {
+      if (ins.currency?.toUpperCase() !== selectedCurrency.toUpperCase()) continue;
+      if (selectedIntegration !== "all" && ins.integration_id !== selectedIntegration) continue;
       const targetId =
         kind === "campaign"
           ? ins.campaign_id
@@ -561,21 +648,24 @@ export function CampaignsView({
           ? ins.adset_id
           : ins.ad_id;
       if (!targetId) continue;
-      const current = map.get(targetId) || { spend: 0, clicks: 0, impressions: 0 };
+      const key = `${ins.integration_id || ""}:${targetId}`;
+      const current = map.get(key) || { spend: 0, clicks: 0, impressions: 0 };
       current.spend += Number(ins.spend || 0);
       current.clicks += Number(ins.clicks || 0);
       current.impressions += Number(ins.impressions || 0);
-      map.set(targetId, current);
+      map.set(key, current);
     }
     return map;
-  }, [insights, kind]);
+  }, [insights, kind, selectedCurrency, selectedIntegration]);
 
   // 2. Agregação de vendas aprovadas e rastreadas pelas UTMs
   const salesMap = useMemo(() => {
     const map = new Map<string, { count: number; revenue: number }>();
     for (const sale of sales) {
-      if (sale.is_test || !["paid", "approved", "completed"].includes(sale.status)) continue;
+      if (sale.is_test || !isApprovedSaleStatus(sale.status)) continue;
       if (selectedOffer !== "all" && sale.offer_id !== selectedOffer) continue;
+      const saleCurrency = (sale.currency || offers.find((offer) => offer.id === sale.offer_id)?.currency || "").toUpperCase();
+      if (saleCurrency !== selectedCurrency.toUpperCase()) continue;
       const attr = sale.attribution || {};
       const targetId =
         kind === "campaign"
@@ -586,11 +676,11 @@ export function CampaignsView({
       if (!targetId) continue;
       const current = map.get(targetId) || { count: 0, revenue: 0 };
       current.count += 1;
-      current.revenue += Number(sale.amount || 0);
+      current.revenue += Number(sale.gross_amount ?? sale.amount ?? 0);
       map.set(targetId, current);
     }
     return map;
-  }, [sales, kind, selectedOffer]);
+  }, [sales, kind, selectedOffer, selectedCurrency, offers]);
 
   // Checkouts precisam ser eventos reais atribuídos ao mesmo identificador
   // usado pela entidade Meta. Nunca estime IC a partir de cliques: isso faz
@@ -701,7 +791,7 @@ export function CampaignsView({
 
   const computedRows: RowData[] = useMemo(() => {
     return filteredEntities.map((e) => {
-      const ins = insightsMap.get(e.external_id) || {
+      const ins = insightsMap.get(`${e.integration_id}:${e.external_id}`) || insightsMap.get(`:${e.external_id}`) || {
         spend: 0,
         clicks: 0,
         impressions: 0,
@@ -1247,6 +1337,17 @@ export function CampaignsView({
             {latestMetaSync
               ? `Atualizado em ${new Date(latestMetaSync).toLocaleString("pt-BR")}`
               : "Ainda não sincronizado"}
+          </span>
+          <span
+            className={`utmify-auto-refresh-status ${autoRefreshStatus}`}
+            title="Enquanto esta aba estiver aberta, as campanhas são sincronizadas automaticamente a cada 2 minutos."
+          >
+            <span aria-hidden="true" className="utmify-auto-refresh-dot" />
+            {autoRefreshStatus === "syncing"
+              ? "Sincronizando..."
+              : autoRefreshStatus === "error"
+                ? "Auto indisponível"
+                : "Auto · 2 min"}
           </span>
           <button
             type="button"
