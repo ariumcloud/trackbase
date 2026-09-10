@@ -19,3 +19,4 @@
 2026-09-10 — deliverable flush: Hotmart currency fields now preserve ARS and dashboard/campaign/chart metrics convert currencies only with known rates; cross-currency tests pass.
 2026-09-10 — checkpoint: production logs proved Hotmart was calling a deleted integration endpoint (404); desktop push subscription restriction removed, 74 tests/typecheck passed, and production deploy 4d97d83 became ready.
 2026-09-10 — deliverable flush: Radar now distinguishes total PageViews from unique lead sessions, scopes counts to the selected offer, and groups real visitors by session_id instead of treating every PageView as a lead.
+2026-09-10 — deliverable flush: dashboard country breakdown no longer defaults missing data to BR; provider country names/objects normalize to ISO-2 and placement aliases/spaces are retained and classified for Meta reporting.

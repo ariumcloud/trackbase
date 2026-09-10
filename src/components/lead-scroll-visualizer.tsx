@@ -574,7 +574,17 @@ export function LeadScrollVisualizer({
         });
       }
 
-      const rawPlacement = (attr.utm_placement || attr.placement || matchingSale?.attribution?.utm_placement || matchingSale?.attribution?.placement || "").trim();
+      const rawPlacement = (
+        attr.utm_placement ||
+        attr.utm_position ||
+        attr.utm_ad_placement ||
+        attr.placement ||
+        matchingSale?.attribution?.utm_placement ||
+        matchingSale?.attribution?.utm_position ||
+        matchingSale?.attribution?.utm_ad_placement ||
+        matchingSale?.attribution?.placement ||
+        ""
+      ).trim();
       let formattedPlacement: string | undefined = undefined;
       if (rawPlacement) {
         if (/instagram_stories|ig_stories/i.test(rawPlacement)) formattedPlacement = "Instagram Stories";
@@ -619,7 +629,13 @@ export function LeadScrollVisualizer({
       const camp = s.attribution?.utm_campaign || "Campanha Principal";
       const amt = s.gross_amount ?? s.amount ?? 0;
 
-      const rawSalePlacement = (s.attribution?.utm_placement || s.attribution?.placement || "").trim();
+      const rawSalePlacement = (
+        s.attribution?.utm_placement ||
+        s.attribution?.utm_position ||
+        s.attribution?.utm_ad_placement ||
+        s.attribution?.placement ||
+        ""
+      ).trim();
       let formattedSalePlacement: string | undefined = undefined;
       if (rawSalePlacement) {
         if (/instagram_stories|ig_stories/i.test(rawSalePlacement)) formattedSalePlacement = "Instagram Stories";

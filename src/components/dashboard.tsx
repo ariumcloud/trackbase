@@ -553,11 +553,7 @@ export function Dashboard(p: Props) {
   );
   const byCountry = approvedSales.reduce<Record<string, { count: number; revenue: number }>>(
     (result, sale) => {
-      const attr = sale.attribution || {};
-      const key =
-        normalizeCountryCode(
-          sale.country || attr.utm_country || attr.country || attr.country_code,
-        ) || "UNKNOWN";
+      const key = normalizeCountryCode(sale.country) || "UNKNOWN";
       const current = result[key] || { count: 0, revenue: 0 };
       current.count += 1;
       current.revenue +=
@@ -578,58 +574,66 @@ export function Dashboard(p: Props) {
       const attr = sale.attribution || {};
       const raw = (
         attr.utm_placement ||
+        attr.utm_position ||
+        attr.utm_ad_placement ||
         attr.placement ||
         attr.position ||
         attr.ad_placement ||
         ""
       ).trim();
-      if (!raw) continue;
+      if (!raw || /^\{\{[^}]+\}\}$/.test(raw)) continue;
+      const placementKey = raw
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
 
       let displayName = raw;
       let platform = "Meta Ads";
       let icon = "📱";
 
-      if (/instagram_stories|ig_stories|stories_ig/i.test(raw)) {
+      if (/instagram_stories|ig_stories|stories_ig/i.test(placementKey)) {
         displayName = "Instagram Stories";
         platform = "Instagram";
         icon = "📱";
-      } else if (/instagram_feed|ig_feed|feed_ig/i.test(raw)) {
+      } else if (/instagram_feed|ig_feed|feed_ig/i.test(placementKey)) {
         displayName = "Instagram Feed / Post";
         platform = "Instagram";
         icon = "📰";
-      } else if (/instagram_reels|reels_ig|ig_reels/i.test(raw)) {
+      } else if (/instagram_reels|reels_ig|ig_reels/i.test(placementKey)) {
         displayName = "Instagram Reels";
         platform = "Instagram";
         icon = "🎬";
-      } else if (/instagram_explore/i.test(raw)) {
+      } else if (/instagram_explore/i.test(placementKey)) {
         displayName = "Instagram Explorar";
         platform = "Instagram";
         icon = "🔍";
-      } else if (/facebook_mobile_feed|fb_mobile_feed/i.test(raw)) {
+      } else if (/facebook_mobile_feed|fb_mobile_feed/i.test(placementKey)) {
         displayName = "Facebook Feed (Mobile)";
         platform = "Facebook";
         icon = "📱";
-      } else if (/facebook_desktop_feed|fb_desktop_feed/i.test(raw)) {
+      } else if (/facebook_desktop_feed|fb_desktop_feed/i.test(placementKey)) {
         displayName = "Facebook Feed (Desktop)";
         platform = "Facebook";
         icon = "💻";
-      } else if (/facebook_feed|fb_feed/i.test(raw)) {
+      } else if (/facebook_feed|fb_feed/i.test(placementKey)) {
         displayName = "Facebook Feed";
         platform = "Facebook";
         icon = "📰";
-      } else if (/facebook_stories|fb_stories/i.test(raw)) {
+      } else if (/facebook_stories|fb_stories/i.test(placementKey)) {
         displayName = "Facebook Stories";
         platform = "Facebook";
         icon = "📱";
-      } else if (/facebook_reels|fb_reels/i.test(raw)) {
+      } else if (/facebook_reels|fb_reels/i.test(placementKey)) {
         displayName = "Facebook Reels";
         platform = "Facebook";
         icon = "🎬";
-      } else if (/audience/i.test(raw)) {
+      } else if (/audience/i.test(placementKey)) {
         displayName = "Audience Network";
         platform = "Audience Network";
         icon = "🌐";
-      } else if (/messenger/i.test(raw)) {
+      } else if (/messenger/i.test(placementKey)) {
         displayName = "Messenger";
         platform = "Messenger";
         icon = "💬";

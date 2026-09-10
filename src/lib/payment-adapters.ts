@@ -42,6 +42,8 @@ const extractAttribution = (raw: unknown): Record<string, string> => {
     "position",
     "ad_placement",
     "adplacement",
+    "utm_position",
+    "utm_ad_placement",
   ]);
   for (const [k, v] of Object.entries(obj)) {
     const key = k.toLowerCase();
