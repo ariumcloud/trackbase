@@ -224,9 +224,10 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
             <Bot size={18} color="#FFF" />
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <strong style={{ fontSize: "1rem" }}>Assistente Trackbase IA</strong>
+            <div className="assistente-title-row" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <strong className="assistente-title" style={{ fontSize: "1rem" }}>Assistente Trackbase IA</strong>
               <span
+                className="assistente-online"
                 style={{
                   fontSize: "0.68rem",
                   padding: "0.15rem 0.45rem",
@@ -249,6 +250,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
           type="button"
           onClick={handleClear}
           title="Limpar conversa"
+          className="assistente-clear-button"
           style={{
             background: "rgba(255,255,255,0.1)",
             border: "none",
@@ -268,6 +270,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
 
       {/* Messages Scroll Area */}
       <div
+        className="assistente-messages"
         style={{
           flex: 1,
           overflowY: "auto",
@@ -282,6 +285,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
           const isBot = m.sender === "assistant";
           return (
             <div
+              className={`assistente-message-row ${isBot ? "is-bot" : "is-user"}`}
               key={m.id}
               style={{
                 display: "flex",
@@ -292,6 +296,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
               }}
             >
               <div
+                className="assistente-message-avatar"
                 style={{
                   width: 32,
                   height: 32,
@@ -309,6 +314,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
               </div>
 
               <div
+                className={`assistente-message-bubble ${isBot ? "is-bot" : "is-user"}`}
                 style={{
                   background: isBot ? "var(--surface, #FFFFFF)" : "#5B34EA",
                   color: isBot ? "var(--ink, #0F172A)" : "#FFFFFF",
@@ -326,6 +332,7 @@ Você pode me perguntar qualquer coisa sobre os resultados da sua operação, qu
                 {m.text}
 
                 <div
+                  className="assistente-message-meta"
                   style={{
                     display: "flex",
                     justifyContent: isBot ? "space-between" : "flex-end",

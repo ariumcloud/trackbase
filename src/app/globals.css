@@ -3935,17 +3935,76 @@ textarea {
   .main-assistente .page-heading {
     display: none !important;
   }
-  .assistente-chat-panel {
-    height: calc(100dvh - 145px) !important;
-    min-height: 400px !important;
+  .main-assistente .assistente-chat-panel {
+    height: calc(100dvh - 132px) !important;
+    max-height: calc(100dvh - 132px) !important;
+    min-height: 0 !important;
     border-radius: 12px !important;
     margin: 0 !important;
   }
   .assistente-header-sub {
     display: none !important;
   }
-  .assistente-header {
-    padding: 0.75rem 1rem !important;
+  .main-assistente .assistente-header {
+    padding: 0.7rem 0.85rem !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .main-assistente .assistente-header > div:first-child {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    align-items: flex-start !important;
+  }
+  .main-assistente .assistente-header > div:first-child > div:last-child {
+    min-width: 0 !important;
+  }
+  .main-assistente .assistente-title-row {
+    display: block !important;
+  }
+  .main-assistente .assistente-title {
+    display: block !important;
+    max-width: 100%;
+    font-size: 0.95rem !important;
+    line-height: 1.2 !important;
+  }
+  .main-assistente .assistente-online {
+    display: inline-flex !important;
+    margin-top: 5px;
+    font-size: 0.62rem !important;
+    line-height: 1.1 !important;
+    padding: 0.2rem 0.45rem !important;
+  }
+  .main-assistente .assistente-clear-button {
+    flex: 0 0 auto !important;
+    align-self: flex-start !important;
+    min-height: 34px;
+    white-space: nowrap;
+    padding: 0.45rem 0.6rem !important;
+  }
+  .main-assistente .assistente-messages {
+    min-height: 0 !important;
+    padding: 0.8rem !important;
+    gap: 0.7rem !important;
+  }
+  .main-assistente .assistente-message-row.is-bot {
+    width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    gap: 0.55rem !important;
+  }
+  .main-assistente .assistente-message-bubble.is-bot {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 0.65rem 0.8rem !important;
+    font-size: 0.85rem !important;
+    line-height: 1.42 !important;
+  }
+  .main-assistente .assistente-message-bubble.is-user {
+    max-width: calc(100vw - 90px) !important;
+    padding: 0.65rem 0.8rem !important;
+    font-size: 0.85rem !important;
+    line-height: 1.42 !important;
   }
   .assistente-input-area {
     padding: 0.6rem 0.8rem !important;

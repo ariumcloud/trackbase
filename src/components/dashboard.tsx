@@ -2730,12 +2730,6 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 </div>
               </section>
 
-              <PushSettingsCard
-                workspace={workspace}
-                pushSettings={p.workspace?.push_settings}
-                pending={pending}
-                run={run}
-              />
               <AccountPrivacyCard
                 pending={pending}
                 run={run}
