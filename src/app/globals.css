@@ -6213,3 +6213,131 @@ textarea {
   }
 }
 
+/* MCP onboarding: make the connection flow scannable and usable without
+   requiring the user to know which config file belongs to each client. */
+.mcp-setup-callout {
+  min-width: 0;
+}
+
+.mcp-guide-intro {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.mcp-guide-intro span,
+.mcp-code-caption {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.mcp-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mcp-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.mcp-guide-step > span {
+  display: grid;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.mcp-guide-step > div {
+  min-width: 0;
+}
+
+.mcp-guide-step p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.mcp-code-caption {
+  margin: 14px 0 8px;
+}
+
+.mcp-setup-success {
+  margin-top: 12px;
+  border-color: var(--green-border);
+  background: var(--green-soft);
+}
+
+.mcp-setup-success code {
+  color: var(--green-text);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .mcp-guide-step {
+  background: var(--surface-subtle);
+}
+
+@media (max-width: 768px) {
+  .mcp-settings-view section {
+    padding: 1rem !important;
+  }
+
+  .mcp-app-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px !important;
+  }
+
+  .mcp-app-tabs .button {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    padding-inline: 7px !important;
+    font-size: 0.76rem !important;
+    white-space: normal;
+  }
+
+  .mcp-guide-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mcp-code-block pre {
+    padding-top: 3.2rem !important;
+    font-size: 0.72rem !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .mcp-code-block > button {
+    top: 8px !important;
+    right: auto !important;
+    left: 8px;
+    padding: 5px 9px !important;
+    font-size: 0.7rem !important;
+  }
+}
+

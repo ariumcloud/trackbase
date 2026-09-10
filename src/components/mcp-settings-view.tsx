@@ -41,8 +41,10 @@ export function McpSettingsView({
   const [keyName, setKeyName] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"claude" | "cursor" | "cli">("claude");
+  const [activeTab, setActiveTab] = useState<"claude" | "cursor" | "codex" | "cli">("claude");
   const [loading, startTransition] = useTransition();
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -60,6 +62,45 @@ export function McpSettingsView({
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2500);
+  };
+
+  const handleCopyConfig = (text: string, id: string) => {
+    if (!newKey) {
+      setMessage("Gere uma chave nova acima para liberar uma configuração válida. A chave completa não pode ser recuperada depois.");
+      return;
+    }
+    handleCopy(text, id);
+  };
+
+  const handleTestConnection = async () => {
+    if (!newKey) {
+      setMessage("Gere uma chave nova acima para testar a conexão.");
+      return;
+    }
+
+    setTesting(true);
+    setTestResult(null);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${newKey}`,
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error?.message || "O servidor recusou a conexão.");
+      }
+      setTestResult("success");
+    } catch (error) {
+      setTestResult("error");
+      setMessage(error instanceof Error ? error.message : "Não foi possível testar a conexão.");
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -98,8 +139,8 @@ export function McpSettingsView({
     });
   };
 
-  const activeApiKey =
-    newKey || (keys.length > 0 ? `${keys[0].prefix}...` : "tb_live_SUA_CHAVE_AQUI");
+  // A prefix is only a visual identifier. It can never be used to authenticate.
+  const activeApiKey = newKey || "COLE_A_CHAVE_MCP_GERADA_AQUI";
 
   const claudeConfig = JSON.stringify(
     {
@@ -136,6 +177,14 @@ export function McpSettingsView({
   );
 
   const cliCommand = `claude mcp add trackbase -- node bin/trackbase-mcp.mjs`;
+
+  const codexConfig = `[mcp_servers.trackbase]
+url = "${appUrl.replace(/\/$/, "")}/api/mcp"
+bearer_token_env_var = "TRACKBASE_API_KEY"`;
+
+  const codexEnvCommand = newKey
+    ? `setx TRACKBASE_API_KEY "${newKey}"`
+    : `setx TRACKBASE_API_KEY "COLE_A_CHAVE_MCP_GERADA_AQUI"`;
 
   return (
     <div
@@ -242,7 +291,22 @@ export function McpSettingsView({
             >
               Concluído
             </button>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={handleTestConnection}
+              disabled={testing}
+              style={{ height: "44px", padding: "0 1rem" }}
+            >
+              {testing ? "Testando..." : "Testar conexão"}
+            </button>
           </div>
+          {testResult === "success" && (
+            <div style={{ marginTop: "0.7rem", color: "#047857", fontSize: "0.82rem", fontWeight: 600 }}>
+              <Check size={14} style={{ verticalAlign: "-2px", marginRight: "4px" }} />
+              Conexão funcionando. Sua IA já pode consultar o Trackbase.
+            </div>
+          )}
         </div>
       )}
 
@@ -535,13 +599,37 @@ export function McpSettingsView({
               color: "var(--muted, #64748B)",
             }}
           >
-            Siga o passo a passo simplificado para conectar o Claude ou seu editor em menos
-            de 1 minuto.
+            Escolha o aplicativo que você usa. A configuração é feita em 3 passos e não
+            exige conhecimento técnico.
           </p>
+        </div>
+
+        <div
+          className="mcp-setup-callout"
+          style={{
+            display: "grid",
+            gap: "0.45rem",
+            marginBottom: "1.25rem",
+            padding: "0.9rem 1rem",
+            borderRadius: "10px",
+            border: "1px solid var(--brand-border, #C4B5FD)",
+            background: "var(--brand-soft, #F5F3FF)",
+            color: "var(--ink, #0F172A)",
+            fontSize: "0.84rem",
+            lineHeight: 1.45,
+          }}
+        >
+          <strong>{newKey ? "Pronto para conectar" : "Comece gerando sua chave"}</strong>
+          <span style={{ color: "var(--muted, #64748B)" }}>
+            1. Gere uma chave na caixa acima. 2. Copie a configuração da sua aba. 3. Cole
+            no aplicativo e reinicie-o. A chave completa aparece uma única vez por
+            segurança.
+          </span>
         </div>
 
         {/* Seletor de Aplicativo */}
         <div
+          className="mcp-app-tabs"
           style={{
             display: "flex",
             gap: "0.5rem",
@@ -579,7 +667,22 @@ export function McpSettingsView({
               fontWeight: 600,
             }}
           >
-            <Code2 size={15} /> Cursor / Codex
+            <Code2 size={15} /> Cursor
+          </button>
+          <button
+            type="button"
+            className={`button ${activeTab === "codex" ? "primary" : "secondary"}`}
+            onClick={() => setActiveTab("codex")}
+            style={{
+              fontSize: "0.84rem",
+              padding: "0.5rem 1rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              fontWeight: 600,
+            }}
+          >
+            <Code2 size={15} /> Codex
           </button>
           <button
             type="button"
@@ -772,7 +875,9 @@ export function McpSettingsView({
               <button
                 type="button"
                 className="button primary"
-                onClick={() => handleCopy(claudeConfig, "claude-json")}
+                onClick={() => handleCopyConfig(claudeConfig, "claude-json")}
+                disabled={!newKey}
+                title={newKey ? "Copiar configuração" : "Gere uma chave nova para liberar a configuração"}
                 style={{
                   position: "absolute",
                   top: "12px",
@@ -783,6 +888,7 @@ export function McpSettingsView({
                   alignItems: "center",
                   gap: "0.35rem",
                   fontWeight: 600,
+                  opacity: newKey ? 1 : 0.55,
                 }}
               >
                 {copied === "claude-json" ? (
@@ -810,9 +916,10 @@ export function McpSettingsView({
                 lineHeight: 1.5,
               }}
             >
-              No Cursor ou Codex, crie ou edite o arquivo{" "}
-              <code>.cursor/mcp.json</code> na raiz do seu projeto e adicione a
-              configuração abaixo:
+              Abra o projeto que contém a pasta <code>bin</code> do Trackbase e crie ou
+              edite <code>.cursor/mcp.json</code> na raiz. Cole o JSON abaixo, salve e
+              reinicie o Cursor. Se o projeto estiver em outra pasta, troque o caminho do
+              script pelo caminho absoluto da sua cópia do Trackbase.
             </p>
             <div style={{ position: "relative" }}>
               <pre
@@ -834,7 +941,9 @@ export function McpSettingsView({
               <button
                 type="button"
                 className="button primary"
-                onClick={() => handleCopy(cursorConfig, "cursor-json")}
+                onClick={() => handleCopyConfig(cursorConfig, "cursor-json")}
+                disabled={!newKey}
+                title={newKey ? "Copiar configuração" : "Gere uma chave nova para liberar a configuração"}
                 style={{
                   position: "absolute",
                   top: "12px",
@@ -845,6 +954,7 @@ export function McpSettingsView({
                   alignItems: "center",
                   gap: "0.35rem",
                   fontWeight: 600,
+                  opacity: newKey ? 1 : 0.55,
                 }}
               >
                 {copied === "cursor-json" ? (
@@ -857,6 +967,133 @@ export function McpSettingsView({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Aba: Codex */}
+        {activeTab === "codex" && (
+          <div className="mcp-codex-guide">
+            <div className="mcp-guide-intro">
+              <strong>Conectar no Codex Desktop, CLI ou extensão</strong>
+              <span>
+                O Codex usa o mesmo arquivo de configuração nos três lugares. Você só
+                precisa salvar a chave como variável do Windows e reiniciar o Codex.
+              </span>
+            </div>
+
+            <div className="mcp-guide-steps">
+              <div className="mcp-guide-step">
+                <span>1</span>
+                <div>
+                  <strong>Abra a configuração do Codex</strong>
+                  <p>
+                    No Codex, abra <code>Settings → MCP servers → Add server</code>. Se
+                    preferir editar arquivo, abra <code>~/.codex/config.toml</code>.
+                  </p>
+                </div>
+              </div>
+              <div className="mcp-guide-step">
+                <span>2</span>
+                <div>
+                  <strong>Copie o bloco TOML abaixo</strong>
+                  <p>Ele aponta para o servidor online do Trackbase e usa sua chave com segurança.</p>
+                </div>
+              </div>
+              <div className="mcp-guide-step">
+                <span>3</span>
+                <div>
+                  <strong>Salve a chave no Windows</strong>
+                  <p>Abra o PowerShell, cole o comando abaixo, reinicie o Codex e pronto.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mcp-code-block" style={{ position: "relative" }}>
+              <pre
+                style={{
+                  background: "#0F172A",
+                  color: "#E2E8F0",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  fontSize: "0.84rem",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  overflowX: "auto",
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                {codexConfig}
+              </pre>
+              <button
+                type="button"
+                className="button primary"
+                onClick={() => handleCopyConfig(codexConfig, "codex-config")}
+                disabled={!newKey}
+                title={newKey ? "Copiar configuração" : "Gere uma chave nova para liberar a configuração"}
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  fontSize: "0.78rem",
+                  padding: "6px 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontWeight: 600,
+                  opacity: newKey ? 1 : 0.55,
+                }}
+              >
+                {copied === "codex-config" ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar TOML</>}
+              </button>
+            </div>
+
+            <p className="mcp-code-caption">
+              No PowerShell do Windows, copie e execute este comando. Ele salva a chave
+              apenas no seu usuário — nunca compartilhe esse valor.
+            </p>
+            <div className="mcp-code-block" style={{ position: "relative" }}>
+              <pre
+                style={{
+                  background: "#0F172A",
+                  color: "#E2E8F0",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  fontSize: "0.84rem",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  overflowX: "auto",
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                {codexEnvCommand}
+              </pre>
+              <button
+                type="button"
+                className="button primary"
+                onClick={() => handleCopyConfig(codexEnvCommand, "codex-env")}
+                disabled={!newKey}
+                title={newKey ? "Copiar comando" : "Gere uma chave nova para liberar o comando"}
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  fontSize: "0.78rem",
+                  padding: "6px 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontWeight: 600,
+                  opacity: newKey ? 1 : 0.55,
+                }}
+              >
+                {copied === "codex-env" ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar comando</>}
+              </button>
+            </div>
+
+            <div className="mcp-setup-callout mcp-setup-success">
+              Depois de reiniciar, abra um chat e execute <code>/mcp</code>. O Trackbase
+              deve aparecer como servidor conectado.
             </div>
           </div>
         )}
