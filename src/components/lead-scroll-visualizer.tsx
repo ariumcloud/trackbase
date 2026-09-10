@@ -378,6 +378,24 @@ export function LeadScrollVisualizer({
   const trackerKey = activeOffer?.public_key || (offers.length > 0 && offers[0].public_key) || "SUA_CHAVE_DE_OFERTA";
   const scriptSnippet = `<script src="${appUrl}/tracker.js" data-key="${trackerKey}" defer></script>`;
 
+  const filteredEventsForView = useMemo(
+    () =>
+      selectedOfferId && selectedOfferId !== "all"
+        ? (events || []).filter(
+            (event) =>
+              event.offer_id === selectedOfferId ||
+              event.attribution?.offer_id === selectedOfferId,
+          )
+        : events || [],
+    [events, selectedOfferId],
+  );
+  const realPageviewCount = filteredEventsForView.filter(
+    (event) => event.event_type === "pageview",
+  ).length;
+  const realSessionCount = new Set(
+    filteredEventsForView.map((event) => event.session_id || `ev_${event.id}`),
+  ).size;
+
   const handleCopyScript = () => {
     try {
       navigator.clipboard.writeText(scriptSnippet);
@@ -390,17 +408,12 @@ export function LeadScrollVisualizer({
 
   // Parser de Sessões Reais a partir de 'events' e 'sales'
   const realSessions = useMemo<LeadSession[]>(() => {
-    if ((!events || events.length === 0) && (!sales || sales.length === 0)) {
+    if (filteredEventsForView.length === 0 && (!sales || sales.length === 0)) {
       return [];
     }
 
-    // Filtra eventos pela oferta selecionada se não for "all"
-    const filteredEvents = (selectedOfferId && selectedOfferId !== "all")
-      ? (events || []).filter((e) => e.offer_id === selectedOfferId || (e.attribution && e.attribution.offer_id === selectedOfferId))
-      : (events || []);
-
     const sessionMap = new Map<string, TrackingEvent[]>();
-    for (const ev of filteredEvents) {
+    for (const ev of filteredEventsForView) {
       const sid = ev.session_id || `ev_${ev.id}`;
       if (!sessionMap.has(sid)) {
         sessionMap.set(sid, []);
@@ -663,7 +676,7 @@ export function LeadScrollVisualizer({
     });
 
     return result;
-  }, [events, sales, selectedOfferId]);
+  }, [filteredEventsForView, sales, selectedOfferId]);
 
   // Define se usa dados reais ou demonstração. Dados de demonstração só
   // aparecem quando o usuário escolhe explicitamente esse modo.
@@ -1139,6 +1152,11 @@ export function LeadScrollVisualizer({
                 ? `Visitantes Reais no Funil (${activeLeads.length})`
                 : `Leads e Sessões de Exemplo (${activeLeads.length})`}
             </h3>
+            {dataSourceMode === "real" && (
+              <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                {realPageviewCount} PageViews · {realSessionCount} sessões únicas
+              </span>
+            )}
             {dataSourceMode === "demo" && (
               <span
                 style={{
