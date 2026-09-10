@@ -5,6 +5,9 @@ import { body, sameOrigin, rateLimit } from "@/lib/security";
 import { credentials, pages, type RawInsight, MetaError } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { admin } from "@/lib/supabase/server";
+
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   let synchronization: { workspace: string; integration: string } | null = null;
   try {
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
       .eq("workspace_id", v.workspace)
       .eq("account_id", integration.account_id);
     if (startingError) throw startingError;
-    const insights = await pages<RawInsight>(
+    const insightsRequest = pages<RawInsight>(
       `${integration.account_id}/insights`,
       token,
       {
@@ -48,9 +51,22 @@ export async function POST(request: Request) {
         time_range: JSON.stringify({ since, until }),
       }, "insights",
     );
-    const entities: Array<{ workspace_id: string; integration_id: string; external_id: string; name: string; status: string; kind: "campaign" | "adset" | "ad"; parent_id: string | null; budget_minor: number | null; budget_currency: string | null; budget_type: "daily" | "lifetime" | null; meta_created_at: string | null }> = [];
     const entityEdges: Array<[string, "campaign" | "adset" | "ad"]> = [["campaigns", "campaign"], ["adsets", "adset"], ["ads", "ad"]];
-    for (const [edge, kind] of entityEdges) {
+    const now = Date.now();
+    const entityRequests = entityEdges.map(async ([edge, kind]) => {
+      const fields = [
+        "id",
+        "name",
+        "status",
+        "effective_status",
+        // start_time exists on campaigns and ad sets, but not on the Ad
+        // object. Asking for it on /ads makes the whole Meta sync fail.
+        ...(kind === "ad" ? [] : ["start_time"]),
+        "created_time",
+        ...(kind === "adset" ? ["campaign_id", "daily_budget", "lifetime_budget"] : []),
+        ...(kind === "campaign" ? ["daily_budget", "lifetime_budget"] : []),
+        ...(kind === "ad" ? ["adset_id"] : []),
+      ].join(",");
       const rows = await pages<{
         id: string;
         name: string;
@@ -62,12 +78,8 @@ export async function POST(request: Request) {
         daily_budget?: string;
         lifetime_budget?: string;
         created_time?: string;
-      }>(`${integration.account_id}/${edge}`, token, {
-        fields: `id,name,status,effective_status,start_time,created_time${kind === "adset" ? ",campaign_id,daily_budget,lifetime_budget" : kind === "campaign" ? ",daily_budget,lifetime_budget" : ",adset_id"}`,
-      });
-      const now = Date.now();
-      entities.push(
-        ...rows.map((r) => ({
+      }>(`${integration.account_id}/${edge}`, token, { fields }, `${kind}s`);
+      return rows.map((r) => ({
           workspace_id: v.workspace,
           integration_id: v.integration,
           external_id: r.id,
@@ -88,9 +100,10 @@ export async function POST(request: Request) {
           budget_currency: kind === "ad" ? null : integration.currency ?? null,
           budget_type: kind === "ad" ? null : r.daily_budget ? "daily" as const : r.lifetime_budget ? "lifetime" as const : null,
           meta_created_at: r.created_time ?? null,
-        })),
-      );
-    }
+      }));
+    });
+    const [insights, entityGroups] = await Promise.all([insightsRequest, Promise.all(entityRequests)]);
+    const entities = entityGroups.flat();
     const rows = insights.map((r) => ({
       workspace_id: v.workspace,
       integration_id: v.integration,
@@ -133,7 +146,12 @@ export async function POST(request: Request) {
       await admin().from("utm_integrations").update({ status }).eq("id", synchronization.integration).eq("workspace_id", synchronization.workspace);
     }
     if (e instanceof MetaError) {
-      console.error("Meta sync failed", { code: e.internalCode, stage: e.stage });
+      console.error("Meta sync failed", {
+        code: e.code,
+        internalCode: e.internalCode,
+        stage: e.stage,
+        detail: e.detail,
+      });
     }
     return NextResponse.json(
       {

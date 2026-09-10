@@ -110,6 +110,7 @@ export type Entity = {
   integration_id: string;
   external_id: string;
   kind: string;
+  parent_id?: string | null;
   name: string;
   status: string;
   budget_minor?: number | null;

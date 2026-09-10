@@ -35,6 +35,8 @@ type EntityStatusMeta = {
   toggleable: boolean;
 };
 
+type CampaignEntityKind = "campaign" | "adset" | "ad";
+
 const ENTITY_STATUS_META: Record<string, EntityStatusMeta> = {
   ACTIVE: {
     label: "Veiculando",
@@ -370,13 +372,17 @@ export function CampaignsView({
   request: (path: string, data: unknown) => Promise<unknown>;
   connect: () => void;
 }) {
-  const [kind, setKind] = useState<"campaign" | "adset" | "ad">("campaign");
+  const [kind, setKind] = useState<CampaignEntityKind>("campaign");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState("all");
   const [selectedCurrency, setSelectedCurrency] = useState<string>(currency || "BRL");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedByKind, setSelectedByKind] = useState<Record<CampaignEntityKind, Set<string>>>(() => ({
+    campaign: new Set<string>(),
+    adset: new Set<string>(),
+    ad: new Set<string>(),
+  }));
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [showColPicker, setShowColPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -384,6 +390,9 @@ export function CampaignsView({
   const [exchangeRates, setExchangeRates] = useState<Record<string, number> | null>(null);
   const [activeModel, setActiveModel] = useState<string>("desempenho");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const selectedIds = selectedByKind[kind];
+  const selectedCampaignIds = selectedByKind.campaign;
+  const selectedAdsetIds = selectedByKind.adset;
   const latestMetaSync = integrations
     .filter((integration) => integration.provider === "meta" && integration.last_synced_at)
     .sort((a, b) => new Date(b.last_synced_at!).getTime() - new Date(a.last_synced_at!).getTime())[0]?.last_synced_at;
@@ -581,11 +590,47 @@ export function CampaignsView({
     return map;
   }, [sales, kind, selectedOffer]);
 
+  // A Meta mantém a árvore campanha → conjunto → anúncio. As seleções ficam
+  // separadas por nível para que a seleção da campanha continue ativa ao
+  // alternar para os filhos, sem misturar IDs de tipos diferentes.
+  const adsetsForSelectedCampaigns = useMemo(() => {
+    if (selectedCampaignIds.size === 0) return new Set<string>();
+    return new Set(
+      entities
+        .filter(
+          (entity) =>
+            entity.kind === "adset" &&
+            Boolean(entity.parent_id) &&
+            selectedCampaignIds.has(entity.parent_id as string),
+        )
+        .map((entity) => entity.external_id),
+    );
+  }, [entities, selectedCampaignIds]);
+
   // 3. Filtragem das entidades
   const filteredEntities = useMemo(() => {
     return entities.filter((e) => {
       if (e.kind !== kind) return false;
       if (selectedIntegration !== "all" && e.integration_id !== selectedIntegration)
+        return false;
+      if (
+        kind === "adset" &&
+        selectedCampaignIds.size > 0 &&
+        !selectedCampaignIds.has(e.parent_id ?? "")
+      )
+        return false;
+      if (
+        kind === "ad" &&
+        selectedAdsetIds.size > 0 &&
+        !selectedAdsetIds.has(e.parent_id ?? "")
+      )
+        return false;
+      if (
+        kind === "ad" &&
+        selectedAdsetIds.size === 0 &&
+        selectedCampaignIds.size > 0 &&
+        !adsetsForSelectedCampaigns.has(e.parent_id ?? "")
+      )
         return false;
       if (statusFilter !== "all" && e.status !== statusFilter) return false;
       if (
@@ -596,7 +641,16 @@ export function CampaignsView({
         return false;
       return true;
     });
-  }, [entities, kind, selectedIntegration, statusFilter, search]);
+  }, [
+    entities,
+    kind,
+    selectedIntegration,
+    selectedCampaignIds,
+    selectedAdsetIds,
+    adsetsForSelectedCampaigns,
+    statusFilter,
+    search,
+  ]);
 
   // 4. Mapeamento de métricas completas para ordenação
   interface RowData {
@@ -864,19 +918,42 @@ export function CampaignsView({
   };
 
   const toggleSelectRow = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
+    setSelectedByKind((previous) => {
+      const next = new Set(previous[kind]);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
+      if (kind === "campaign") {
+        return { ...previous, campaign: next, adset: new Set<string>(), ad: new Set<string>() };
+      }
+      if (kind === "adset") {
+        return { ...previous, adset: next, ad: new Set<string>() };
+      }
+      return { ...previous, ad: next };
     });
   };
 
   const toggleSelectAll = () => {
     if (selectedIds.size === sortedRows.length) {
-      setSelectedIds(new Set());
+      setSelectedByKind((previous) => {
+        if (kind === "campaign") {
+          return { ...previous, campaign: new Set<string>(), adset: new Set<string>(), ad: new Set<string>() };
+        }
+        if (kind === "adset") {
+          return { ...previous, adset: new Set<string>(), ad: new Set<string>() };
+        }
+        return { ...previous, ad: new Set<string>() };
+      });
     } else {
-      setSelectedIds(new Set(sortedRows.map((r) => r.entity.external_id)));
+      const next = new Set(sortedRows.map((r) => r.entity.external_id));
+      setSelectedByKind((previous) => {
+        if (kind === "campaign") {
+          return { ...previous, campaign: next, adset: new Set<string>(), ad: new Set<string>() };
+        }
+        if (kind === "adset") {
+          return { ...previous, adset: next, ad: new Set<string>() };
+        }
+        return { ...previous, ad: next };
+      });
     }
   };
 
@@ -912,16 +989,21 @@ export function CampaignsView({
             <BarChart3 size={15} />
             <span>Campanhas</span>
             <span className="badge-count">{kindCounts.campaign}</span>
-            {selectedIds.size > 0 && kind === "campaign" && (
+            {selectedCampaignIds.size > 0 && kind === "campaign" && (
               <span
                 className="utmify-selected-badge"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedIds(new Set());
+                  setSelectedByKind((previous) => ({
+                    ...previous,
+                    campaign: new Set<string>(),
+                    adset: new Set<string>(),
+                    ad: new Set<string>(),
+                  }));
                 }}
                 title="Limpar seleção"
               >
-                {selectedIds.size} selecionados <X size={11} />
+                {selectedCampaignIds.size} selecionados <X size={11} />
               </span>
             )}
           </button>
@@ -933,8 +1015,8 @@ export function CampaignsView({
           >
             <Layers size={15} />
             <span>
-              {selectedIds.size > 0
-                ? `Conjuntos para ${selectedIds.size} ${selectedIds.size === 1 ? "campanha" : "campanhas"}`
+              {selectedCampaignIds.size > 0
+                ? `Conjuntos para ${selectedCampaignIds.size} ${selectedCampaignIds.size === 1 ? "campanha" : "campanhas"}`
                 : `Conjuntos`}
             </span>
             <span className="badge-count">{kindCounts.adset}</span>
@@ -947,8 +1029,10 @@ export function CampaignsView({
           >
             <Tag size={15} />
             <span>
-              {selectedIds.size > 0
-                ? `Anúncios para ${selectedIds.size} ${selectedIds.size === 1 ? "campanha" : "campanhas"}`
+              {selectedAdsetIds.size > 0
+                ? `Anúncios para ${selectedAdsetIds.size} ${selectedAdsetIds.size === 1 ? "conjunto" : "conjuntos"}`
+                : selectedCampaignIds.size > 0
+                ? `Anúncios para ${selectedCampaignIds.size} ${selectedCampaignIds.size === 1 ? "campanha" : "campanhas"}`
                 : `Anúncios`}
             </span>
             <span className="badge-count">{kindCounts.ad}</span>

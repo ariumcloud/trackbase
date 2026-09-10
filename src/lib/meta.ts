@@ -6,13 +6,15 @@ export const graphVersion = () => process.env.META_GRAPH_VERSION || "v23.0";
 export const metaRedirectUri = () => `${appUrl()}/api/meta/callback`;
 export class MetaError extends Error {
   readonly internalCode: "token_expired" | "permission_insufficient" | "rate_limited" | "api_unavailable";
-  constructor(public code: number, public stage = "meta_request") {
+  constructor(public code: number, public stage = "meta_request", public detail?: string) {
     super(
       code === 190
         ? "A conexão Meta expirou. Conecte novamente."
-        : [10, 200].includes(code)
+        : [10, 100, 200, 294].includes(code)
           ? "A Meta não autorizou esta operação. Confira as permissões do aplicativo e da conta."
-          : "A Meta não respondeu. Tente novamente.",
+          : detail === "timeout"
+            ? "A Meta demorou para responder. Tente novamente em alguns segundos."
+            : "A Meta não respondeu. Tente novamente.",
     );
     this.internalCode = code === 190
       ? "token_expired"
@@ -37,21 +39,31 @@ export async function graph<T>(
   const url = new URL(`https://graph.facebook.com/${graphVersion()}/${path}`);
   if (method === "GET")
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const response = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(method === "POST"
-        ? { "Content-Type": "application/x-www-form-urlencoded" }
-        : {}),
-    },
-    body: method === "POST" ? new URLSearchParams(params) : undefined,
-    cache: "no-store",
-    signal: AbortSignal.timeout(20000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(method === "POST"
+          ? { "Content-Type": "application/x-www-form-urlencoded" }
+          : {}),
+      },
+      body: method === "POST" ? new URLSearchParams(params) : undefined,
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (error) {
+    const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+    throw new MetaError(0, stage, timedOut ? "timeout" : "network");
+  }
   const result = await response.json().catch(() => null);
   if (!response.ok || result.error)
-    throw new MetaError(result?.error?.code ?? (response.status === 429 ? 4 : 0), stage);
+    throw new MetaError(
+      result?.error?.code ?? (response.status === 429 ? 4 : 0),
+      stage,
+      typeof result?.error?.message === "string" ? result.error.message.slice(0, 240) : undefined,
+    );
   return result as T;
 }
 export async function pages<T>(
