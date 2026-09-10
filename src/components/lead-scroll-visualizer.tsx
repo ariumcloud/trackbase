@@ -337,7 +337,13 @@ export function LeadScrollVisualizer({
     if (selectedOfferId !== "all") {
       return offers.find((o) => o.id === selectedOfferId) || null;
     }
-    return offers.find((o) => o.public_key) || offers[0] || null;
+    // When the selector is on "all", use the main offer's key instead of
+    // whichever offer happens to be first. A complementary offer can share
+    // the same landing page but point to a different checkout/product.
+    return offers.find((o) => o.product_type === "main" && o.public_key)
+      || offers.find((o) => o.public_key)
+      || offers[0]
+      || null;
   }, [offers, selectedOfferId]);
 
   const trackerKey = activeOffer?.public_key || (offers.length > 0 && offers[0].public_key) || "SUA_CHAVE_DE_OFERTA";
