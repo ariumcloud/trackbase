@@ -117,6 +117,9 @@ export function decorateLink(
     if (isHotmart && !url.searchParams.has("sck") && sessionId) {
       url.searchParams.set("sck", sessionId);
     }
+    if (isHotmart && !url.searchParams.has("xcod") && sessionId) {
+      url.searchParams.set("xcod", sessionId);
+    }
     if (!url.searchParams.has("utm_sck") && sessionId) {
       url.searchParams.set("utm_sck", sessionId);
     }

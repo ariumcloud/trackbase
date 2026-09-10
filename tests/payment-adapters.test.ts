@@ -71,7 +71,7 @@ test("Hotmart: normaliza país por nome e preserva placement sem prefixo UTM", (
         purchase: {
           transaction: "HP-AR-001",
           price: { value: 26000, currency_value: "ARS" },
-          tracking: { placement: "instagram_reels" },
+          tracking: { placement: "instagram_reels", xcod: "s_session_ar_1" },
         },
       },
     },
@@ -80,6 +80,7 @@ test("Hotmart: normaliza país por nome e preserva placement sem prefixo UTM", (
 
   assert.equal(event.country, "AR");
   assert.equal(event.attribution.utm_placement, "instagram_reels");
+  assert.equal(event.attribution.xcod, "s_session_ar_1");
 });
 
 test("Kiwify: normaliza compra aprovada, boleto, order bump e comprador", () => {

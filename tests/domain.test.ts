@@ -4,6 +4,7 @@ import { buildLink, metaDefaults, mergeAttribution } from "../src/lib/utm";
 import { normalizePayment } from "../src/lib/payments";
 import { calculate, dayInZone } from "../src/lib/metrics";
 import { convertCurrencyAmount } from "../src/lib/currency";
+import { resolveSaleAttribution } from "../src/lib/attribution";
 test("UTMs preservam macros, query e fragmento", () => {
   const r = buildLink("https://example.com/quiz?product=1#cta", metaDefaults);
   assert.ok(r.full.includes("product=1"));
@@ -150,6 +151,7 @@ test("validação estrita de checkouts autorizados rejeita domínios fraudulento
   assert.ok(decorated.includes("utm_source=meta"));
   assert.ok(decorated.includes("utm_campaign=camp_1"));
   assert.ok(decorated.includes("sck=sess_xyz123"));
+  assert.ok(decorated.includes("xcod=sess_xyz123"));
   assert.ok(decorated.includes("utm_sck=sess_xyz123"));
 
   // Não decora links externos não autorizados
@@ -159,6 +161,38 @@ test("validação estrita de checkouts autorizados rejeita domínios fraudulento
     "sess_xyz123",
   );
   assert.equal(untouched, "https://golpista.com/checkout");
+});
+
+test("reconstrói atribuição da venda pelo SCK/XCOD da sessão, sem chutar o último checkout", () => {
+  const events = [
+    {
+      offer_id: "offer-1",
+      session_id: "sess-a",
+      url: "https://site.test/?utm_campaign=camp-a&utm_term=set-a&utm_content=ad-a&sck=sess-a",
+      attribution: {},
+    },
+    {
+      offer_id: "offer-1",
+      session_id: "sess-b",
+      url: "https://site.test/?utm_campaign=camp-b&utm_term=set-b&utm_content=ad-b&sck=sess-b",
+      attribution: {},
+    },
+  ];
+
+  assert.equal(
+    resolveSaleAttribution({ xcod: "sess-a" }, events, "offer-1").utm_content,
+    "ad-a",
+  );
+  assert.equal(
+    resolveSaleAttribution({ sck: "sess-a" }, [
+      {
+        ...events[0],
+        url: `${events[0].url}&utm_placement=instagram_reels`,
+      },
+    ], "offer-1").utm_placement,
+    "instagram_reels",
+  );
+  assert.deepEqual(resolveSaleAttribution({}, events, "offer-1"), {});
 });
 
 test("normalização de pagamentos extrai order bump, taxas e parent_transaction", () => {

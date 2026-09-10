@@ -50,7 +50,17 @@ const extractAttribution = (raw: unknown): Record<string, string> => {
     const normalizedKey = placementAliases.has(key) ? "utm_placement" : key;
     if (
       normalizedKey.startsWith("utm_") ||
-      ["src", "sck", "source_sck", "fbclid", "fbp", "fbc", "gclid", "ttclid"].includes(normalizedKey)
+      [
+        "src",
+        "sck",
+        "source_sck",
+        "xcod",
+        "fbclid",
+        "fbp",
+        "fbc",
+        "gclid",
+        "ttclid",
+      ].includes(normalizedKey)
     ) {
       if (typeof v === "string" || typeof v === "number") {
         result[normalizedKey] = String(v).slice(0, 300);
@@ -69,6 +79,16 @@ const cleanCountry = (raw: unknown): string | null => {
   return normalizeCountryCode(raw);
 };
 
+const trackingFromUrl = (raw: unknown): Record<string, string> => {
+  if (typeof raw !== "string" || !raw.trim()) return {};
+  try {
+    const params = new URL(raw, "https://trackbase.invalid").searchParams;
+    return Object.fromEntries(params.entries());
+  } catch {
+    return {};
+  }
+};
+
 // 1. ADAPTADOR HOTMART
 export const hotmartAdapter: PaymentAdapter = {
   provider: "hotmart",
@@ -79,8 +99,19 @@ export const hotmartAdapter: PaymentAdapter = {
     const price = record(purchase.price);
     const feeObj = record(purchase.fee);
     const buyer = record(data.buyer);
+    const buyerAddress = record(buyer.address);
     const product = record(data.product);
-    const tracking = record(purchase.tracking);
+    const tracking = {
+      ...record(root.tracking),
+      ...record(data.tracking),
+      ...record(data.utm),
+      ...trackingFromUrl(root.checkout_url),
+      ...trackingFromUrl(data.checkout_url),
+      ...trackingFromUrl(purchase.checkout_url),
+      ...trackingFromUrl(purchase.checkout_link),
+      ...record(purchase.tracking),
+      ...record(purchase.utm),
+    };
 
     const event = str(root.event).toUpperCase();
     const isOrderBump = Boolean(purchase.order_bump);
@@ -145,7 +176,17 @@ export const hotmartAdapter: PaymentAdapter = {
             price.currency_code_value,
           context.fallbackCurrency,
         ),
-        country: cleanCountry(buyer.checkout_country || buyer.country),
+        country: cleanCountry(
+          buyer.checkout_country ||
+            buyer.country ||
+            buyer.country_code ||
+            buyerAddress.country ||
+            buyerAddress.country_code ||
+            purchase.checkout_country ||
+            purchase.buyer_country ||
+            data.country ||
+            root.country,
+        ),
         buyer: {
           name: str(buyer.name) || null,
           email: str(buyer.email) || null,

@@ -103,10 +103,26 @@ export function normalizePayment(
     Object.entries(tracking)
       .filter(
         ([k, v]) =>
-          (k.startsWith("utm_") || ["source_sck", "sck", "fbp", "fbc"].includes(k)) &&
+          (k.startsWith("utm_") ||
+            [
+              "source_sck",
+              "sck",
+              "xcod",
+              "fbp",
+              "fbc",
+              "placement",
+              "position",
+              "ad_placement",
+              "adplacement",
+            ].includes(k)) &&
           typeof v === "string",
       )
-      .map(([k, v]) => [k, String(v).slice(0, 300)]),
+      .map(([k, v]) => [
+        ["placement", "position", "ad_placement", "adplacement"].includes(k)
+          ? "utm_placement"
+          : k,
+        String(v).slice(0, 300),
+      ]),
   );
 
   const grossAmount = number(

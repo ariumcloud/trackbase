@@ -80,6 +80,7 @@ import {
 } from "@/lib/currency";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 import { countryName, normalizeCountryCode } from "@/lib/country";
+import { placementValue, sessionReference } from "@/lib/attribution";
 import type { AlertItem } from "@/lib/alerts";
 import type {
   Workspace,
@@ -564,6 +565,21 @@ export function Dashboard(p: Props) {
     {},
   );
 
+  // A Hotmart webhook may omit structured UTM fields. Recover placement from
+  // the first-party page event linked by the session/SCK identifier instead
+  // of dropping the conversion from the placement report.
+  const eventPlacementBySession = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const event of p.events || []) {
+      const placement = placementValue(event.attribution);
+      if (!placement || !event.session_id) continue;
+      map.set(`session:${event.session_id}`, placement);
+      const fbp = event.attribution?.fbp;
+      if (fbp) map.set(`fbp:${fbp}`, placement);
+    }
+    return map;
+  }, [p.events]);
+
   const byPlacement = useMemo(() => {
     const map = new Map<
       string,
@@ -581,15 +597,27 @@ export function Dashboard(p: Props) {
         attr.ad_placement ||
         ""
       ).trim();
-      if (!raw || /^\{\{[^}]+\}\}$/.test(raw)) continue;
-      const placementKey = raw
+      const recoveredPlacement =
+        placementValue(attr) ||
+        (() => {
+          const reference = sessionReference(attr);
+          if (reference) {
+            const bySession = eventPlacementBySession.get(`session:${reference}`);
+            if (bySession) return bySession;
+          }
+          const fbp = attr.fbp;
+          return fbp ? eventPlacementBySession.get(`fbp:${fbp}`) || null : null;
+        })();
+      const effectiveRaw = recoveredPlacement || raw;
+      if (!effectiveRaw || /^\{\{[^}]+\}\}$/.test(effectiveRaw)) continue;
+      const placementKey = effectiveRaw
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "");
 
-      let displayName = raw;
+      let displayName = effectiveRaw;
       let platform = "Meta Ads";
       let icon = "📱";
 
@@ -656,7 +684,7 @@ export function Dashboard(p: Props) {
       top: list[0] || null,
       totalCount,
     };
-  }, [sales, convertAmount]);
+  }, [sales, convertAmount, eventPlacementBySession]);
 
   const metrics = {
     revenue: grossRevenue,

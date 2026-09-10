@@ -26,6 +26,7 @@ import {
 import type { Entity, InsightRow, SaleRow, Integration, Offer, TrackingEvent } from "@/lib/types";
 import { isApprovedSaleStatus } from "@/lib/sale-status";
 import { convertCurrencyAmount } from "@/lib/currency";
+import { resolveSaleAttribution } from "@/lib/attribution";
 
 type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
 
@@ -664,20 +665,30 @@ export function CampaignsView({
     return map;
   }, [insights, kind, selectedCurrency, selectedIntegration, exchangeRates]);
 
+  // A Hotmart pode entregar a venda sem UTMs, mas o checkout rastreado carrega
+  // o SCK/XCOD da sessão. Reconstitui a atribuição somente quando existe um
+  // vínculo determinístico; nunca atribui uma venda ao último checkout por
+  // proximidade de horário.
+  const resolvedSales = useMemo(() => {
+    return sales.map((sale) => ({
+      sale,
+      attribution: resolveSaleAttribution(sale.attribution, events, sale.offer_id),
+    }));
+  }, [sales, events]);
+
   // 2. Agregação de vendas aprovadas e rastreadas pelas UTMs
   const salesMap = useMemo(() => {
     const map = new Map<string, { count: number; revenue: number; netRevenue: number }>();
-    for (const sale of sales) {
+    for (const { sale, attribution } of resolvedSales) {
       if (sale.is_test || !isApprovedSaleStatus(sale.status)) continue;
       if (selectedOffer !== "all" && sale.offer_id !== selectedOffer) continue;
       const saleCurrency = (sale.currency || offers.find((offer) => offer.id === sale.offer_id)?.currency || "").toUpperCase();
-      const attr = sale.attribution || {};
       const targetId =
         kind === "campaign"
-          ? attr.utm_campaign
+          ? attribution.utm_campaign
           : kind === "adset"
-          ? attr.utm_term
-          : attr.utm_content;
+          ? attribution.utm_term
+          : attribution.utm_content;
       if (!targetId) continue;
       const current = map.get(targetId) || { count: 0, revenue: 0, netRevenue: 0 };
       current.count += 1;
@@ -698,13 +709,47 @@ export function CampaignsView({
       map.set(targetId, current);
     }
     return map;
-  }, [sales, kind, selectedOffer, selectedCurrency, offers, exchangeRates]);
+  }, [resolvedSales, kind, selectedOffer, selectedCurrency, offers, exchangeRates]);
+
+  const unattributedSalesSummary = useMemo(() => {
+    let count = 0;
+    let revenue = 0;
+    let netRevenue = 0;
+    for (const { sale, attribution } of resolvedSales) {
+      if (
+        sale.is_test ||
+        !isApprovedSaleStatus(sale.status) ||
+        (selectedOffer !== "all" && sale.offer_id !== selectedOffer) ||
+        attribution.utm_campaign ||
+        attribution.utm_term ||
+        attribution.utm_content
+      ) {
+        continue;
+      }
+      const saleCurrency = (sale.currency || offers.find((offer) => offer.id === sale.offer_id)?.currency || "").toUpperCase();
+      count += 1;
+      revenue += convertCurrencyAmount(
+        Number(sale.gross_amount ?? sale.amount ?? 0),
+        saleCurrency,
+        selectedCurrency,
+        exchangeRates,
+      ) ?? 0;
+      netRevenue += convertCurrencyAmount(
+        Number(sale.net_amount ?? sale.gross_amount ?? sale.amount ?? 0),
+        (sale.net_currency ?? saleCurrency).toUpperCase(),
+        selectedCurrency,
+        exchangeRates,
+      ) ?? 0;
+    }
+    return { count, revenue, netRevenue };
+  }, [resolvedSales, selectedOffer, offers, selectedCurrency, exchangeRates]);
 
   // Checkouts precisam ser eventos reais atribuídos ao mesmo identificador
   // usado pela entidade Meta. Nunca estime IC a partir de cliques: isso faz
   // o total da campanha divergir da soma dos anúncios.
   const checkoutMap = useMemo(() => {
     const map = new Map<string, number>();
+    const countedSessions = new Set<string>();
     for (const event of events) {
       if (event.event_type !== "checkout") continue;
       if (selectedOffer !== "all" && event.offer_id !== selectedOffer) continue;
@@ -717,6 +762,9 @@ export function CampaignsView({
             : attr.utm_content;
       const targetId = typeof rawTargetId === "string" ? rawTargetId.trim() : "";
       if (!targetId || targetId.includes("{{")) continue;
+      const sessionKey = event.session_id || event.id;
+      if (countedSessions.has(sessionKey)) continue;
+      countedSessions.add(sessionKey);
       map.set(targetId, (map.get(targetId) || 0) + 1);
     }
     return map;
@@ -999,7 +1047,16 @@ export function CampaignsView({
     totalIc += row.ic;
   }
 
-  const totalProfit = totalRevenue - totalSpend;
+  // Mantém a venda visível nos totais mesmo quando a plataforma não enviou
+  // nenhum identificador que permita colocá-la em uma campanha/anúncio.
+  totalSales += unattributedSalesSummary.count;
+  totalRevenue += unattributedSalesSummary.revenue;
+
+  const totalNetRevenue = sortedRows.reduce((sum, row) => {
+    const salesForRow = salesMap.get(row.entity.external_id);
+    return sum + (salesForRow?.netRevenue || 0);
+  }, unattributedSalesSummary.netRevenue);
+  const totalProfit = totalNetRevenue - totalSpend;
   const totalRoas = totalSpend > 0 ? totalRevenue / totalSpend : null;
   const totalCpa = totalSales > 0 ? totalSpend / totalSales : null;
   const totalCpi = totalIc > 0 ? totalSpend / totalIc : null;
@@ -1171,6 +1228,24 @@ export function CampaignsView({
           </button>
         </div>
       </div>
+
+      {unattributedSalesSummary.count > 0 && (
+        <div
+          role="status"
+          style={{
+            margin: "0.75rem 0",
+            padding: "0.75rem 0.9rem",
+            border: "1px solid #FCD34D",
+            borderRadius: "10px",
+            background: "#FFFBEB",
+            color: "#92400E",
+            fontSize: "0.82rem",
+          }}
+        >
+          <strong>{unattributedSalesSummary.count} venda(s) aprovada(s) sem atribuição de campanha.</strong>{" "}
+          A plataforma recebeu a venda, mas o webhook não trouxe UTM/SCK/XCOD. Ela não é colocada em um criativo por aproximação para evitar atribuição falsa; quando o vínculo existir, a venda aparecerá no anúncio exato.
+        </div>
+      )}
 
       {/* 2. Barra de Ações UTMify */}
       <div className="utmify-action-bar">

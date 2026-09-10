@@ -225,6 +225,8 @@
       if (!isAllowed(urlStr)) return urlStr;
       try {
         var u = new URL(urlStr, window.location.href);
+        var host = u.hostname.toLowerCase();
+        var isHotmart = host === 'hotmart.com' || host.slice(-'.hotmart.com'.length) === '.hotmart.com';
         for (var k in attr) {
           if (attr.hasOwnProperty(k) && attr[k] && !u.searchParams.has(k)) {
             u.searchParams.set(k, attr[k]);
@@ -232,6 +234,9 @@
         }
         if (!u.searchParams.has('sck') && sessionId) {
           u.searchParams.set('sck', sessionId);
+        }
+        if (isHotmart && !u.searchParams.has('xcod') && sessionId) {
+          u.searchParams.set('xcod', sessionId);
         }
         if (!u.searchParams.has('utm_sck') && sessionId) {
           u.searchParams.set('utm_sck', sessionId);

@@ -26,6 +26,7 @@ import {
 import type { SaleRow, TrackingEvent, Offer } from "@/lib/types";
 import { isApprovedSaleStatus } from "@/lib/sale-status";
 import { countryName } from "@/lib/country";
+import { placementValue, sessionReference } from "@/lib/attribution";
 
 export interface LeadSession {
   id: string;
@@ -456,7 +457,7 @@ export function LeadScrollVisualizer({
 
       // Cruza com vendas reais pelo session_id ou fbp
       const matchingSale = approvedSales.find((s) => {
-        if (s.attribution?.session_id && s.attribution.session_id === sid) return true;
+        if (sessionReference(s.attribution) === sid) return true;
         if (s.attribution?.fbp && attr?.fbp && s.attribution.fbp === attr.fbp) return true;
         return false;
       });
@@ -574,17 +575,8 @@ export function LeadScrollVisualizer({
         });
       }
 
-      const rawPlacement = (
-        attr.utm_placement ||
-        attr.utm_position ||
-        attr.utm_ad_placement ||
-        attr.placement ||
-        matchingSale?.attribution?.utm_placement ||
-        matchingSale?.attribution?.utm_position ||
-        matchingSale?.attribution?.utm_ad_placement ||
-        matchingSale?.attribution?.placement ||
-        ""
-      ).trim();
+      const rawPlacement =
+        placementValue(attr) || placementValue(matchingSale?.attribution) || "";
       let formattedPlacement: string | undefined = undefined;
       if (rawPlacement) {
         if (/instagram_stories|ig_stories/i.test(rawPlacement)) formattedPlacement = "Instagram Stories";
@@ -623,19 +615,14 @@ export function LeadScrollVisualizer({
     // Exibimos somente a compra aprovada e deixamos profundidade/tempo como não capturados.
     approvedSales.forEach((s, idx) => {
       const saleId = `sale_${s.id}`;
-      if (result.some((r) => r.id === `session_${s.attribution?.session_id}` || r.id === saleId)) return;
+      const saleSessionRef = sessionReference(s.attribution);
+      if (result.some((r) => r.id === `session_${saleSessionRef}` || r.id === saleId)) return;
       const buyerName = s.attribution?.buyer_name || s.attribution?.name || `Comprador #${idx + 1}`;
       const src = s.attribution?.utm_source || s.provider || "Tráfego Pago";
       const camp = s.attribution?.utm_campaign || "Campanha Principal";
       const amt = s.gross_amount ?? s.amount ?? 0;
 
-      const rawSalePlacement = (
-        s.attribution?.utm_placement ||
-        s.attribution?.utm_position ||
-        s.attribution?.utm_ad_placement ||
-        s.attribution?.placement ||
-        ""
-      ).trim();
+      const rawSalePlacement = placementValue(s.attribution) || "";
       let formattedSalePlacement: string | undefined = undefined;
       if (rawSalePlacement) {
         if (/instagram_stories|ig_stories/i.test(rawSalePlacement)) formattedSalePlacement = "Instagram Stories";
