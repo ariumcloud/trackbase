@@ -891,7 +891,10 @@ export function LeadScrollVisualizer({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+    <div
+      className="lead-visualizer-root"
+      style={{ display: "flex", flexDirection: "column", gap: "1.25rem", width: "100%", minWidth: 0 }}
+    >
       {/* 1. CARD PRINCIPAL: SCRIPT DE RASTREAMENTO DO RADAR DE LEADS */}
       <div
         className="panel"
@@ -1338,15 +1341,19 @@ export function LeadScrollVisualizer({
             gridTemplateColumns: "360px 1fr",
             gap: "1.75rem",
             alignItems: "start",
+            width: "100%",
+            minWidth: 0,
           }}
           className="lead-visualizer-grid"
         >
           {/* COLUNA ESQUERDA: Celular Mockup com o percurso do Lead Selecionado */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem", width: "100%", minWidth: 0 }}>
             {/* Card Resumo do Lead Selecionado */}
             <div
               style={{
-                width: "340px",
+                width: "min(340px, 100%)",
+                maxWidth: "100%",
+                minWidth: 0,
                 padding: "10px 14px",
                 background: "var(--surface)",
                 border: "1px solid var(--line)",
@@ -1380,7 +1387,9 @@ export function LeadScrollVisualizer({
             {/* Smartphone Frame */}
           <div
             style={{
-              width: "340px",
+              width: "min(340px, 100%)",
+              maxWidth: "100%",
+              minWidth: 0,
               height: "640px",
               background: "#090D16",
               borderRadius: "44px",
@@ -1676,19 +1685,19 @@ export function LeadScrollVisualizer({
         </div>
 
           {/* COLUNA DIREITA: Telemetria e Diagnóstico Específico da Sessão do Lead */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", width: "100%", minWidth: 0 }}>
             {/* Painel 1: Perfil e Telemetria do Lead */}
-            <div className="panel" style={{ padding: "1.25rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px" }}>
-                <div>
+            <div className="panel" style={{ padding: "1.25rem", width: "100%", minWidth: 0, maxWidth: "100%" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px", minWidth: 0 }}>
+                <div style={{ minWidth: 0, maxWidth: "100%" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <Activity size={18} color="#5B34EA" />
-                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
+                    <h3 style={{ margin: 0, minWidth: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)", overflowWrap: "anywhere" }}>
                       Sessão: Lead #{selectedLead.leadNumber} ({selectedLead.name})
                     </h3>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
-                    <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                    <span style={{ minWidth: 0, fontSize: "0.8rem", color: "var(--muted)", overflowWrap: "anywhere" }}>
                       {selectedLead.location} · {selectedLead.source} · {selectedLead.campaign}
                     </span>
                     {selectedLead.placement && (
@@ -1708,7 +1717,7 @@ export function LeadScrollVisualizer({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, maxWidth: "100%", overflowWrap: "anywhere" }}>
                   <Clock size={15} color="var(--muted)" />
                   <span style={{ fontSize: "0.82rem", color: "var(--ink)", fontWeight: 600 }}>
                     Tempo na tela: <strong>{selectedLead.timeSpentSeconds === null ? "Não capturado" : formatSecs(selectedLead.timeSpentSeconds)}</strong>
@@ -1742,6 +1751,8 @@ export function LeadScrollVisualizer({
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
+                  flexWrap: "wrap",
+                  minWidth: 0,
                   padding: "8px 12px",
                   background: "var(--surface-subtle)",
                   borderRadius: "8px",
@@ -1751,7 +1762,7 @@ export function LeadScrollVisualizer({
               >
                 <Eye size={16} color="#5B34EA" />
                 <span style={{ color: "var(--muted)" }}>Diagnóstico da sessão:</span>
-                <strong style={{ color: "var(--ink)" }}>
+                <strong style={{ color: "var(--ink)", minWidth: 0, overflowWrap: "anywhere" }}>
                   {selectedLead.status === "purchased"
                     ? "Lead converteu com sucesso e realizou o pagamento total!"
                     : selectedLead.status === "checkout_clicked"
@@ -1766,7 +1777,7 @@ export function LeadScrollVisualizer({
             </div>
 
             {/* Painel 2: Marcos Acionados pelo Lead */}
-            <div className="panel" style={{ padding: "1.25rem" }}>
+            <div className="panel" style={{ padding: "1.25rem", width: "100%", minWidth: 0, maxWidth: "100%" }}>
               <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
                 Marcos Atingidos por este Lead
               </h3>
@@ -1774,8 +1785,10 @@ export function LeadScrollVisualizer({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
                   gap: "0.75rem",
+                  width: "100%",
+                  minWidth: 0,
                 }}
               >
                 {[
@@ -1790,6 +1803,9 @@ export function LeadScrollVisualizer({
                     key={idx}
                     style={{
                       padding: "10px",
+                      minWidth: 0,
+                      maxWidth: "100%",
+                      overflowWrap: "anywhere",
                       borderRadius: "8px",
                       background: m.active ? "rgba(16, 185, 129, 0.08)" : "var(--surface-subtle)",
                       border: `1px solid ${m.active ? "#10B981" : "var(--line)"}`,
@@ -1810,7 +1826,7 @@ export function LeadScrollVisualizer({
             </div>
 
             {/* Painel 3: Trilha de Eventos desta Sessão Específica */}
-            <div className="panel" style={{ padding: "1.25rem" }}>
+            <div className="panel" style={{ padding: "1.25rem", width: "100%", minWidth: 0, maxWidth: "100%" }}>
               <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>
                 Linha do Tempo da Sessão (Feed do Lead #{selectedLead.leadNumber})
               </h3>
@@ -1822,6 +1838,9 @@ export function LeadScrollVisualizer({
                   gap: "8px",
                   maxHeight: "220px",
                   overflowY: "auto",
+                  overflowX: "hidden",
+                  minWidth: 0,
+                  width: "100%",
                 }}
               >
                 {selectedLead.events.map((ev, idx) => (
@@ -1832,6 +1851,8 @@ export function LeadScrollVisualizer({
                       alignItems: "flex-start",
                       gap: "10px",
                       padding: "6px 10px",
+                      minWidth: 0,
+                      maxWidth: "100%",
                       borderRadius: "6px",
                       background: "var(--surface)",
                       borderLeft: `3px solid ${ev.color}`,
@@ -1842,8 +1863,8 @@ export function LeadScrollVisualizer({
                     <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "var(--muted)", flexShrink: 0 }}>
                       [{ev.time}]
                     </span>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ minWidth: 0, maxWidth: "100%" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", minWidth: 0 }}>
                         <span
                           style={{
                             fontSize: "0.68rem",
@@ -1856,9 +1877,9 @@ export function LeadScrollVisualizer({
                         >
                           {ev.type}
                         </span>
-                        <strong style={{ color: "var(--ink)" }}>{ev.label}</strong>
+                        <strong style={{ color: "var(--ink)", minWidth: 0, overflowWrap: "anywhere" }}>{ev.label}</strong>
                       </div>
-                      <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--muted)" }}>
+                      <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--muted)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
                         {ev.detail}
                       </p>
                     </div>

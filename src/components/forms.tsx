@@ -419,13 +419,15 @@ export function OfferForm({
           </select>
         </label>
         <label>
-          Link do checkout (opcional)
+          Regra de IC — URL do checkout
           <input
             name="checkout_url"
-            type="url"
-            placeholder="https://pay.exemplo.com/checkout"
+            type="text"
+            inputMode="url"
+            placeholder="https://pay.wiapy.com/"
             defaultValue={offer?.checkout_url || ""}
           />
+          <small>Mesmo domínio e caminho ou subcaminhos. Use o caminho do produto quando houver várias ofertas no mesmo checkout. Sem URL configurada, cliques não contam como IC.</small>
         </label>
       </div>
       </>}

@@ -30,6 +30,72 @@ export const trackPayloadSchema = z.object({
 export type TrackPayload = z.infer<typeof trackPayloadSchema>;
 
 /**
+ * The factory has no runtime dependencies so the public tracker can receive this
+ * exact implementation as JavaScript, without maintaining a second matcher.
+ */
+export function createCheckoutUrlMatcher() {
+  const matcher = {
+    normalizeCheckoutUrl(value: string, base?: string): URL | null {
+      if (typeof value !== "string") return null;
+      const input = value.trim();
+      if (!input || /^[?#]/.test(input) || /[\\\u0000-\u001f\u007f]/.test(input)) return null;
+
+      try {
+        let candidate = input;
+        if (candidate.startsWith("//")) candidate = `https:${candidate}`;
+        else if (/^[^/?#:@]+\.[^/?#:@]+:\d+(?:[/?#]|$)/.test(candidate)) candidate = `https://${candidate}`;
+        else if (/^[a-z][a-z\d+.-]*:/i.test(candidate)) {
+          if (!/^https?:\/\//i.test(candidate)) return null;
+        } else if (/^(?:\/|\.\.?\/)/.test(candidate)) {
+          if (!base) return null;
+        } else candidate = `https://${candidate}`;
+
+        const url = new URL(candidate, base);
+        if (!/^https?:$/.test(url.protocol) || !url.hostname || url.username || url.password) return null;
+        // Encoded separators can be interpreted differently by checkout servers.
+        if (/%(?:2f|5c|00)/i.test(url.pathname)) return null;
+        url.hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+        url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+        url.hash = "";
+        return url;
+      } catch {
+        return null;
+      }
+    },
+
+    matchesCheckoutUrl(target: string, pattern: string): boolean {
+      const url = matcher.normalizeCheckoutUrl(target);
+      const rule = matcher.normalizeCheckoutUrl(pattern);
+      if (!url || !rule) return false;
+      // An HTTPS checkout rule must never accept an HTTP downgrade. An HTTP rule
+      // may accept its HTTPS upgrade, while host and explicit port stay exact.
+      if (rule.protocol === "https:" && url.protocol !== "https:") return false;
+      if (url.hostname !== rule.hostname || url.port !== rule.port) return false;
+      if (rule.pathname !== "/" && url.pathname !== rule.pathname && !url.pathname.startsWith(`${rule.pathname}/`)) return false;
+
+      // Keep business parameters configured on the offer (e.g. Hotmart's off).
+      // Extra destination parameters are allowed; a configured parameter must have
+      // exactly its configured values, preventing ambiguous duplicate values.
+      for (const name of new Set(rule.searchParams.keys())) {
+        if (/^(?:utm_|trackbase_)/i.test(name) || /^(?:fbclid|fbc|fbp|_fbc|_fbp|gclid|dclid|gbraid|wbraid|ttclid|msclkid|sck|xcod|src|session_id)$/i.test(name)) continue;
+        const expected = rule.searchParams.getAll(name).sort();
+        const received = url.searchParams.getAll(name).sort();
+        if (expected.length !== received.length || expected.some((value, index) => value !== received[index])) return false;
+      }
+      return true;
+    },
+
+    matchingCheckoutOffers<T extends { checkout_url: string | null }>(target: string, offers: T[]): T[] {
+      return offers.filter((offer) => Boolean(offer.checkout_url) && matcher.matchesCheckoutUrl(target, offer.checkout_url!));
+    },
+  };
+
+  return matcher;
+}
+
+export const { normalizeCheckoutUrl, matchesCheckoutUrl, matchingCheckoutOffers } = createCheckoutUrlMatcher();
+
+/**
  * Validação estrita de domínios autorizados para checkout.
  * Rejeita qualquer domínio falso, prefixos ou sufixos manipulados.
  */

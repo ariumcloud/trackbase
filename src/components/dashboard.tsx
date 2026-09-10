@@ -1,4 +1,5 @@
 "use client";
+import { gatewayWebhookUrl } from "@/lib/webhook-url";
 import { plans, canUse, normalizePlan } from "@/lib/plans";
 import { useState, useTransition, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -4823,12 +4824,12 @@ function IntegrationCard({
           i.status === "connected" &&
           !editingWebhookSecret ? (
             <div className="gateway-saved-state">
-              <span className="gateway-saved-badge">WEBHOOK ATIVO</span>
+              <span className="gateway-saved-badge">CREDENCIAL SALVA</span>
               <strong>
                 Webhook salvo para {i.name.replace(/^[A-Z]+\s*·\s*/i, "")}
               </strong>
               <span>
-                As vendas deste produto serão recebidas pela Trackbase.
+                Confirme a entrega no histórico do gateway e o processamento na Trackbase. Salvar a credencial não confirma recebimento.
               </span>
               <div className="gateway-saved-actions">
                 <button
@@ -4901,9 +4902,9 @@ function IntegrationCard({
             <input
               aria-label="Endpoint do webhook"
               readOnly
-              value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`}
+              value={gatewayWebhookUrl(appUrl, i.provider, i.id)}
             />
-            <Clipboard value={`${appUrl}/api/webhooks/${i.provider}/${i.id}`} />
+            <Clipboard value={gatewayWebhookUrl(appUrl, i.provider, i.id)} />
           </div>
           <small
             style={{ fontSize: "0.75rem", color: "var(--muted, #64748B)" }}

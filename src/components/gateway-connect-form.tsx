@@ -1,4 +1,5 @@
 "use client";
+import { gatewayWebhookUrl } from "@/lib/webhook-url";
 
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -225,7 +226,7 @@ export function GatewayConnectForm({
         <span className="gateway-next-step-kicker">INTEGRAÇÃO CONFIGURADA</span>
         <h3 style={{ margin: "0.25rem 0 0.5rem" }}>Tudo pronto! Ative o Webhook na {providerNames[provider]}.</h3>
         <p style={{ color: "var(--muted, #64748B)", fontSize: "0.85rem", marginBottom: "1rem" }}>
-          Copie a URL abaixo e cadastre na {providerNames[provider]} para receber as vendas em tempo real:
+          Copie a URL abaixo e cadastre na {providerNames[provider]}. Ela é exclusiva desta integração e produto; adicionar outro produto gera outro endereço.
         </p>
 
         <div className="gateway-webhook-url">
@@ -279,7 +280,7 @@ export function GatewayConnectForm({
           const result = await savePaymentIntegration(workspace, new FormData(event.currentTarget));
           if (result.error) return setMessage(result.error);
           if (result.integrationId) {
-            setGeneratedWebhookUrl(`${appUrl}/api/webhooks/${provider}/${result.integrationId}`);
+            setGeneratedWebhookUrl(gatewayWebhookUrl(appUrl, provider, result.integrationId));
             return;
           }
           onSuccess();
@@ -520,7 +521,7 @@ export function GatewayConnectForm({
 
   if (imported) {
     const cfg = providerWebhookConfig[provider as CatalogProvider];
-    const webhookUrl = `${appUrl}/api/webhooks/${provider}/${imported.integrationId}`;
+    const webhookUrl = gatewayWebhookUrl(appUrl, provider, imported.integrationId);
     return (
       <div className="gateway-next-step">
         <span className="gateway-next-step-kicker">PRODUTO IMPORTADO</span>
@@ -539,7 +540,7 @@ export function GatewayConnectForm({
           </li>
           <li>
             <strong>Cole esta URL e selecione o produto.</strong>
-            <span>Escolha “{imported.productName}” no campo Produtos.</span>
+            <span>Escolha “{imported.productName}” no campo Produtos. Esta URL pertence somente a esta integração; outro produto precisa do próprio endereço.</span>
             <div className="gateway-webhook-url">
               <code>{webhookUrl}</code>
               <button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)}>

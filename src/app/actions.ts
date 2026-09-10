@@ -4,6 +4,7 @@ import { db, admin } from "@/lib/supabase/server";
 import { authorize, digest, rateLimit, encrypt, decrypt } from "@/lib/security";
 import { listGatewayProducts, type CatalogProvider } from "@/lib/gateway-catalog";
 import { linkSchema, webUrl } from "@/lib/utm";
+import { normalizeCheckoutUrl } from "@/lib/tracker";
 import { validateDocument } from "@/lib/document";
 import { z } from "zod";
 import { redirect } from "next/navigation";
@@ -327,7 +328,7 @@ export async function saveOffer(
           .optional()
           .or(z.literal("")),
         checkout_url: z.preprocess(
-          (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
+          (v) => (typeof v === "string" && v.trim() ? normalizeCheckoutUrl(v)?.href || v.trim() : undefined),
           webUrl.optional(),
         ),
       })
@@ -406,7 +407,7 @@ export async function updateOffer(workspace: string, id: string, form: FormData)
         .default(0),
       platform: z.enum(["hotmart", "kiwify", "cakto", "kirvano", "eduzz", "monetizze", "wiapy", "lowfy", "greenn", "stripe"]).optional().or(z.literal("")),
       checkout_url: z.preprocess(
-        (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
+        (v) => (typeof v === "string" && v.trim() ? normalizeCheckoutUrl(v)?.href || v.trim() : undefined),
         webUrl.optional(),
       ),
     }).parse(Object.fromEntries(form));

@@ -192,57 +192,56 @@
       }
     }, { passive: true });
 
-    // 2. CTA View Observer (detecta quando o botão de checkout entra no campo de visão do lead)
-    var ctaSeen = false;
-    function initCtaObserver() {
-      try {
-        if (typeof IntersectionObserver !== 'function') return;
-        var ctaEl = document.querySelector('a[href*="hotmart"], a[href*="kiwify"], a[href*="cakto"], a[href*="kirvano"], button[data-checkout], .btn-comprar, .cta-button');
-        if (!ctaEl) return;
-
-        var obs = new IntersectionObserver(function(entries) {
-          for (var i = 0; i < entries.length; i++) {
-            if (entries[i].isIntersecting && !ctaSeen) {
-              ctaSeen = true;
-              sendEvent('cta_view', null, { cta_visible: 'true' });
-              obs.disconnect();
-              break;
-            }
-          }
-        }, { threshold: 0.25 });
-        obs.observe(ctaEl);
-      } catch(e) {}
+    // The configuration script carries the SAME matcher implementation used by the API.
+    function config() {
+      return window.__TRACKBASE_CHECKOUT_CONFIG__ && window.__TRACKBASE_CHECKOUT_CONFIG__[key];
     }
-
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(initCtaObserver, 600);
-    } else {
-      window.addEventListener('DOMContentLoaded', function() {
-        setTimeout(initCtaObserver, 600);
+    function absoluteDestination(value) {
+      if (!value || !String(value).trim() || /^\s*#/.test(value)) return null;
+      try {
+        var input = String(value).trim();
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(input) && !/^[/.?#]/.test(input)) {
+          input = /^[^/\s]+\.[^/\s]+(?:\/|$)/.test(input) ? 'https://' + input : input;
+        }
+        var destination = new URL(input, window.location.href);
+        return /^https?:$/.test(destination.protocol) && !destination.username && !destination.password ? destination.href : null;
+      } catch { return null; }
+    }
+    function isAllowed(urlStr) {
+      var current = config();
+      var destination = absoluteDestination(urlStr);
+      if (!current || !destination || typeof current.matches !== 'function' || !Array.isArray(current.rules)) return false;
+      return current.rules.filter(function(rule) { return current.matches(destination, rule); }).length === 1;
+    }
+    function targetDestination(target) {
+      var explicit = target.getAttribute('data-trackbase-checkout') || target.getAttribute('data-checkout');
+      return absoluteDestination(explicit || (target.tagName === 'A' ? target.href : target.tagName === 'FORM' ? target.getAttribute('action') : null));
+    }
+    var ctaSeen = false;
+    var observedTargets = typeof WeakSet === 'function' ? new WeakSet() : null;
+    var ctaObserver = typeof IntersectionObserver === 'function' ? new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (!ctaSeen && entry.isIntersecting && isAllowed(targetDestination(entry.target))) {
+          ctaSeen = true;
+          sendEvent('cta_view', null, { cta_visible: 'true' });
+          ctaObserver.disconnect();
+        }
+      });
+    }, { threshold: 0.25 }) : null;
+    function scanCheckouts() {
+      document.querySelectorAll('a[href], [data-trackbase-checkout], [data-checkout], form[action]').forEach(function(target) {
+        var destination = targetDestination(target);
+        if (!isAllowed(destination)) return;
+        if (target.tagName === 'A') {
+          var decorated = decorate(destination);
+          if (target.href !== decorated) target.href = decorated;
+        }
+        if (ctaObserver && !ctaSeen && (!observedTargets || !observedTargets.has(target))) {
+          ctaObserver.observe(target);
+          if (observedTargets) observedTargets.add(target);
+        }
       });
     }
-
-    var ALLOWED_HOSTS = [
-      'hotmart.com', 'kiwify.com.br', 'kiwify.com', 'cakto.com', 'cakto.com.br',
-      'kirvano.com', 'kirvano.com.br', 'eduzz.com', 'monetizze.com.br',
-      'wiapy.com', 'wiapy.com.br', 'lowfy.com', 'lowfy.com.br', 'lowfy.app',
-      'braip.com', 'ticto.com.br', 'ticto.app', 'greenn.com.br', 'perfectpay.com.br', 'stripe.com'
-    ];
-
-    function isAllowed(urlStr) {
-      if (!urlStr || urlStr.indexOf('#') === 0 || /^(mailto|tel|javascript):/i.test(urlStr)) return false;
-      try {
-        var u = new URL(urlStr, window.location.href);
-        if (u.origin === window.location.origin) return true;
-        var h = u.hostname.toLowerCase();
-        for (var i = 0; i < ALLOWED_HOSTS.length; i++) {
-          var dom = ALLOWED_HOSTS[i];
-          if (h === dom || (h.length > dom.length && h.slice(-dom.length - 1) === '.' + dom)) return true;
-        }
-        return false;
-      } catch(e) { return false; }
-    }
-
     function decorate(urlStr) {
       if (!isAllowed(urlStr)) return urlStr;
       try {
@@ -272,63 +271,103 @@
 
     document.addEventListener('click', function(ev) {
       var target = ev.target;
-      while (target && target.tagName !== 'A' && target.tagName !== 'BUTTON') {
-        target = target.parentElement;
-      }
+      while (target && target.tagName !== 'A' && target.tagName !== 'BUTTON' && !(target.hasAttribute && target.hasAttribute('data-trackbase-checkout'))) target = target.parentElement;
       if (!target) return;
-
-      if (target.tagName === 'A' && target.href) {
-        var originalHref = target.href;
-        var sameOrigin = false; try { sameOrigin = new URL(originalHref, window.location.href).origin === window.location.origin; } catch(e) {}
-        var explicitCheckout = target.hasAttribute('data-trackbase-checkout') || target.hasAttribute('data-checkout');
-        if (isAllowed(originalHref) && (!sameOrigin || explicitCheckout)) {
-          var decorated = decorate(originalHref);
-          target.href = decorated;
-          sendEvent('checkout', decorated);
-          return;
-        }
-      }
-
-      // Detecção de clique em CTA
-      var role = target.getAttribute('role') || '';
-      var cls = target.className || '';
-      var text = (target.innerText || '').toLowerCase();
-      if (
-        role === 'button' ||
-        /cta|btn|comprar|quero|assinar|garantir/i.test(cls) ||
-        /comprar|quero|garantir|iniciar|assinar|continuar/i.test(text)
-      ) {
-        // Keep CTA clicks distinct from scroll milestones and CTA visibility
-        // events, which are stored as `cta` for backwards-compatible schemas.
-        var checkoutButton = target.hasAttribute('data-trackbase-checkout') || target.hasAttribute('data-checkout') || /comprar|quero|garantir|assinar|iniciar checkout/i.test(text);
-        sendEvent(checkoutButton ? 'checkout' : 'cta_click', checkoutButton ? (target.getAttribute('data-trackbase-checkout') || target.getAttribute('data-checkout') || window.location.href) : null, { action: checkoutButton ? 'checkout_click' : 'cta_click' });
+      var destination = targetDestination(target);
+      if (destination && isAllowed(destination)) {
+        var decorated = decorate(destination);
+        if (target.tagName === 'A') target.href = decorated;
+        // A URL on a JS button declares its destination; navigation stays with the site's handler.
+        else if (target.hasAttribute('data-trackbase-checkout')) target.setAttribute('data-trackbase-checkout', decorated);
+        sendEvent('checkout', decorated, { action: 'checkout_click' });
+      } else {
+        sendEvent('cta_click', destination || window.location.href, { action: 'cta_click' });
       }
     }, true);
 
     document.addEventListener('submit', function(ev) {
       var form = ev.target;
       if (!form || form.tagName !== 'FORM') return;
-      var action = form.getAttribute('action') || window.location.href;
-      if (!isAllowed(action)) return;
-      var decorated = decorate(action);
-      form.setAttribute('action', decorated);
-      var hidden = [['sck', sessionId], ['xcod', sessionId], ['utm_sck', sessionId], ['src', sessionId]];
-      for (var i = 0; i < hidden.length; i++) {
-        if (!hidden[i][1] || form.querySelector('input[name="' + hidden[i][0] + '"]')) continue;
-        var input = document.createElement('input'); input.type = 'hidden'; input.name = hidden[i][0]; input.value = hidden[i][1]; form.appendChild(input);
+      var override = ev.submitter && ev.submitter.getAttribute('formaction');
+      var action = absoluteDestination(override || form.getAttribute('action'));
+      // A GET form can override a product selector from action (e.g. ?plan=one).
+      // Validate those effective values, without copying unrelated customer fields into analytics.
+      var method = (ev.submitter && ev.submitter.getAttribute('formmethod')) || form.getAttribute('method') || 'get';
+      if (action && String(method).toLowerCase() === 'get') {
+        var effective = new URL(action);
+        var queryKeys = new Set();
+        effective.searchParams.forEach(function(value, name) { queryKeys.add(name); });
+        var currentConfig = config();
+        if (currentConfig) currentConfig.rules.forEach(function(rule) {
+          var ruleUrl = absoluteDestination(rule);
+          if (ruleUrl) new URL(ruleUrl).searchParams.forEach(function(value, name) { queryKeys.add(name); });
+        });
+        queryKeys.forEach(function(name) {
+          var fields = Array.prototype.filter.call(form.elements || [], function(input) {
+            return input.name === name && !input.disabled && !/^(submit|button|reset|file)$/i.test(input.type || '') && (!/^(checkbox|radio)$/i.test(input.type || '') || input.checked);
+          });
+          if (!fields.length) return;
+          effective.searchParams.delete(name);
+          fields.forEach(function(input) { effective.searchParams.append(name, input.value || ''); });
+        });
+        action = effective.href;
       }
+      if (!isAllowed(action)) {
+        sendEvent('cta_click', action || window.location.href, { action: 'form_submit' });
+        return;
+      }
+      var decorated = decorate(action);
+      if (override) ev.submitter.setAttribute('formaction', decorated);
+      else form.setAttribute('action', decorated);
+      // GET forms replace the action query; include attribution and existing business parameters.
+      new URL(decorated).searchParams.forEach(function(value, name) {
+        var existing = Array.prototype.some.call(form.elements || [], function(input) { return input.name === name; });
+        if (existing) return;
+        var input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.appendChild(input);
+      });
       sendEvent('checkout', decorated, { action: 'checkout_submit' });
     }, true);
 
+    // Location.assign/href are not reliably interceptable; explicit data attributes cover those buttons.
+    if (typeof window.open === 'function') {
+      var originalOpen = window.open;
+      window.open = function(url) {
+        var args = Array.prototype.slice.call(arguments);
+        var destination = absoluteDestination(url);
+        var checkout = isAllowed(destination);
+        if (checkout) args[0] = decorate(destination);
+        var opened = originalOpen.apply(this, args);
+        // noopener/noreferrer intentionally return null even when the browser opened
+        // the tab. Without those features, null means the popup was blocked.
+        var explicitlyNoopener = /(?:^|,|\s)(?:noopener|noreferrer)(?:=|,|\s|$)/i.test(String(args[2] || ''));
+        if (checkout && (opened || explicitlyNoopener)) sendEvent('checkout', args[0], { action: 'window_open' });
+        return opened;
+      };
+    }
     ['pushState', 'replaceState'].forEach(function(method) {
       var original = history[method];
       history[method] = function() {
-        var result = original.apply(this, arguments);
-        var destination = arguments[2];
-        if (destination && isAllowed(String(destination)) && new URL(String(destination), window.location.href).origin !== window.location.origin) sendEvent('checkout', decorate(String(destination)), { action: 'programmatic_navigation' });
+        var args = Array.prototype.slice.call(arguments);
+        var destination = absoluteDestination(args[2]);
+        var checkout = isAllowed(destination);
+        if (checkout) args[2] = decorate(destination);
+        var result = original.apply(this, args);
+        if (checkout) sendEvent('checkout', args[2], { action: 'programmatic_navigation' });
         return result;
       };
     });
 
+    var configurationScript = document.createElement('script');
+    configurationScript.src = endpoint + '?key=' + encodeURIComponent(key) + '&format=js';
+    configurationScript.async = true;
+    if (scriptTag && scriptTag.nonce) configurationScript.nonce = scriptTag.nonce;
+    configurationScript.onload = function() {
+      scanCheckouts();
+      if (typeof MutationObserver === 'function') new MutationObserver(scanCheckouts).observe(document.documentElement, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'action', 'data-trackbase-checkout', 'data-checkout']
+      });
+    };
+    // If configuration cannot load, generic interactions remain CTA; never invent IC.
+    (document.head || document.documentElement).appendChild(configurationScript);
   } catch(e) {}
 })();
