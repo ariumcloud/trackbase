@@ -21,6 +21,7 @@ export function DiagnosticoView({
   currency = "BRL",
   selectTab,
   scrollRetention,
+  metricsByOffer = {},
 }: {
   workspace: string;
   offers: Offer[];
@@ -47,6 +48,27 @@ export function DiagnosticoView({
     scroll75Count: number;
     ctaViewCount: number;
   };
+  // Per-offer breakdown so picking one offer below actually scopes the
+  // audit to it, instead of quietly analyzing the whole workspace while
+  // only labeling the saved snapshot with that offer_id. Meta spend/clicks
+  // can't be attributed to a single offer (they live on the ad account),
+  // so those come back unset for any specific offer rather than showing a
+  // workspace-wide number as if it were this offer's own.
+  metricsByOffer?: Record<
+    string,
+    {
+      revenue: number;
+      purchases: number;
+      refundedCount: number;
+      pageviews: number;
+      ctas: number;
+      checkouts: number;
+      scroll25Count: number;
+      scroll50Count: number;
+      scroll75Count: number;
+      ctaViewCount: number;
+    }
+  >;
 }) {
   const [selectedOffer, setSelectedOffer] = useState<string>("all");
   const [analyzing, setAnalyzing] = useState(false);
@@ -54,30 +76,9 @@ export function DiagnosticoView({
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [isSaving, startSaving] = useTransition();
 
-  // Executa diagnóstico com base nas métricas reais do workspace ou oferta
-  const [currentResult, setCurrentResult] = useState<FunnelDiagnosticResult>(() =>
-    runFunnelDiagnostic({
-      metaClicks: metrics.clicks,
-      pageviews: metrics.pageviews,
-      ctas: metrics.ctas,
-      checkouts: metrics.checkouts,
-      purchases: metrics.purchases,
-      metaSpend: metrics.spend || 0,
-      grossRevenue: metrics.revenue,
-      refunds: metrics.refundedCount,
-      currency,
-      hasCapi,
-      scroll25Count: scrollRetention?.scroll25Count,
-      scroll50Count: scrollRetention?.scroll50Count,
-      scroll75Count: scrollRetention?.scroll75Count,
-      ctaViewCount: scrollRetention?.ctaViewCount,
-    }),
-  );
-
-  const handleRunDiagnostic = () => {
-    setAnalyzing(true);
-    setTimeout(() => {
-      const res = runFunnelDiagnostic({
+  const resolveInputFor = (offerId: string) => {
+    if (offerId === "all") {
+      return {
         metaClicks: metrics.clicks,
         pageviews: metrics.pageviews,
         ctas: metrics.ctas,
@@ -92,7 +93,36 @@ export function DiagnosticoView({
         scroll50Count: scrollRetention?.scroll50Count,
         scroll75Count: scrollRetention?.scroll75Count,
         ctaViewCount: scrollRetention?.ctaViewCount,
-      });
+      };
+    }
+    const scoped = metricsByOffer[offerId];
+    return {
+      metaClicks: 0,
+      pageviews: scoped?.pageviews ?? 0,
+      ctas: scoped?.ctas ?? 0,
+      checkouts: scoped?.checkouts ?? 0,
+      purchases: scoped?.purchases ?? 0,
+      metaSpend: 0,
+      grossRevenue: scoped?.revenue ?? 0,
+      refunds: scoped?.refundedCount ?? 0,
+      currency,
+      hasCapi,
+      scroll25Count: scoped?.scroll25Count,
+      scroll50Count: scoped?.scroll50Count,
+      scroll75Count: scoped?.scroll75Count,
+      ctaViewCount: scoped?.ctaViewCount,
+    };
+  };
+
+  // Executa diagnóstico com base nas métricas reais do workspace ou oferta
+  const [currentResult, setCurrentResult] = useState<FunnelDiagnosticResult>(() =>
+    runFunnelDiagnostic(resolveInputFor("all")),
+  );
+
+  const handleRunDiagnostic = () => {
+    setAnalyzing(true);
+    setTimeout(() => {
+      const res = runFunnelDiagnostic(resolveInputFor(selectedOffer));
       setCurrentResult(res);
       setAnalyzing(false);
 
@@ -176,6 +206,12 @@ Aja como um estrategista veterano de direct response e CRO. Responda em tópicos
             <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
               Métricas observadas, hipóteses verificáveis e recomendações determinísticas do funil.
             </p>
+            {selectedOffer !== "all" && (
+              <p style={{ margin: "0.35rem 0 0", color: "var(--muted)", fontSize: "0.78rem" }}>
+                Gasto, cliques e ROAS do Meta não aparecem numa auditoria por oferta específica —
+                esses dados são por conta de anúncio, não por oferta.
+              </p>
+            )}
           </div>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
             <select

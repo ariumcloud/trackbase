@@ -676,6 +676,83 @@ export function Dashboard(p: Props) {
     return { scroll25Count, scroll50Count, scroll75Count, ctaViewCount: ctaViewSessions.size };
   }, [p.events]);
 
+  // Per-offer numbers for Diagnóstico de Funil's offer filter, which used to
+  // be decorative -- it tagged the saved snapshot with an offer_id but kept
+  // analyzing the whole workspace. Meta spend/clicks are tied to an ad
+  // account, not an offer, so there is no honest way to attribute them to
+  // one offer; those stay unset here rather than showing a workspace-wide
+  // number as if it belonged to just this offer. Pageviews/ctas/checkouts
+  // mirror the exact counting rules of the utm_dashboard_summary RPC (same
+  // "cta" vs "checkout" split) so a single offer's numbers stay consistent
+  // with what "todas as ofertas" already shows.
+  const diagnosticMetricsByOffer = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        revenue: number; purchases: number; refundedCount: number;
+        pageviews: number; ctas: number; checkouts: number;
+        scroll25Count: number; scroll50Count: number; scroll75Count: number; ctaViewCount: number;
+      }
+    >();
+    for (const offer of p.offers) {
+      const offerApproved = sales.filter(
+        (s) => s.offer_id === offer.id && !s.is_test && isApprovedSaleStatus(s.status),
+      );
+      const offerRefunded = sales.filter(
+        (s) => s.offer_id === offer.id && !s.is_test && isRefundedSaleStatus(s.status),
+      );
+      const revenue = offerApproved.reduce(
+        (total, s) => total + (convertAmount(s.gross_amount ?? s.amount, s.currency) ?? 0),
+        0,
+      );
+
+      const offerEvents = (p.events || []).filter((e) => e.offer_id === offer.id);
+      let pageviews = 0, checkouts = 0, ctaClicks = 0;
+      const bestBySession = new Map<string, number>();
+      const ctaViewSessions = new Set<string>();
+      for (const event of offerEvents) {
+        if (event.event_type === "pageview") pageviews += 1;
+        if (event.event_type === "checkout") checkouts += 1;
+        const action = event.attribution?.action || "";
+        if (event.event_type === "cta" && (action === "" || action === "cta_click")) ctaClicks += 1;
+
+        if (!event.session_id) continue;
+        const lowerAction = action.toLowerCase();
+        const type = (event.event_type || "").toLowerCase();
+        const parsedDepth = parseInt(event.attribution?.scroll_depth || "0", 10);
+        let depth = Number.isFinite(parsedDepth) ? parsedDepth : 0;
+        if (type.includes("90") || lowerAction.includes("90")) depth = Math.max(depth, 90);
+        else if (type.includes("75") || lowerAction.includes("75")) depth = Math.max(depth, 75);
+        else if (type.includes("50") || lowerAction.includes("50")) depth = Math.max(depth, 50);
+        else if (type.includes("25") || lowerAction.includes("25")) depth = Math.max(depth, 25);
+        if (depth > 0) bestBySession.set(event.session_id, Math.max(bestBySession.get(event.session_id) || 0, depth));
+        if (type === "cta_view" || lowerAction === "cta_view" || event.attribution?.cta_view) {
+          ctaViewSessions.add(event.session_id);
+        }
+      }
+      let scroll25Count = 0, scroll50Count = 0, scroll75Count = 0;
+      for (const depth of bestBySession.values()) {
+        if (depth >= 25) scroll25Count += 1;
+        if (depth >= 50) scroll50Count += 1;
+        if (depth >= 75) scroll75Count += 1;
+      }
+
+      map.set(offer.id, {
+        revenue,
+        purchases: offerApproved.length,
+        refundedCount: offerRefunded.length,
+        pageviews,
+        ctas: ctaClicks + checkouts,
+        checkouts,
+        scroll25Count,
+        scroll50Count,
+        scroll75Count,
+        ctaViewCount: ctaViewSessions.size,
+      });
+    }
+    return Object.fromEntries(map);
+  }, [p.offers, sales, p.events, convertAmount]);
+
   // A Hotmart webhook may omit structured UTM fields. Recover placement from
   // the first-party page event linked by the session/SCK identifier instead
   // of dropping the conversion from the placement report.
@@ -3243,6 +3320,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 currency={currency}
                 selectTab={selectTab}
                 scrollRetention={scrollRetentionCounts}
+                metricsByOffer={diagnosticMetricsByOffer}
               />
             ))}
           {(tab === "radar" || tab === "simulador") &&
