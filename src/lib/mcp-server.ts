@@ -167,7 +167,7 @@ export async function executeMcpMethod(
 
           const { data: sales } = await service
             .from("utm_sales")
-            .select("amount, gross_amount, net_amount, status, occurred_at, currency, is_test")
+            .select("amount, gross_amount, net_amount, net_currency, status, occurred_at, currency, is_test")
             .eq("workspace_id", workspaceId)
             .eq("is_test", false)
             .gte("occurred_at", startDate.toISOString())
@@ -175,8 +175,13 @@ export async function executeMcpMethod(
 
           const converted = (s: { amount: number | null; gross_amount: number | null; currency: string | null }) =>
             convertCurrencyAmount(Number(s.gross_amount) || Number(s.amount) || 0, s.currency, reportCurrency, rates) ?? 0;
-          const convertedNet = (s: { amount: number | null; gross_amount: number | null; net_amount: number | null; currency: string | null }) =>
-            convertCurrencyAmount(Number(s.net_amount) || Number(s.gross_amount) || Number(s.amount) || 0, s.currency, reportCurrency, rates) ?? 0;
+          // net_amount/net_currency can differ from gross_amount/currency — Hotmart
+          // settles commissions in USD even when the buyer paid in local currency
+          // (e.g. gross 26000 ARS, net 13.34 USD for the same sale).
+          const convertedNet = (s: { amount: number | null; gross_amount: number | null; net_amount: number | null; net_currency: string | null; currency: string | null }) =>
+            s.net_amount != null
+              ? (convertCurrencyAmount(Number(s.net_amount), s.net_currency || s.currency, reportCurrency, rates) ?? 0)
+              : converted(s);
 
           const approvedSales = (sales || []).filter((s) => isApprovedSaleStatus(s.status));
           const refundSales = (sales || []).filter((s) => isRefundedSaleStatus(s.status));
