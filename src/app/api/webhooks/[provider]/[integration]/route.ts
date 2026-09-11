@@ -12,6 +12,7 @@ import { hotmartProductNamesMatch } from "@/lib/payment-product-matching";
 import { notifySalePush } from "@/lib/push-notifications";
 import { z } from "zod";
 import { resolveSaleAttributionEvidence } from "@/lib/attribution";
+import { resolveProductTarget } from "@/lib/gateway-offers";
 
 function extractWebhookToken(
   provider: string,
@@ -276,25 +277,26 @@ export async function POST(
     }
 
     const webhookProductName = extractPayloadProductName(provider, payload);
-    let configuredProductId = i.external_product_id;
-    // Starts as "ignored" so a batch where every event fails the product/offer
-    // match (the `continue` below) truthfully reports nothing was recorded,
-    // instead of keeping a stale "processed" default that made the sender —
-    // and this route's own caller — believe a sale had been saved when it
-    // hadn't.
+    // Starts as "ignored" so a batch where every event fails to resolve to a
+    // known/discoverable product (the `continue` below) truthfully reports
+    // nothing was recorded, instead of keeping a stale "processed" default
+    // that made the sender — and this route's own caller — believe a sale
+    // had been saved when it hadn't.
     let lastResultStatus = "ignored";
     for (const event of normalizedEvents) {
       // Hotmart sometimes sends the canonical numeric product ID while an
-      // integration created from a checkout link was saved with a different
-      // identifier. Rebind only when the product name is an exact match and
-      // the configured offer still matches; never loosen this for other
-      // providers or unrelated products.
-      const productMatches = event.productId === configuredProductId;
-      const offerMatches = !i.external_offer_id || event.offerId === i.external_offer_id;
+      // integration manually created from a checkout link was saved with a
+      // different identifier. Rebind only when the product name is an exact
+      // match and the configured offer still matches; never loosen this for
+      // other providers or unrelated products. Only applies to a hub that
+      // was itself configured for a specific product (legacy single-product
+      // connections) — auto-discovered satellites never need this.
+      const hubOfferMatches = !i.external_offer_id || event.offerId === i.external_offer_id;
       const canRepairHotmartProductId =
         provider === "hotmart" &&
-        !productMatches &&
-        offerMatches &&
+        Boolean(i.offer_id) &&
+        event.productId !== i.external_product_id &&
+        hubOfferMatches &&
         hotmartProductNamesMatch(i.name, webhookProductName);
 
       if (canRepairHotmartProductId) {
@@ -308,7 +310,7 @@ export async function POST(
             { status: 503 },
           );
         }
-        configuredProductId = event.productId;
+        i.external_product_id = event.productId;
       }
 
       // Converte status do evento normalizado para persistência em utm_sales
@@ -362,30 +364,31 @@ export async function POST(
         buyer_email: event.buyer?.email || null,
       };
 
-      const { data: trackingEvents } = await service
-        .from("utm_events")
-        .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
-        .eq("workspace_id", i.workspace_id)
-        .eq("offer_id", i.offer_id)
-        .order("created_at", { ascending: false })
-        .limit(5000);
-      const evidence = resolveSaleAttributionEvidence(event.attribution, trackingEvents || [], i.offer_id, event.occurredAt);
-      dbPayment.attribution = evidence.attribution;
+      const target = await resolveProductTarget(
+        service,
+        i,
+        provider,
+        event.productId,
+        event.offerId || null,
+        isApproved,
+        webhookProductName,
+        event.grossCurrency,
+      );
 
-      if (!productMatches && !canRepairHotmartProductId || !offerMatches) {
+      if (!target) {
         // An empty productId means the adapter couldn't find a product field
-        // in this payload at all — a different problem than a real product
-        // mismatch (unexpected/changed payload shape, a webhook test event
-        // with no product context, etc.). Saying "recebido=" (nothing) instead
-        // of pretending some placeholder value was the real product avoids
-        // the confusing appearance of a specific-but-wrong product ID.
+        // in this payload at all. Otherwise, this product has never been seen
+        // approved before — Hotmart-style connectivity tests and pending/
+        // canceled events for a still-unknown product intentionally never
+        // create anything, so a burst of test pings can't fill the account
+        // with fake offers.
         const reason = !event.productId
-          ? `Produto não identificado no payload recebido (esperado=${configuredProductId}).`
-          : `Produto/oferta não corresponde à integração (recebido=${event.productId}; esperado=${configuredProductId}).`;
+          ? "Produto não identificado no payload recebido."
+          : `Produto ainda não confirmado por uma venda aprovada (recebido=${event.productId}).`;
         await service.from("utm_webhook_logs").upsert(
           {
             workspace_id: i.workspace_id,
-            integration_id: integration,
+            integration_id: i.id,
             event_id: `product_mismatch:${webhookEventIdentity(event)}`,
             status: "ignored",
             reason,
@@ -397,8 +400,18 @@ export async function POST(
         continue;
       }
 
+      const { data: trackingEvents } = await service
+        .from("utm_events")
+        .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
+        .eq("workspace_id", i.workspace_id)
+        .eq("offer_id", target.offer_id)
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      const evidence = resolveSaleAttributionEvidence(event.attribution, trackingEvents || [], target.offer_id, event.occurredAt);
+      dbPayment.attribution = evidence.attribution;
+
       const { data, error } = await service.rpc("utm_process_payment", {
-        p_integration: integration,
+        p_integration: target.id,
         p_payment: dbPayment,
       });
 
@@ -418,7 +431,7 @@ export async function POST(
           const eventId = `tx_${event.externalTransactionId}_${event.productType}`;
           const { error: outboxError } = await service.from("utm_capi_outbox").upsert({
             workspace_id: i.workspace_id,
-            offer_id: i.offer_id,
+            offer_id: target.offer_id,
             event_id: eventId,
             event_name: eventName,
             event_source_url: "",
@@ -438,23 +451,23 @@ export async function POST(
         const { data: offer } = await service
           .from("utm_offers")
           .select("name")
-          .eq("id", i.offer_id)
+          .eq("id", target.offer_id)
           .maybeSingle();
 
         if (
           webhookProductName &&
           offer?.name &&
-          (offer.name === i.external_product_id || /^\d+$/.test(offer.name))
+          (offer.name === target.name || /^\d+$/.test(offer.name))
         ) {
           await service
             .from("utm_offers")
             .update({ name: webhookProductName })
-            .eq("id", i.offer_id);
+            .eq("id", target.offer_id);
 
           await service
             .from("utm_integrations")
             .update({ name: `${provider.toUpperCase()} · ${webhookProductName}` })
-            .eq("id", integration);
+            .eq("id", target.id);
 
           offer.name = webhookProductName;
         }
@@ -469,14 +482,14 @@ export async function POST(
           });
           if (!pushResult.ok && pushResult.reason !== "no_subscribers") {
             console.error("Push de venda não entregue", {
-              integration,
+              integration: target.id,
               eventId: webhookEventIdentity(event),
               reason: pushResult.reason,
             });
             await service
               .from("utm_webhook_logs")
               .update({ reason: "Notificação push não entregue." })
-              .eq("integration_id", integration)
+              .eq("integration_id", target.id)
               .eq("event_id", webhookEventIdentity(event));
           }
         }
@@ -488,7 +501,7 @@ export async function POST(
           attribution_confidence: evidence.confidence,
           attribution_reason: evidence.reason,
           attribution_session_id: evidence.attribution.session_id || null,
-        }).eq("integration_id", integration).eq("transaction_id", event.externalTransactionId).eq("product_type", event.productType).eq("is_test", event.isTest);
+        }).eq("integration_id", target.id).eq("transaction_id", event.externalTransactionId).eq("product_type", event.productType).eq("is_test", event.isTest);
         if (attributionError) throw new Error("ATTRIBUTION_PERSISTENCE_FAILED");
       }
     }

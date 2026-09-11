@@ -1,8 +1,7 @@
 "use server";
 import { requireFeature } from "@/lib/feature-access";
 import { db, admin } from "@/lib/supabase/server";
-import { authorize, digest, rateLimit, encrypt, decrypt } from "@/lib/security";
-import { listGatewayProducts, type CatalogProvider, type GatewayProduct } from "@/lib/gateway-catalog";
+import { authorize, digest, rateLimit, encrypt } from "@/lib/security";
 import { linkSchema, webUrl } from "@/lib/utm";
 import { normalizeCheckoutUrl } from "@/lib/tracker";
 import { validateDocument } from "@/lib/document";
@@ -866,234 +865,61 @@ export async function savePaymentIntegration(
   }
 }
 
-type ImportedGatewayItem = { integrationId: string; offerId: string; productName: string };
-
-/** Cria a oferta + integração para um único produto já resolvido do catálogo do gateway. */
-async function createOfferAndIntegrationForProduct(
-  service: ReturnType<typeof admin>,
-  workspace: string,
-  provider: CatalogProvider,
-  product: GatewayProduct,
-  status: "connected" | "pending",
-): Promise<{ integrationId: string; offerId: string }> {
-  const landingUrl = product.checkoutUrl || {
-    hotmart: "https://hotmart.com",
-    kiwify: "https://kiwify.com.br",
-    cakto: "https://cakto.com.br",
-  }[provider];
-  const { data: offer, error: offerError } = await service
-    .from("utm_offers")
-    .insert({
-      workspace_id: workspace,
-      name: product.name,
-      landing_url: landingUrl,
-      checkout_url: product.checkoutUrl,
-      currency: product.currency,
-      platform: provider,
-      external_product_id: product.externalProductId,
-      external_offer_id: product.externalOfferId,
-    })
-    .select("id")
-    .single();
-  if (offerError || !offer) throw offerError || new Error("Não foi possível criar a oferta.");
-
-  const { data: integration, error: integrationError } = await service
-    .from("utm_integrations")
-    .insert({
-      workspace_id: workspace,
-      offer_id: offer.id,
-      provider,
-      name: `${provider.toUpperCase()} · ${product.name}`,
-      external_product_id: product.externalProductId,
-      external_offer_id: product.externalOfferId,
-      currency: product.currency,
-      status,
-    })
-    .select("id")
-    .single();
-  if (integrationError || !integration) {
-    await service.from("utm_offers").delete().eq("id", offer.id).eq("workspace_id", workspace);
-    throw integrationError || new Error("Não foi possível criar a integração.");
-  }
-  return { integrationId: integration.id, offerId: offer.id };
-}
-
-export async function connectImportedGateway(
-  workspace: string,
-  form: FormData,
-): Promise<ActionResult & { items?: ImportedGatewayItem[] }> {
-  let stage = "validar acesso";
-  let provider = "gateway";
+/**
+ * Conecta uma conta de gateway (Hotmart/Kiwify/Cakto) sem exigir a escolha de
+ * um produto antecipadamente. Cria uma integração "hub": guarda as credenciais
+ * (para uso futuro, ex. reconciliação via API) e o segredo do webhook, e gera
+ * a URL na hora. Cada produto vendido nessa conta é descoberto sozinho — vira
+ * uma oferta própria — assim que a primeira venda aprovada dele chegar pelo
+ * webhook (ver /api/webhooks/[provider]/[integration]).
+ */
+export async function connectGatewayHub(workspace: string, form: FormData): Promise<ActionResult> {
   try {
     await requireFeature(workspace, "integrations");
-    // Checkboxes repetem o mesmo name para cada produto marcado; FormData
-    // preserva a ordem e o Object.fromEntries usado no restante do schema
-    // colapsaria para o último valor, então a lista é extraída à parte.
-    const requestedProductIds = form.getAll("external_product_id").map(String).filter(Boolean);
     const value = z.object({
       provider: z.enum(["hotmart", "kiwify", "cakto"]),
       client_id: z.string().trim().min(3).max(300),
       client_secret: z.string().trim().min(4).max(1000),
       account_id: z.string().trim().max(300).optional(),
-      basic_token: z.string().trim().max(1000).optional(),
       webhook_secret: z.string().trim().max(500).optional(),
     }).parse(Object.fromEntries(form));
-    const productIds = z.array(z.string().trim().min(1).max(300)).min(1).max(50).parse(requestedProductIds);
-    provider = value.provider;
 
     const credentials = {
       clientId: value.client_id,
       clientSecret: value.client_secret,
       accountId: value.account_id || undefined,
-      basicToken: value.basic_token || undefined,
     };
-    stage = "consultar produtos no gateway";
-    const products = await listGatewayProducts(value.provider as CatalogProvider, credentials);
-    const selected = productIds
-      .map((id) => products.find((item) => item.externalProductId === id))
-      .filter((item): item is GatewayProduct => Boolean(item));
-    if (!selected.length) return { error: "Os produtos selecionados não estão mais disponíveis. Busque novamente." };
 
     const service = admin();
-    const status = value.webhook_secret && value.webhook_secret.length >= 4 ? "connected" : "pending";
-    const apiCredentialsCiphertext = encrypt(JSON.stringify(credentials));
-    const webhookHash = value.webhook_secret ? digest(value.webhook_secret) : null;
-    const webhookSecretCiphertext = value.webhook_secret ? encrypt(value.webhook_secret) : null;
-
-    const items: ImportedGatewayItem[] = [];
-    for (const product of selected) {
-      stage = `criar produto "${product.name}" no Trackbase`;
-      const created = await createOfferAndIntegrationForProduct(service, workspace, value.provider as CatalogProvider, product, status);
-
-      stage = `proteger credenciais de "${product.name}"`;
-      const { error: credentialError } = await service.from("utm_credentials").insert({
+    const { data: integration, error: integrationError } = await service
+      .from("utm_integrations")
+      .insert({
         workspace_id: workspace,
-        integration_id: created.integrationId,
-        webhook_hash: webhookHash,
-        webhook_secret_ciphertext: webhookSecretCiphertext,
-        api_credentials_ciphertext: apiCredentialsCiphertext,
-      });
-      if (credentialError) {
-        await service.from("utm_integrations").delete().eq("id", created.integrationId).eq("workspace_id", workspace);
-        await service.from("utm_offers").delete().eq("id", created.offerId).eq("workspace_id", workspace);
-        throw credentialError;
-      }
-      items.push({ integrationId: created.integrationId, offerId: created.offerId, productName: product.name });
+        offer_id: null,
+        provider: value.provider,
+        name: `${value.provider.toUpperCase()} · Conexão`,
+        status: value.webhook_secret && value.webhook_secret.length >= 4 ? "connected" : "pending",
+      })
+      .select("id")
+      .single();
+    if (integrationError || !integration) throw integrationError || new Error("Não foi possível criar a integração.");
+
+    const { error: credentialError } = await service.from("utm_credentials").insert({
+      workspace_id: workspace,
+      integration_id: integration.id,
+      webhook_hash: value.webhook_secret ? digest(value.webhook_secret) : null,
+      webhook_secret_ciphertext: value.webhook_secret ? encrypt(value.webhook_secret) : null,
+      api_credentials_ciphertext: encrypt(JSON.stringify(credentials)),
+    });
+    if (credentialError) {
+      await service.from("utm_integrations").delete().eq("id", integration.id).eq("workspace_id", workspace);
+      throw credentialError;
     }
     revalidatePath("/painel");
-    // Compatibilidade: quem só olha integrationId/offerId (uso de 1 produto) continua funcionando.
-    return { ok: true, items, integrationId: items[0]?.integrationId, offerId: items[0]?.offerId };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    console.error("Falha ao importar produto do gateway", {
-      provider,
-      workspace,
-      stage,
-      error: message || "Erro desconhecido",
-    });
-    if (message.includes("Limite")) return { error: message };
-    if (message.includes("Chave de criptografia")) {
-      return { error: "A chave de criptografia do servidor não está configurada. Avise o suporte da Trackbase." };
-    }
-    if (message.includes("Credencial do servidor")) {
-      return { error: "A credencial segura do servidor não está configurada. Avise o suporte da Trackbase." };
-    }
-    if (message.includes("token") || message.includes("Credenciais") || message.includes("permissão")) {
-      const providerLabel = { cakto: "Cakto", kiwify: "Kiwify", hotmart: "Hotmart" }[provider as CatalogProvider] || provider;
-      return { error: `A ${providerLabel} recusou a consulta do produto. Confira as permissões da chave.` };
-    }
-    return { error: `Não foi possível concluir a etapa “${stage}”. Tente novamente em alguns segundos.` };
-  }
-}
-export async function listSavedGatewayProducts(
-  workspace: string,
-  integration: string,
-): Promise<ActionResult> {
-  try {
-    await requireFeature(workspace, "integrations");
-    const service = admin();
-    const { data: connection, error: connectionError } = await service
-      .from("utm_integrations")
-      .select("provider")
-      .eq("workspace_id", workspace)
-      .eq("id", integration)
-      .single();
-    if (connectionError || !connection) throw connectionError || new Error();
-    const { data: credential, error: credentialError } = await service
-      .from("utm_credentials")
-      .select("api_credentials_ciphertext")
-      .eq("workspace_id", workspace)
-      .eq("integration_id", integration)
-      .single();
-    if (credentialError || !credential?.api_credentials_ciphertext) throw credentialError || new Error();
-    const credentials = JSON.parse(decrypt(credential.api_credentials_ciphertext)) as Record<string, string | undefined>;
-    const products = await listGatewayProducts(connection.provider as CatalogProvider, {
-      clientId: credentials.clientId || "",
-      clientSecret: credentials.clientSecret || "",
-      accountId: credentials.accountId,
-      basicToken: credentials.basicToken,
-    });
-    return { ok: true, products };
-  } catch {
-    return { error: "Não foi possível carregar os produtos desta conexão." };
-  }
-}
-
-export async function connectAdditionalGatewayProduct(
-  workspace: string,
-  integration: string,
-  externalProductIds: string | string[],
-): Promise<ActionResult & { items?: ImportedGatewayItem[] }> {
-  try {
-    await requireFeature(workspace, "integrations");
-    const requestedIds = z.array(z.string().trim().min(1).max(300)).min(1).max(50)
-      .parse(Array.isArray(externalProductIds) ? externalProductIds : [externalProductIds]);
-    const service = admin();
-    const { data: source, error: sourceError } = await service
-      .from("utm_integrations")
-      .select("provider")
-      .eq("workspace_id", workspace)
-      .eq("id", integration)
-      .single();
-    if (sourceError || !source) throw sourceError || new Error();
-    const { data: credential, error: credentialError } = await service
-      .from("utm_credentials")
-      .select("api_credentials_ciphertext")
-      .eq("workspace_id", workspace)
-      .eq("integration_id", integration)
-      .single();
-    if (credentialError || !credential?.api_credentials_ciphertext) throw credentialError || new Error();
-    const credentials = JSON.parse(decrypt(credential.api_credentials_ciphertext)) as Record<string, string | undefined>;
-    const products = await listGatewayProducts(source.provider as CatalogProvider, {
-      clientId: credentials.clientId || "",
-      clientSecret: credentials.clientSecret || "",
-      accountId: credentials.accountId,
-      basicToken: credentials.basicToken,
-    });
-    const selected = requestedIds
-      .map((id) => products.find((item) => item.externalProductId === id))
-      .filter((item): item is GatewayProduct => Boolean(item));
-    if (!selected.length) return { error: "Os produtos selecionados não estão mais disponíveis." };
-
-    const items: ImportedGatewayItem[] = [];
-    for (const product of selected) {
-      const created = await createOfferAndIntegrationForProduct(service, workspace, source.provider as CatalogProvider, product, "pending");
-      const { error: newCredentialError } = await service.from("utm_credentials").insert({
-        workspace_id: workspace,
-        integration_id: created.integrationId,
-        api_credentials_ciphertext: credential.api_credentials_ciphertext,
-      });
-      if (newCredentialError) {
-        await service.from("utm_integrations").delete().eq("id", created.integrationId).eq("workspace_id", workspace);
-        await service.from("utm_offers").delete().eq("id", created.offerId).eq("workspace_id", workspace);
-        throw newCredentialError;
-      }
-      items.push({ integrationId: created.integrationId, offerId: created.offerId, productName: product.name });
-    }
-    revalidatePath("/painel");
-    return { ok: true, items, integrationId: items[0]?.integrationId, offerId: items[0]?.offerId };
-  } catch {
-    return { error: "Não foi possível adicionar estes produtos." };
+    return { ok: true, integrationId: integration.id };
+  } catch (e) {
+    console.error("connectGatewayHub failed", { message: e instanceof Error ? e.message : "unknown" });
+    return { error: "Não foi possível conectar. Confira os dados e tente novamente." };
   }
 }
 
