@@ -441,6 +441,8 @@ export async function POST(
               fbp: evidence.attribution.fbp || null,
               fbc: evidence.attribution.fbc || null,
             })),
+            value: eventName === "Purchase" ? event.grossAmount ?? null : null,
+            currency: eventName === "Purchase" ? event.grossCurrency || i.currency || null : null,
             occurred_at: event.occurredAt,
             status: "pending",
             next_attempt_at: new Date().toISOString(),

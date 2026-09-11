@@ -13,6 +13,8 @@ type OutboxEvent = {
   user_data_ciphertext: string;
   attempt_count: number;
   occurred_at?: string | null;
+  value?: number | null;
+  currency?: string | null;
 };
 
 type OutboxSummary = {
@@ -51,6 +53,10 @@ export async function processCapiOutbox(limit = 10): Promise<OutboxSummary> {
         url: event.event_source_url,
         userData,
         occurredAt: event.occurred_at || undefined,
+        customData:
+          event.value != null && event.currency
+            ? { value: event.value, currency: event.currency }
+            : undefined,
       });
 
       if (result.status === "sent" || result.status === "duplicate") {

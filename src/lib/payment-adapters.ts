@@ -70,6 +70,21 @@ const extractAttribution = (raw: unknown): Record<string, string> => {
   return result;
 };
 
+// Kirvano formats every money field as a localized string, e.g. "R$ 169,80"
+// (or "R$ 1.234,56") instead of a plain number -- num() alone returns null
+// for these, which is how every Kirvano amount silently became 0.
+const parseBRLAmount = (v: unknown): number | null => {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  const cleaned = v.replace(/[^0-9,.-]/g, "");
+  if (!cleaned) return null;
+  const normalized = cleaned.includes(",")
+    ? cleaned.replace(/\./g, "").replace(",", ".")
+    : cleaned;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+};
+
 const cleanCurrency = (raw: unknown, fallback: string = "BRL"): string => {
   const s = str(raw).toUpperCase();
   return /^[A-Z]{3}$/.test(s) ? s : fallback;
@@ -295,12 +310,17 @@ export const caktoAdapter: PaymentAdapter = {
     const address = record(data.address);
     const product = record(data.product);
     const offer = record(data.offer);
-    const tracking = record(data.tracking);
+    // Cakto's own docs (cakto-dece4a15.mintlify.app/webhooks/pagamento-unico)
+    // show no "tracking"/"type"/"order_bump" fields at all -- bump/upsell/
+    // downsell is carried in "offer_type" ("main" in their example payload),
+    // and any UTMs only ever show up appended to the checkout URL.
+    const tracking = { ...trackingFromUrl(data.checkoutUrl), ...record(data.tracking) };
 
     const event = str(root.event).toLowerCase();
-    const isBump = Boolean(data.order_bump || str(data.type).toLowerCase().includes("bump"));
-    const isUpsell = str(data.type).toLowerCase().includes("upsell");
-    const isDownsell = str(data.type).toLowerCase().includes("downsell");
+    const offerType = str(data.offer_type).toLowerCase();
+    const isBump = offerType.includes("bump");
+    const isUpsell = offerType.includes("upsell");
+    const isDownsell = offerType.includes("downsell");
 
     let type: PaymentEventType = "payment_pending";
     if (["purchase_approved", "purchase_complete", "paid"].includes(event)) {
@@ -340,7 +360,7 @@ export const caktoAdapter: PaymentAdapter = {
         offerId: str(offer.id || data.offer_id) || null,
         productType,
         parentProductId: null,
-        parentTransactionId: str(data.parent_id || data.parent_transaction_id) || null,
+        parentTransactionId: str(data.parent_order || data.parent_id || data.parent_transaction_id) || null,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -367,82 +387,91 @@ export const caktoAdapter: PaymentAdapter = {
 };
 
 // 4. ADAPTADOR KIRVANO
+// Kirvano's webhook is flat (no "data" wrapper), keys the sale by "sale_id"
+// (not "id"/"transaction_id"), formats every money field as a localized
+// string ("R$ 169,80", parsed by parseBRLAmount), and bundles the main
+// product plus any order bump into one "products" array instead of firing a
+// separate webhook per line item -- confirmed against Kirvano's own docs
+// (help.kirvano.com, "Configurando Integração via Webhook"). The previous
+// version read fields ("data.id", "data.product", "data.total_amount") that
+// don't exist in that payload, so every Kirvano sale recorded amount=0,
+// productId="" (which the webhook route treats as unidentified and drops
+// entirely, per resolveProductTarget's productId check), and, on the rare
+// path that didn't get dropped, collided every sale onto one fallback
+// transaction id ("kirvano_tx"), overwriting each previous sale's row.
 export const kirvanoAdapter: PaymentAdapter = {
   provider: "kirvano",
   normalize(payload, context) {
     const root = record(payload);
-    const data = record(root.data || root);
-    const customer = record(data.customer);
-    const product = record(data.product);
-    const tracking = record(data.utm || data.tracking);
+    const customer = record(root.customer);
+    const tracking = record(root.utm || root.tracking);
+    const products = Array.isArray(root.products) ? root.products.map(record) : [];
 
-    const event = str(root.event || data.event || data.status).toUpperCase();
-    const rawType = str(data.type).toUpperCase();
-    const isBump = rawType.includes("BUMP") || Boolean(data.order_bump);
-    const isUpsell = rawType.includes("UPSELL");
-    const isDownsell = rawType.includes("DOWNSELL");
+    const event = str(root.event || root.status).toUpperCase();
 
-    let type: PaymentEventType = "payment_pending";
+    let baseType: PaymentEventType = "payment_pending";
     if (["SALE_APPROVED", "PURCHASE_APPROVED", "PAID"].includes(event)) {
-      if (isBump) type = "order_bump_approved";
-      else if (isUpsell) type = "upsell_approved";
-      else if (isDownsell) type = "downsell_approved";
-      else type = "purchase_approved";
+      baseType = "purchase_approved";
     } else if (event.includes("REFUND")) {
-      type = "purchase_refunded";
+      baseType = "purchase_refunded";
     } else if (event.includes("CHARGEBACK")) {
-      type = "chargeback_created";
-    } else if (event.includes("CANCEL")) {
-      type = "purchase_canceled";
+      baseType = "chargeback_created";
+    } else if (event.includes("CANCEL") || event.includes("REFUSED")) {
+      baseType = "purchase_canceled";
     } else if (event.includes("PIX")) {
-      type = "pix_created";
+      baseType = "pix_created";
     } else if (event.includes("SLIP") || event.includes("BOLETO")) {
-      type = "boleto_created";
-    } else {
-      type = "payment_pending";
+      baseType = "boleto_created";
     }
 
-    const transaction = str(data.transaction_id || data.id || root.id) || "kirvano_tx";
-    const gross = num(data.total_amount) ?? num(data.amount) ?? 0;
-    const fee = num(data.fee) ?? num(data.taxes) ?? 0;
-    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+    const saleId = str(root.sale_id) || "kirvano_tx";
+    const currency = cleanCurrency(root.currency, context.fallbackCurrency);
+    const isTest = Boolean(root.is_test);
+    const occurredAt = parseDate(root.paid_at || root.created_at, context.receivedAt);
+    const attribution = extractAttribution(tracking);
+    const buyer = { name: str(customer.name) || null, email: str(customer.email) || null };
+    const country = cleanCountry(customer.country);
 
-    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id) || "";
+    const lines = products.length
+      ? products
+      : [record({ id: "", price: root.total_price, is_order_bump: false })];
 
-    return [
-      normalizedPaymentEventSchema.parse({
+    return lines.map((line, idx) => {
+      const isBump = Boolean(line.is_order_bump);
+      const productType = isBump ? "order_bump" : "main";
+      const gross = parseBRLAmount(line.price) ?? (idx === 0 ? parseBRLAmount(root.total_price) ?? 0 : 0);
+      const type: PaymentEventType =
+        baseType === "purchase_approved" && isBump ? "order_bump_approved" : baseType;
+
+      return normalizedPaymentEventSchema.parse({
         provider: "kirvano",
-        externalTransactionId: transaction,
-        externalEventId: str(root.event_id || root.id) || null,
+        externalTransactionId: saleId,
+        externalEventId: str(root.event_id) || null,
         type,
-        productId,
-        offerId: str(data.offer_id) || null,
+        productId: str(line.id) || "",
+        offerId: str(line.offer_id) || null,
         productType,
         parentProductId: null,
-        parentTransactionId: str(data.parent_id || data.parent_transaction_id) || null,
+        parentTransactionId: idx > 0 ? saleId : null,
         grossAmount: gross,
-        netAmount: net,
-        fees: fee,
-        grossCurrency: cleanCurrency(data.currency, context.fallbackCurrency),
-        netCurrency: cleanCurrency(data.currency, context.fallbackCurrency),
-        country: cleanCountry(customer.country),
-        buyer: {
-          name: str(customer.name) || null,
-          email: str(customer.email) || null,
-        },
-        attribution: extractAttribution(tracking),
+        netAmount: gross,
+        fees: 0,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country,
+        buyer,
+        attribution,
         campaignId: str(tracking.utm_campaign) || null,
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
         clickId: str(tracking.fbclid) || null,
-        occurredAt: parseDate(data.paid_at || data.created_at, context.receivedAt),
+        occurredAt,
         receivedAt: context.receivedAt,
-        isTest: Boolean(data.is_test || root.is_test),
+        isTest,
         rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
+      });
+    });
   },
 };
 
