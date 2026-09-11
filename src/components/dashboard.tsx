@@ -640,6 +640,42 @@ export function Dashboard(p: Props) {
     {},
   );
 
+  // Diagnóstico de Funil's "Radar de Retenção" needs real scroll-depth
+  // counts, not the fixed-percentage guess funnel-diagnostic.ts falls back
+  // to when none are given. Scroll events arrive as generic "cta" rows with
+  // the real depth tucked into attribution (api/track/route.ts), the same
+  // shape lead-scroll-visualizer.tsx already reads for the Radar heatmap —
+  // count, per session, the deepest scroll reached and whether the buy
+  // button ever came into view.
+  const scrollRetentionCounts = useMemo(() => {
+    const bestBySession = new Map<string, number>();
+    const ctaViewSessions = new Set<string>();
+    for (const event of p.events || []) {
+      if (!event.session_id) continue;
+      const action = (event.attribution?.action || "").toLowerCase();
+      const type = (event.event_type || "").toLowerCase();
+      const parsedDepth = parseInt(event.attribution?.scroll_depth || "0", 10);
+      let depth = Number.isFinite(parsedDepth) ? parsedDepth : 0;
+      if (type.includes("90") || action.includes("90")) depth = Math.max(depth, 90);
+      else if (type.includes("75") || action.includes("75")) depth = Math.max(depth, 75);
+      else if (type.includes("50") || action.includes("50")) depth = Math.max(depth, 50);
+      else if (type.includes("25") || action.includes("25")) depth = Math.max(depth, 25);
+      if (depth > 0) {
+        bestBySession.set(event.session_id, Math.max(bestBySession.get(event.session_id) || 0, depth));
+      }
+      if (type === "cta_view" || action === "cta_view" || event.attribution?.cta_view) {
+        ctaViewSessions.add(event.session_id);
+      }
+    }
+    let scroll25Count = 0, scroll50Count = 0, scroll75Count = 0;
+    for (const depth of bestBySession.values()) {
+      if (depth >= 25) scroll25Count += 1;
+      if (depth >= 50) scroll50Count += 1;
+      if (depth >= 75) scroll75Count += 1;
+    }
+    return { scroll25Count, scroll50Count, scroll75Count, ctaViewCount: ctaViewSessions.size };
+  }, [p.events]);
+
   // A Hotmart webhook may omit structured UTM fields. Recover placement from
   // the first-party page event linked by the session/SCK identifier instead
   // of dropping the conversion from the placement report.
@@ -3206,6 +3242,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 diagnostics={p.diagnostics || []}
                 currency={currency}
                 selectTab={selectTab}
+                scrollRetention={scrollRetentionCounts}
               />
             ))}
           {(tab === "radar" || tab === "simulador") &&

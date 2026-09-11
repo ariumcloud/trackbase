@@ -152,8 +152,8 @@ export default async function Page({
   const querySince = new Date(new Date(since).getTime() - 24 * 3600 * 1000).toISOString();
   const queryUntil = new Date(new Date(until).getTime() + 24 * 3600 * 1000).toISOString();
 
-  const needsSales = ["visao", "campanhas", "assistente", "radar", "simulador"].includes(activeTab);
-  const needsInsights = ["visao", "campanhas", "assistente"].includes(activeTab);
+  const needsSales = ["visao", "campanhas", "assistente", "radar", "simulador", "diagnostico"].includes(activeTab);
+  const needsInsights = ["visao", "campanhas", "assistente", "diagnostico"].includes(activeTab);
   const needsEntities = ["visao", "campanhas", "assistente"].includes(activeTab);
   const needsLogs = activeTab === "integracoes";
   // The offers tab exposes the universal Meta Pixel installer, so it also
@@ -162,11 +162,14 @@ export default async function Page({
   const needsPixels = ["integracoes", "campanhas", "ofertas"].includes(activeTab);
   const needsPixelRules = activeTab === "integracoes";
   const needsDemographics = activeTab === "visao";
-  const needsSummary = ["visao", "campanhas"].includes(activeTab);
+  // Diagnóstico de Funil scores real clicks/pageviews/checkouts/purchases --
+  // it was never in this list, so every diagnostic ran against all-zero
+  // metrics regardless of the workspace's actual traffic and sales.
+  const needsSummary = ["visao", "campanhas", "diagnostico"].includes(activeTab);
   const needsAlerts = activeTab === "alertas";
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
   const needsShield = activeTab === "shield";
-  const needsEvents = ["radar", "simulador", "visao", "campanhas"].includes(activeTab);
+  const needsEvents = ["radar", "simulador", "visao", "campanhas", "diagnostico"].includes(activeTab);
 
   // Independente da aba aberta e do período selecionado no dashboard: o uso
   // do plano precisa refletir o total de vendas do mês corrente, não o

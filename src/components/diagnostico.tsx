@@ -20,6 +20,7 @@ export function DiagnosticoView({
   diagnostics = [],
   currency = "BRL",
   selectTab,
+  scrollRetention,
 }: {
   workspace: string;
   offers: Offer[];
@@ -37,6 +38,15 @@ export function DiagnosticoView({
   diagnostics: DiagnosticRow[];
   currency: string;
   selectTab: (tab: string) => void;
+  // Real per-session scroll-depth counts from the Radar de Leads pipeline.
+  // Without this, the retention analysis below falls back to a guessed
+  // percentage of pageviews instead of what visitors actually did.
+  scrollRetention?: {
+    scroll25Count: number;
+    scroll50Count: number;
+    scroll75Count: number;
+    ctaViewCount: number;
+  };
 }) {
   const [selectedOffer, setSelectedOffer] = useState<string>("all");
   const [analyzing, setAnalyzing] = useState(false);
@@ -57,6 +67,10 @@ export function DiagnosticoView({
       refunds: metrics.refundedCount,
       currency,
       hasCapi,
+      scroll25Count: scrollRetention?.scroll25Count,
+      scroll50Count: scrollRetention?.scroll50Count,
+      scroll75Count: scrollRetention?.scroll75Count,
+      ctaViewCount: scrollRetention?.ctaViewCount,
     }),
   );
 
@@ -74,6 +88,10 @@ export function DiagnosticoView({
         refunds: metrics.refundedCount,
         currency,
         hasCapi,
+        scroll25Count: scrollRetention?.scroll25Count,
+        scroll50Count: scrollRetention?.scroll50Count,
+        scroll75Count: scrollRetention?.scroll75Count,
+        ctaViewCount: scrollRetention?.ctaViewCount,
       });
       setCurrentResult(res);
       setAnalyzing(false);
