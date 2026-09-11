@@ -27,7 +27,7 @@ import type { Entity, InsightRow, SaleRow, Integration, Offer, TrackingEvent } f
 import { isApprovedSaleStatus } from "@/lib/sale-status";
 import { convertCurrencyAmount } from "@/lib/currency";
 import { campaignCheckouts } from "@/lib/campaign-checkouts";
-import { resolveSaleAttribution } from "@/lib/attribution";
+import { resolveSaleAttributionEvidence } from "@/lib/attribution";
 
 type EntityStatusTone = "success" | "muted" | "warning" | "info" | "danger";
 
@@ -676,12 +676,22 @@ export function CampaignsView({
   // o SCK/XCOD da sessão. Reconstitui a atribuição somente quando existe um
   // vínculo determinístico; nunca atribui uma venda ao último checkout por
   // proximidade de horário.
+  //
+  // resolveSaleAttributionEvidence também devolve "medium" quando o próprio
+  // gateway manda UTMs soltos, sem nenhuma sessão rastreada batendo com a
+  // venda -- isso não é prova de qual campanha vendeu, só um palpite do
+  // gateway. Só "high" (sessão ou click id batido de forma única) conta como
+  // vitória de uma campanha/conjunto/criativo específico; o resto cai em
+  // "sem atribuição" mesmo que o texto do UTM combine com um nome conhecido.
   const knownTargetIds = useMemo(() => new Set(entities.filter(e => e.kind === kind).map(e => e.external_id)), [entities, kind]);
   const resolvedSales = useMemo(() => {
-    return sales.map((sale) => ({
-      sale,
-      attribution: resolveSaleAttribution(sale.attribution, events, sale.offer_id, sale.occurred_at),
-    }));
+    return sales.map((sale) => {
+      const evidence = resolveSaleAttributionEvidence(sale.attribution, events, sale.offer_id, sale.occurred_at);
+      return {
+        sale,
+        attribution: evidence.confidence === "high" ? evidence.attribution : {},
+      };
+    });
   }, [sales, events]);
 
   // 2. Agregação de vendas aprovadas e rastreadas pelas UTMs
