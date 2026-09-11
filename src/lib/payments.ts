@@ -107,6 +107,8 @@ export function normalizePayment(
             [
               "source_sck",
               "sck",
+              "utm_sck",
+              "src",
               "xcod",
               "fbp",
               "fbc",
@@ -121,7 +123,7 @@ export function normalizePayment(
         ["placement", "position", "ad_placement", "adplacement"].includes(k)
           ? "utm_placement"
           : k,
-        String(v).slice(0, 300),
+        String(v).slice(0, k === "xcod" ? 2048 : 300),
       ]),
   );
 

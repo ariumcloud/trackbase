@@ -4,7 +4,7 @@ import { buildLink, metaDefaults, mergeAttribution } from "../src/lib/utm";
 import { normalizePayment } from "../src/lib/payments";
 import { calculate, dayInZone } from "../src/lib/metrics";
 import { convertCurrencyAmount } from "../src/lib/currency";
-import { resolveSaleAttribution } from "../src/lib/attribution";
+import { resolveSaleAttribution, resolveSaleAttributionEvidence } from "../src/lib/attribution";
 test("UTMs preservam macros, query e fragmento", () => {
   const r = buildLink("https://example.com/quiz?product=1#cta", metaDefaults);
   assert.ok(r.full.includes("product=1"));
@@ -193,6 +193,55 @@ test("reconstrói atribuição da venda pelo SCK/XCOD da sessão, sem chutar o �
     "instagram_reels",
   );
   assert.deepEqual(resolveSaleAttribution({}, events, "offer-1"), {});
+});
+
+test("reconstrói atribuição pelo xcod composto da Hotmart/UTMFY", () => {
+  const xcod = "FBhQw21Campanha|camp-123hQw21Conjunto|set-456hQw21Anuncio|ad-789hQw21feed";
+  const events = [
+    {
+      offer_id: "offer-1",
+      session_id: "sess-hotmart",
+      url: `https://site.test/?utm_campaign=Campanha%7Ccamp-123&utm_medium=Conjunto%7Cset-456&utm_content=Anuncio%7Cad-789&utm_term=feed&xcod=${encodeURIComponent(xcod)}`,
+      attribution: {},
+    },
+  ];
+
+  const evidence = resolveSaleAttributionEvidence({ xcod }, events, "offer-1");
+  assert.equal(evidence.confidence, "high");
+  assert.equal(evidence.source, "gateway_tracking");
+  assert.equal(evidence.attribution.xcod, xcod);
+});
+
+test("xcod repetido em duas sessões permanece sem atribuição", () => {
+  const xcod = "same-hotmart-source";
+  const events = [
+    { offer_id: "offer-1", session_id: "sess-a", url: `https://site.test/?xcod=${xcod}&utm_campaign=camp-a`, attribution: {} },
+    { offer_id: "offer-1", session_id: "sess-b", url: `https://site.test/?xcod=${xcod}&utm_campaign=camp-b`, attribution: {} },
+  ];
+
+  const evidence = resolveSaleAttributionEvidence({ xcod }, events, "offer-1");
+  assert.equal(evidence.confidence, "none");
+  assert.equal(evidence.reason, "multiple_session_matches");
+  assert.deepEqual(evidence.attribution, {});
+});
+
+test("aliases SCK da Hotmart podem ligar o webhook ao checkout", () => {
+  const events = [
+    {
+      offer_id: "offer-1",
+      session_id: "sess-sck",
+      url: "https://pay.hotmart.com/P123?sck=sess-sck",
+      attribution: {},
+    },
+  ];
+
+  const evidence = resolveSaleAttributionEvidence(
+    { source_sck: "sess-sck" },
+    events,
+    "offer-1",
+  );
+  assert.equal(evidence.confidence, "high");
+  assert.equal(evidence.source, "session_id");
 });
 
 test("normalização de pagamentos extrai order bump, taxas e parent_transaction", () => {

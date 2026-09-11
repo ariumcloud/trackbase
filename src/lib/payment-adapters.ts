@@ -63,7 +63,7 @@ const extractAttribution = (raw: unknown): Record<string, string> => {
       ].includes(normalizedKey)
     ) {
       if (typeof v === "string" || typeof v === "number") {
-        result[normalizedKey] = String(v).slice(0, 300);
+        result[normalizedKey] = String(v).slice(0, normalizedKey === "xcod" ? 2048 : 300);
       }
     }
   }

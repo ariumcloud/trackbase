@@ -16,6 +16,7 @@ const SESSION_KEYS = [
   "xcod",
   "src",
 ] as const;
+const SCK_KEYS = ["sck", "utm_sck", "source_sck"] as const;
 
 const TRACKING_KEYS = new Set([
   "session_id",
@@ -58,8 +59,25 @@ function addValues(target: AttributionMap, input: Record<string, unknown> | null
     if (!TRACKING_KEYS.has(key)) continue;
     if (typeof rawValue !== "string" && typeof rawValue !== "number") continue;
     const value = String(rawValue).trim();
-    if (value && !/\{\{|\}\}|%7b%7b/i.test(value)) target[key] = value.slice(0, 300);
+    // Hotmart/UTMFY can use a composite xcod containing campaign, ad set,
+    // ad and placement names. Keep it intact so the webhook can join it to
+    // the checkout URL instead of losing the only deterministic reference.
+    const limit = key === "xcod" ? 2048 : 300;
+    if (value && !/\{\{|\}\}|%7b%7b/i.test(value)) target[key] = value.slice(0, limit);
   }
+}
+
+function sameGatewayReference(
+  direct: AttributionMap,
+  candidate: AttributionMap,
+): boolean {
+  if (direct.xcod && direct.xcod === candidate.xcod) return true;
+  return SCK_KEYS.some((directKey) =>
+    SCK_KEYS.some(
+      (candidateKey) =>
+        direct[directKey] && direct[directKey] === candidate[candidateKey],
+    ),
+  );
 }
 
 function urlAttribution(url: string | null | undefined): AttributionMap {
@@ -147,6 +165,10 @@ export function resolveSaleAttributionEvidence(
 
   const candidates = [...sessions.entries()].filter(([sessionId, attr]) => {
     if (references.includes(sessionId)) return true;
+    // Hotmart may return SCK/XCOD/SRC as gateway tracking values rather than
+    // echoing Trackbase's session_id. Match the exact value stored on the
+    // tracked event, but only accept it when it identifies one session.
+    if (sameGatewayReference(direct, attr)) return true;
     return clickKeys.some((key) => direct[key] && direct[key] === attr[key]);
   });
 
@@ -164,7 +186,13 @@ export function resolveSaleAttributionEvidence(
     const values = new Set(eligible.filter((e) => e.session_id === candidates[0][0] && (!offerId || e.offer_id === offerId)).flatMap((e) => [mergeAttribution(urlAttribution(e.url), e.attribution)[key]]).filter(Boolean));
     if (values.size > 1 || (direct[key] && candidates[0][1][key] && direct[key] !== candidates[0][1][key])) return { attribution: {}, source: "none", confidence: "none", reason: "ambiguous_session_creative" };
   }
-  const source = references.some((value) => value === candidates[0][0]) ? "session_id" : "click_id";
+  const candidateSessionId = candidates[0][0];
+  const candidateAttribution = candidates[0][1];
+  const source = references.some((value) => value === candidateSessionId)
+    ? "session_id"
+    : clickKeys.some((key) => direct[key] && direct[key] === candidateAttribution[key])
+      ? "click_id"
+      : "gateway_tracking";
   return { attribution: { ...candidates[0][1], ...direct }, source, confidence: "high", reason: "unique_deterministic_match" };
 }
 

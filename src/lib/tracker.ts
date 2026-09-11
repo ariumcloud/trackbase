@@ -21,7 +21,17 @@ export const trackPayloadSchema = z.object({
   attribution: z
     .record(
       z.string().regex(/^[a-zA-Z0-9_]{1,50}$/),
-      z.string().max(300),
+      // Hotmart/UTMFY may send a composite xcod with campaign, ad set,
+      // creative and placement names. Keep that gateway reference intact;
+      // ordinary attribution fields remain capped below.
+      z.string().max(2048),
+    )
+    .refine(
+      (values) =>
+        Object.entries(values).every(
+          ([key, value]) => key.toLowerCase() === "xcod" || value.length <= 300,
+        ),
+      { message: "Campos de atribuição excedem o limite permitido." },
     )
     .optional()
     .default({}),

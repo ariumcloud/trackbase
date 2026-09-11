@@ -37,13 +37,13 @@
         }
       } catch(e) {}
 
-      var fields = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_placement', 'placement', 'fbclid'];
+      var fields = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_placement', 'placement', 'fbclid', 'sck', 'utm_sck', 'source_sck', 'src', 'xcod'];
       var fresh = false;
       for (var i = 0; i < fields.length; i++) {
         var f = fields[i];
         var val = params.get(f);
         if (val && !/\{\{|\}\}|%7b%7b/i.test(val)) {
-          current[f] = val.slice(0, 300);
+          current[f] = val.slice(0, f === 'xcod' ? 2048 : 300);
           fresh = true;
         } else if (val) current.tracking_macro_unresolved = 'true';
       }

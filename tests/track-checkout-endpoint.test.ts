@@ -132,6 +132,15 @@ test("public tracking endpoints validate configured checkout destinations before
       assert.equal("workspace_id" in saved.p_event, false);
     });
 
+    await t.test("preserves a long composite Hotmart xcod in the public tracking contract", async () => {
+      const xcod = "FB" + "x".repeat(1500);
+      const response = await POST(event(firstOffer.public_key, firstOffer.checkout_url!, {
+        attribution: { xcod },
+      }));
+      assert.equal(response.status, 200);
+      assert.equal(writes.at(-1)!.p_event.attribution.xcod, xcod);
+    });
+
     await t.test("a universal workspace key resolves the matching offer rather than the first active offer", async () => {
       const response = await POST(event(workspace, secondOffer.checkout_url!, { workspace_id: otherWorkspace }));
       assert.equal(response.status, 200);
