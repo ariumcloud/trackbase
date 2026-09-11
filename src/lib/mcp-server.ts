@@ -2,6 +2,19 @@ import "server-only";
 import { admin } from "./supabase/server";
 import { randomBytes } from "node:crypto";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "./sale-status";
+import { convertCurrencyAmount, type ExchangeRates } from "./currency";
+
+async function fetchExchangeRates(): Promise<ExchangeRates | null> {
+  try {
+    const response = await fetch("https://open.er-api.com/v6/latest/USD", { next: { revalidate: 21600 } });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.result !== "success" || !data.rates) return null;
+    return { USD: 1, ...data.rates };
+  } catch {
+    return null;
+  }
+}
 
 export type McpRequest = {
   jsonrpc: "2.0";
@@ -149,7 +162,8 @@ export async function executeMcpMethod(
             .select("default_currency")
             .eq("id", workspaceId)
             .maybeSingle();
-          const reportCurrency = workspace?.default_currency || null;
+          const reportCurrency = workspace?.default_currency || "USD";
+          const rates = await fetchExchangeRates();
 
           const { data: sales } = await service
             .from("utm_sales")
@@ -159,25 +173,27 @@ export async function executeMcpMethod(
             .gte("occurred_at", startDate.toISOString())
             .lte("occurred_at", now.toISOString());
 
-          const salesInCurrency = (sales || []).filter((s) => !reportCurrency || s.currency === reportCurrency);
-          const approvedSales = salesInCurrency.filter((s) => isApprovedSaleStatus(s.status));
-          const refundSales = salesInCurrency.filter((s) => isRefundedSaleStatus(s.status));
+          const converted = (s: { amount: number | null; gross_amount: number | null; currency: string | null }) =>
+            convertCurrencyAmount(Number(s.gross_amount) || Number(s.amount) || 0, s.currency, reportCurrency, rates) ?? 0;
+          const convertedNet = (s: { amount: number | null; gross_amount: number | null; net_amount: number | null; currency: string | null }) =>
+            convertCurrencyAmount(Number(s.net_amount) || Number(s.gross_amount) || Number(s.amount) || 0, s.currency, reportCurrency, rates) ?? 0;
 
-          const totalRevenue = approvedSales.reduce((acc, s) => acc + (Number(s.gross_amount) || Number(s.amount) || 0), 0);
-          const totalNetRevenue = approvedSales.reduce((acc, s) => acc + (Number(s.net_amount) || Number(s.gross_amount) || Number(s.amount) || 0), 0);
-          const totalRefunded = refundSales.reduce((acc, s) => acc + (Number(s.gross_amount) || Number(s.amount) || 0), 0);
+          const approvedSales = (sales || []).filter((s) => isApprovedSaleStatus(s.status));
+          const refundSales = (sales || []).filter((s) => isRefundedSaleStatus(s.status));
+
+          const totalRevenue = approvedSales.reduce((acc, s) => acc + converted(s), 0);
+          const totalNetRevenue = approvedSales.reduce((acc, s) => acc + convertedNet(s), 0);
+          const totalRefunded = refundSales.reduce((acc, s) => acc + converted(s), 0);
           const ticketMedio = approvedSales.length ? totalRevenue / approvedSales.length : 0;
 
-          let insightsQuery = service
+          const { data: insights } = await service
             .from("utm_insights")
             .select("spend, clicks, impressions, day, currency")
             .eq("workspace_id", workspaceId)
             .gte("day", startDate.toISOString().slice(0, 10))
             .lte("day", now.toISOString().slice(0, 10));
-          if (reportCurrency) insightsQuery = insightsQuery.eq("currency", reportCurrency);
-          const { data: insights } = await insightsQuery;
 
-          const totalSpend = insights?.reduce((acc, i) => acc + (Number(i.spend) || 0), 0) || 0;
+          const totalSpend = insights?.reduce((acc, i) => acc + (convertCurrencyAmount(Number(i.spend) || 0, i.currency, reportCurrency, rates) ?? 0), 0) || 0;
           const totalClicks = insights?.reduce((acc, i) => acc + (Number(i.clicks) || 0), 0) || 0;
           const roas = totalSpend > 0 ? totalRevenue / totalSpend : totalRevenue > 0 ? 999 : 0;
 
@@ -349,7 +365,7 @@ export async function executeMcpMethod(
           const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 50);
           const { data: sales } = await service
             .from("utm_sales")
-            .select("id, transaction_id, amount, gross_amount, currency, status, product_type, buyer_name, buyer_email, attribution, occurred_at")
+            .select("id, transaction_id, amount, gross_amount, currency, status, product_type, provider, attribution, occurred_at")
             .eq("workspace_id", workspaceId)
             .order("occurred_at", { ascending: false })
             .limit(limit);
@@ -360,7 +376,7 @@ export async function executeMcpMethod(
             valor: `${s.currency || "BRL"} ${(Number(s.gross_amount) || Number(s.amount) || 0).toFixed(2)}`,
             status: s.status,
             tipo_produto: s.product_type || "main",
-            comprador: s.buyer_name ? `${s.buyer_name.slice(0, 3)}***` : "Comprador",
+            gateway: s.provider || "desconhecido",
             origem_utm: s.attribution?.utm_source || "direto",
             campanha_utm: s.attribution?.utm_campaign || "-",
             data: s.occurred_at,
