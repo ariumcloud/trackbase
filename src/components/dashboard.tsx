@@ -158,6 +158,7 @@ type Props = {
   pixels: PixelRow[];
   pixelRules?: PixelRuleRow[];
   demographics?: DemographicRow[];
+  dashboardLayout?: string[];
   diagnostics?: DiagnosticRow[];
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
@@ -1461,6 +1462,8 @@ export function Dashboard(p: Props) {
                 metrics={metrics}
                 byPlacement={byPlacement}
                 demographics={p.demographics || []}
+                workspace={workspace}
+                initialLayout={p.dashboardLayout}
                 onRefresh={() => {
                   start(() => {
                     router.refresh();

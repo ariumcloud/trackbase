@@ -5734,6 +5734,160 @@ table.utmify-daily-table tbody tr:last-child td {
   border-bottom: none;
 }
 
+/* Canvas editável do Resumo ------------------------------------------------ */
+.utmify-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.utmify-btn-secondary.is-active {
+  background: var(--brand-soft, rgba(109, 62, 242, 0.1));
+  border-color: var(--brand-accent, #6D3EF2);
+  color: var(--brand-accent, #6D3EF2);
+}
+
+.utmify-edit-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  background: var(--brand-soft, rgba(109, 62, 242, 0.06));
+  border: 1px dashed var(--brand-accent, #6D3EF2);
+}
+
+.utmify-edit-bar-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.utmify-edit-bar-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.utmify-widget-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.utmify-widget-picker-group strong {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.utmify-widget-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.utmify-widget-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.utmify-widget-chip:hover {
+  border-color: var(--brand-accent, #6D3EF2);
+  color: var(--brand-accent, #6D3EF2);
+}
+
+.utmify-widget-picker-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.utmify-section {
+  position: relative;
+}
+
+.utmify-section.is-editable {
+  outline: 1px dashed var(--line);
+  outline-offset: 6px;
+  border-radius: 12px;
+  cursor: grab;
+}
+
+.utmify-section.is-editable.is-dragging {
+  opacity: 0.45;
+}
+
+.utmify-section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  background: var(--brand-soft, rgba(109, 62, 242, 0.08));
+}
+
+.utmify-section-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-accent, #6D3EF2);
+}
+
+.utmify-section-hide-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.utmify-section-hide-btn:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.utmify-kpi-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.utmify-kpi-remove:hover {
+  background: var(--red-soft, rgba(239, 68, 68, 0.12));
+  color: var(--red, #EF4444);
+}
+
 /* ==========================================================================
    UTMIFY CAMPANHAS VIEW STYLES
    ========================================================================== */

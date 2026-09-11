@@ -1196,6 +1196,31 @@ export async function togglePixelRule(
   }
 }
 
+export async function saveDashboardLayout(
+  workspace: string,
+  widgetIds: string[],
+): Promise<ActionResult> {
+  try {
+    const { client, user } = await authorize(workspace);
+    const parsed = z.array(z.string().min(1).max(60)).max(60).parse(widgetIds);
+
+    const { error } = await client.from("utm_dashboard_layouts").upsert(
+      {
+        workspace_id: workspace,
+        user_id: user.id,
+        widget_ids: parsed,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "workspace_id,user_id" },
+    );
+
+    if (error) throw error;
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível salvar o layout do Resumo." };
+  }
+}
+
 export async function deletePixelRule(
   workspace: string,
   ruleId: string,

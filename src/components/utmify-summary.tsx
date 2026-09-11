@@ -6,12 +6,19 @@ import {
   Info,
   Calendar,
   ChevronDown,
+  Pencil,
+  GripVertical,
+  EyeOff,
+  Plus,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import type { SaleRow, InsightRow, Offer, Integration, DemographicRow } from "@/lib/types";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 import { convertCurrencyAmount, type ExchangeRates } from "@/lib/currency";
 import { dayInZone } from "@/lib/metrics";
 import { countryName } from "@/lib/country";
+import { saveDashboardLayout } from "@/app/actions";
 
 type PlacementItem = {
   name: string;
@@ -21,6 +28,41 @@ type PlacementItem = {
   revenue: number;
   percentage: number;
 };
+
+// Blocos reordenáveis do canvas (arraste pelo modo de edição). As 12 métricas
+// individuais (kpi-*) só têm liga/desliga, sem reordenar entre si — mantém o
+// grid de KPI previsível enquanto ainda dá pra "adicionar/tirar métrica".
+const SECTION_CATALOG = [
+  { id: "funnel", label: "Funil de Conversão" },
+  { id: "payment", label: "Vendas por Pagamento + Métricas" },
+  { id: "products", label: "Vendas por Produto" },
+  { id: "geo", label: "País, Posicionamento e Demográficos" },
+  { id: "daily", label: "Visão Geral por Dia" },
+] as const;
+
+const KPI_CATALOG_LABELS: Record<string, string> = {
+  "kpi-faturamento": "Faturamento",
+  "kpi-gastos": "Gastos com anúncios",
+  "kpi-roas": "ROAS",
+  "kpi-lucro": "Lucro",
+  "kpi-pendentes": "Vendas Pendentes",
+  "kpi-roi": "ROI",
+  "kpi-margem": "Margem de Lucro",
+  "kpi-reembolsadas": "Vendas Reembolsadas",
+  "kpi-reembolso": "Reembolso",
+  "kpi-arpu": "ARPU",
+  "kpi-taxas": "Imposto / Taxas",
+  "kpi-chargeback": "Chargeback",
+};
+
+export const DEFAULT_DASHBOARD_LAYOUT: string[] = [
+  "funnel",
+  "payment",
+  ...Object.keys(KPI_CATALOG_LABELS),
+  "products",
+  "geo",
+  "daily",
+];
 
 interface UtmifySummaryProps {
   sales: SaleRow[];
@@ -62,6 +104,8 @@ interface UtmifySummaryProps {
   demographics: DemographicRow[];
   onRefresh: () => void;
   pending: boolean;
+  workspace: string;
+  initialLayout?: string[];
 }
 
 export function UtmifySummary({
@@ -84,11 +128,50 @@ export function UtmifySummary({
   demographics,
   onRefresh,
   pending,
+  workspace,
+  initialLayout,
 }: UtmifySummaryProps) {
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+
+  // Canvas editável: quais widgets aparecem e em que ordem. Uma lista salva
+  // ganha, na frente, qualquer id novo do catálogo que ela ainda não conhece
+  // (widget lançado depois do último save do usuário aparece ligado por
+  // padrão, em vez de ficar escondido pra sempre por causa de uma save antiga).
+  const [layout, setLayout] = useState<string[]>(() => {
+    const saved = initialLayout && initialLayout.length > 0 ? initialLayout : DEFAULT_DASHBOARD_LAYOUT;
+    const missing = DEFAULT_DASHBOARD_LAYOUT.filter((id) => !saved.includes(id));
+    return [...saved, ...missing];
+  });
+  const [editMode, setEditMode] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [savingLayout, setSavingLayout] = useState(false);
+  const [dragSection, setDragSection] = useState<string | null>(null);
+
+  const persistLayout = (next: string[]) => {
+    setLayout(next);
+    setSavingLayout(true);
+    saveDashboardLayout(workspace, next)
+      .catch(() => {})
+      .finally(() => setSavingLayout(false));
+  };
+
+  const toggleWidget = (id: string) => {
+    persistLayout(layout.includes(id) ? layout.filter((x) => x !== id) : [...layout, id]);
+  };
+
+  const resetLayout = () => persistLayout(DEFAULT_DASHBOARD_LAYOUT);
+
+  const reorderSection = (draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return;
+    const current = layout.filter((id) => id !== draggedId);
+    const targetIndex = current.indexOf(targetId);
+    if (targetIndex === -1) return;
+    current.splice(targetIndex, 0, draggedId);
+    persistLayout(current);
+  };
 
   const formatMoney = (val: number | null | undefined) => {
     if (val === null || val === undefined) return "—";
@@ -322,12 +405,14 @@ export function UtmifySummary({
 
   const kpis = [
     {
+      id: "kpi-faturamento",
       title: "Faturamento",
       value: formatMoney(metrics.grossRevenue),
       tooltip: "Valor bruto das vendas aprovadas, antes das taxas da plataforma.",
       tone: "neutral",
     },
     {
+      id: "kpi-gastos",
       title: "Gastos com anúncios",
       value: formatMoney(metrics.spend),
       tooltip:
@@ -337,12 +422,14 @@ export function UtmifySummary({
       tone: "neutral",
     },
     {
+      id: "kpi-roas",
       title: "ROAS",
       value: metrics.roas !== null ? `${metrics.roas.toFixed(2)}x` : "—",
       tooltip: "Retorno sobre investimento em anúncios (Faturamento Bruto / Gastos).",
       tone: metrics.roas !== null && metrics.roas >= 1.0 ? "positive" : metrics.roas !== null && metrics.roas < 1.0 ? "negative" : "neutral",
     },
     {
+      id: "kpi-lucro",
       title: "Lucro",
       value:
         metrics.operatingProfit !== null
@@ -357,12 +444,14 @@ export function UtmifySummary({
           : "neutral",
     },
     {
+      id: "kpi-pendentes",
       title: "Vendas Pendentes",
       value: `${pendingSales.length} (${formatMoney(pendingRevenue)})`,
       tooltip: "Pedidos gerados via Pix ou Boleto aguardando compensação.",
       tone: "neutral",
     },
     {
+      id: "kpi-roi",
       title: "ROI",
       value: metrics.roi !== null ? `${metrics.roi.toFixed(0)}%` : "—",
       tooltip: "Retorno percentual sobre o capital investido em tráfego pago.",
@@ -374,6 +463,7 @@ export function UtmifySummary({
           : "neutral",
     },
     {
+      id: "kpi-margem",
       title: "Margem de Lucro",
       value:
         metrics.netMargin !== null ? `${metrics.netMargin.toFixed(1)}%` : "—",
@@ -386,36 +476,95 @@ export function UtmifySummary({
           : "neutral",
     },
     {
+      id: "kpi-reembolsadas",
       title: "Vendas Reembolsadas",
       value: `${metrics.refundedCount} (${formatMoney(metrics.refundedAmount)})`,
       tooltip: "Quantidade e volume financeiro de compras estornadas no período.",
       tone: metrics.refundedCount > 0 ? "negative" : "neutral",
     },
     {
+      id: "kpi-reembolso",
       title: "Reembolso",
       value: `${metrics.refundRate !== null ? metrics.refundRate.toFixed(1) : "0.0"}%`,
       tooltip: "Taxa percentual de reembolso sobre o total de pedidos.",
       tone: metrics.refundRate && metrics.refundRate > 5 ? "negative" : "neutral",
     },
     {
+      id: "kpi-arpu",
       title: "ARPU",
       value: formatMoney(metrics.averageTicket || 0),
       tooltip: "Ticket médio ou receita média gerada por comprador aprovado.",
       tone: "neutral",
     },
     {
+      id: "kpi-taxas",
       title: "Imposto / Taxas",
       value: formatMoney(metrics.platformFees || 0),
       tooltip: "Taxas descontadas pelas plataformas de checkout integradas.",
       tone: "neutral",
     },
     {
+      id: "kpi-chargeback",
       title: "Chargeback",
       value: `${chargebackRate.toFixed(1)}%`,
       tooltip: "Percentual de vendas contestadas junto às operadoras de cartão.",
       tone: chargebackRate > 1 ? "negative" : "neutral",
     },
   ];
+
+  const visibleKpis = kpis.filter((kpi) => layout.includes(kpi.id));
+  const hiddenKpis = kpis.filter((kpi) => !layout.includes(kpi.id));
+  const sectionOrder = layout.filter((id) => SECTION_CATALOG.some((s) => s.id === id));
+  const hiddenSections = SECTION_CATALOG.filter((s) => !layout.includes(s.id));
+
+  // Wrapper de cada bloco reordenável: some quando escondido, some pela
+  // ordem salva via CSS order (o próprio DOM nunca precisa ser movido), e só
+  // mostra a barrinha de arrastar/esconder quando o modo de edição está ligado.
+  const EditableSection = ({
+    id,
+    label,
+    children,
+  }: {
+    id: string;
+    label: string;
+    children: React.ReactNode;
+  }) => {
+    if (!layout.includes(id)) return null;
+    return (
+      <div
+        className={`utmify-section${editMode ? " is-editable" : ""}${dragSection === id ? " is-dragging" : ""}`}
+        style={{ order: sectionOrder.indexOf(id) }}
+        draggable={editMode}
+        onDragStart={() => setDragSection(id)}
+        onDragOver={(e) => {
+          if (editMode) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (dragSection) reorderSection(dragSection, id);
+          setDragSection(null);
+        }}
+        onDragEnd={() => setDragSection(null)}
+      >
+        {editMode && (
+          <div className="utmify-section-toolbar">
+            <span className="utmify-section-toolbar-label">
+              <GripVertical size={14} /> {label}
+            </span>
+            <button
+              type="button"
+              className="utmify-section-hide-btn"
+              onClick={() => toggleWidget(id)}
+              title="Esconder este bloco"
+            >
+              <EyeOff size={14} />
+            </button>
+          </div>
+        )}
+        {children}
+      </div>
+    );
+  };
 
   return (
     <div className="utmify-card">
@@ -425,7 +574,21 @@ export function UtmifySummary({
           <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>Resumo</h2>
         </div>
         <div className="utmify-header-right">
-          <span className="utmify-updated-text">Atualizado há 1 minuto</span>
+          <span className="utmify-updated-text">
+            {savingLayout ? "Salvando layout…" : "Atualizado há 1 minuto"}
+          </span>
+          <button
+            type="button"
+            className={`utmify-btn-secondary ${editMode ? "is-active" : ""}`}
+            onClick={() => {
+              setEditMode(!editMode);
+              setShowPicker(false);
+            }}
+            title="Personalizar quais métricas e blocos aparecem no Resumo"
+          >
+            <Pencil size={14} />
+            <span>{editMode ? "Concluir edição" : "Personalizar layout"}</span>
+          </button>
           <button
             type="button"
             className="utmify-btn-primary"
@@ -438,6 +601,55 @@ export function UtmifySummary({
           </button>
         </div>
       </div>
+
+      {editMode && (
+        <div className="utmify-edit-bar">
+          <span className="utmify-edit-bar-hint">
+            Arraste os blocos pelo <GripVertical size={12} style={{ verticalAlign: "-2px" }} /> pra reordenar,
+            ou clique no <EyeOff size={12} style={{ verticalAlign: "-2px" }} /> pra esconder um.
+          </span>
+          <div className="utmify-edit-bar-actions">
+            <button type="button" className="utmify-btn-secondary" onClick={() => setShowPicker(!showPicker)}>
+              <Plus size={14} /> Adicionar métrica ou bloco
+            </button>
+            <button type="button" className="utmify-btn-secondary" onClick={resetLayout} title="Voltar ao layout padrão">
+              <RotateCcw size={14} /> Restaurar padrão
+            </button>
+          </div>
+
+          {showPicker && (hiddenSections.length > 0 || hiddenKpis.length > 0) && (
+            <div className="utmify-widget-picker">
+              {hiddenSections.length > 0 && (
+                <div className="utmify-widget-picker-group">
+                  <strong>Blocos</strong>
+                  <div className="utmify-widget-picker-list">
+                    {hiddenSections.map((s) => (
+                      <button key={s.id} type="button" className="utmify-widget-chip" onClick={() => toggleWidget(s.id)}>
+                        <Plus size={12} /> {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {hiddenKpis.length > 0 && (
+                <div className="utmify-widget-picker-group">
+                  <strong>Métricas</strong>
+                  <div className="utmify-widget-picker-list">
+                    {hiddenKpis.map((kpi) => (
+                      <button key={kpi.id} type="button" className="utmify-widget-chip" onClick={() => toggleWidget(kpi.id)}>
+                        <Plus size={12} /> {kpi.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {showPicker && hiddenSections.length === 0 && hiddenKpis.length === 0 && (
+            <p className="utmify-widget-picker-empty">Todos os blocos e métricas já estão no seu Resumo.</p>
+          )}
+        </div>
+      )}
 
       <section className="overview-share-card" aria-label="Destaque visual da operação">
         <div className="overview-share-card-brand">
@@ -621,6 +833,8 @@ export function UtmifySummary({
         )}
       </div>
 
+      <div className="utmify-sections">
+      <EditableSection id="funnel" label="Funil de Conversão">
       {/* 2.5 Funil de Conversão */}
       <div className="utmify-funnel-card">
         <div className="utmify-card-header">
@@ -658,7 +872,9 @@ export function UtmifySummary({
           </div>
         </div>
       </div>
+      </EditableSection>
 
+      <EditableSection id="payment" label="Vendas por Pagamento + Métricas">
       {/* 3. Layout: Donut à Esquerda + 12 KPIs à Direita */}
       <div className="utmify-metrics-layout">
         {/* Coluna Esquerda: Donut Vendas por Pagamento */}
@@ -788,13 +1004,24 @@ export function UtmifySummary({
 
         {/* Coluna Direita: Grade com 12 UTMify KPI Cards */}
         <div className="utmify-kpi-grid">
-          {kpis.map((kpi, idx) => (
-            <div key={idx} className="utmify-kpi-card">
+          {visibleKpis.map((kpi) => (
+            <div key={kpi.id} className="utmify-kpi-card">
               <div className="utmify-kpi-header">
                 <span>{kpi.title}</span>
-                <span className="utmify-info-icon" title={kpi.tooltip}>
-                  <Info size={12} />
-                </span>
+                {editMode ? (
+                  <button
+                    type="button"
+                    className="utmify-kpi-remove"
+                    onClick={() => toggleWidget(kpi.id)}
+                    title="Esconder esta métrica"
+                  >
+                    <X size={12} />
+                  </button>
+                ) : (
+                  <span className="utmify-info-icon" title={kpi.tooltip}>
+                    <Info size={12} />
+                  </span>
+                )}
               </div>
               <strong
                 className={`utmify-kpi-value ${
@@ -811,9 +1038,11 @@ export function UtmifySummary({
           ))}
         </div>
       </div>
+      </EditableSection>
 
+      <EditableSection id="products" label="Vendas por Produto">
       {/* 4. Vendas por Produto (ranking por oferta) */}
-      <div className="utmify-funnel-card" style={{ marginTop: "1.25rem" }}>
+      <div className="utmify-funnel-card">
         <div className="utmify-card-header">
           <h3 className="utmify-card-title">Vendas por Produto</h3>
           <span className="utmify-info-icon" title="Ranking de ofertas por número de vendas aprovadas no período.">
@@ -836,7 +1065,9 @@ export function UtmifySummary({
           </p>
         )}
       </div>
+      </EditableSection>
 
+      <EditableSection id="geo" label="País, Posicionamento e Demográficos">
       {/* 4.5 Vendas por País, Posicionamento e Demográficos */}
       <div className="utmify-triple-row">
         <div className="utmify-funnel-card">
@@ -916,9 +1147,11 @@ export function UtmifySummary({
           )}
         </div>
       </div>
+      </EditableSection>
 
+      <EditableSection id="daily" label="Visão Geral por Dia">
       {/* 5. Visão Geral por Dia */}
-      <div className="utmify-funnel-card" style={{ marginTop: "1.25rem" }}>
+      <div className="utmify-funnel-card">
         <div className="utmify-card-header">
           <h3 className="utmify-card-title">Visão Geral por Dia</h3>
           <span className="utmify-info-icon" title="Gasto e cliques vêm do Meta Ads; vendas e faturamento vêm das vendas aprovadas do próprio dia.">
@@ -955,6 +1188,8 @@ export function UtmifySummary({
             Nenhum dado no período selecionado.
           </p>
         )}
+      </div>
+      </EditableSection>
       </div>
     </div>
   );

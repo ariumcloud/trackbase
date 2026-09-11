@@ -194,6 +194,7 @@ export default async function Page({
     pixels,
     pixelRules,
     demographics,
+    dashboardLayoutRes,
     summaryRes,
     alerts,
     diagnosticsRes,
@@ -290,6 +291,14 @@ export default async function Page({
               .gte("day", since.slice(0, 10))
               .lte("day", until.slice(0, 10))
           : empty,
+        needsDemographics
+          ? client
+              .from("utm_dashboard_layouts")
+              .select("widget_ids")
+              .eq("workspace_id", w.id)
+              .eq("user_id", user.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
         needsSummary
           ? client.rpc("utm_dashboard_summary", {
               p_workspace: w.id,
@@ -350,6 +359,7 @@ export default async function Page({
         { data: [], error: null },
         { data: [], error: null },
         { data: null, error: null },
+        { data: null, error: null },
         [] as AlertItem[],
         { data: [], error: null },
         { data: [], error: null },
@@ -369,6 +379,7 @@ export default async function Page({
     { name: "pixels", error: pixels.error },
     { name: "pixelRules", error: pixelRules.error },
     { name: "demographics", error: demographics.error },
+    { name: "dashboardLayout", error: dashboardLayoutRes.error },
     { name: "events", error: events.error },
   ];
 
@@ -411,6 +422,7 @@ export default async function Page({
       pixels={(pixels.data ?? []) as PixelRow[]}
       pixelRules={(pixelRules.data ?? []) as PixelRuleRow[]}
       demographics={(demographics.data ?? []) as DemographicRow[]}
+      dashboardLayout={((dashboardLayoutRes.data as { widget_ids?: string[] } | null)?.widget_ids) ?? []}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       shields={(shields.data ?? []) as ShieldRow[]}
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
