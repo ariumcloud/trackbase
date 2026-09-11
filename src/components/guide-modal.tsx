@@ -615,10 +615,11 @@ export function GuideModal({
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>1</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Copie a URL do Webhook do Trackbase</h4>
+                    <h4 style={stepTitleStyle}>Conecte a plataforma no Trackbase</h4>
                     <p style={stepDescStyle}>
-                      Vá na aba <strong>Integrações</strong> e clique na plataforma onde seu produto está cadastrado.
-                      Você verá a URL exclusiva no formato:
+                      Na aba <strong>Integrações</strong>, escolha Hotmart, Kiwify ou Cakto e informe o Client ID e o
+                      Client Secret gerados no painel da própria plataforma (menu de Credenciais de API). O
+                      Trackbase gera a URL do webhook na hora — uma única URL vale pra todos os seus produtos:
                     </p>
                     <code style={{ display: "block", marginTop: "6px", fontSize: "0.75rem", padding: "6px 10px", background: "var(--surface-subtle)", borderRadius: "6px" }}>
                       https://seu-dominio.com/api/webhooks/kiwify/SEU_ID
@@ -629,17 +630,27 @@ export function GuideModal({
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>2</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Cadastre no Painel da Plataforma</h4>
+                    <h4 style={stepTitleStyle}>Cadastre o webhook no painel da plataforma</h4>
                     <p style={stepDescStyle}>
                       No painel da sua plataforma de pagamento (menu <em>Ferramentas &gt; Webhooks / Postback</em>),
-                      adicione a URL copiada, marque os eventos de <strong>Compra Aprovada</strong>, <strong>Boleto Gerado</strong> e <strong>PIX</strong>,
-                      e copie a Chave Secreta (ou Hottok / Token).
+                      adicione a URL copiada e marque os eventos de <strong>Compra Aprovada</strong>, <strong>Boleto Gerado</strong> e <strong>PIX</strong>.
                     </p>
                   </div>
                 </div>
 
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>3</div>
+                  <div>
+                    <h4 style={stepTitleStyle}>Seus produtos aparecem sozinhos</h4>
+                    <p style={stepDescStyle}>
+                      Não precisa cadastrar produto nenhum antes: assim que a primeira venda aprovada de um
+                      produto chegar por essa conexão, o Trackbase cria a oferta correspondente automaticamente.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="onboarding-guide-card" style={guideCardStyle}>
+                  <div style={stepNumberStyle}>4</div>
                   <div>
                     <h4 style={stepTitleStyle}>Idempotência e Segurança Garantida</h4>
                     <p style={stepDescStyle}>

@@ -12,15 +12,28 @@ export async function GET(
     return new NextResponse("Link não encontrado", { status: 404 });
   }
 
-  // 1. Busca configuração do Shield no banco pelo slug OU pelo domínio próprio
+  // 1. Busca configuração do Shield no banco pelo slug OU pelo domínio próprio.
+  // Duas consultas separadas por igualdade em vez de intercalar o slug bruto
+  // (vindo direto do path público, sem validação de formato) dentro de um
+  // filtro .or() — um valor com vírgula/parêntese quebraria a sintaxe do
+  // filtro do PostgREST e poderia casar com uma linha diferente da intencionada.
   const service = admin();
-  const { data: shieldData, error } = await service
+  const bySlug = await service
     .from("utm_shields")
     .select("*, utm_offers(public_key)")
-    .or(`slug.eq.${slug},custom_domain.eq.${slug}`)
-    .single();
+    .eq("slug", slug)
+    .maybeSingle();
+  const shieldData =
+    bySlug.data ??
+    (
+      await service
+        .from("utm_shields")
+        .select("*, utm_offers(public_key)")
+        .eq("custom_domain", slug)
+        .maybeSingle()
+    ).data;
 
-  if (error || !shieldData) {
+  if (!shieldData) {
     return new NextResponse("Página não encontrada ou desativada", { status: 404 });
   }
 

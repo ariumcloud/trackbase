@@ -9,6 +9,10 @@ import {
 } from "../src/lib/shield/engine";
 import { ShieldRecord, ShieldRequestContext } from "../src/lib/shield/types";
 
+// evaluateShieldRequest agora exige ENCRYPTION_KEY (sem fallback inseguro) —
+// os testes precisam da própria env var configurada, igual à produção.
+process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "test-only-shield-secret";
+
 const mockShield: ShieldRecord = {
   id: "00000000-0000-0000-0000-000000000001",
   workspace_id: "00000000-0000-0000-0000-000000000002",

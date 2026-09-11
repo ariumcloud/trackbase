@@ -1439,7 +1439,7 @@ export function Dashboard(p: Props) {
                 hasMetaConnected={p.integrations.some(
                   (i) => i.provider === "meta" && i.status === "connected",
                 )}
-                hasShieldConfigured={(p.shields?.length ?? 0) > 0}
+                hasShieldConfigured={(p.shields ?? []).some((shield) => shield.active)}
                 salesCount={sales.length}
                 onNavigateTab={selectTab}
               />

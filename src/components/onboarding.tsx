@@ -47,9 +47,7 @@ export function OnboardingChecklist({
 
   useEffect(() => {
     try {
-      const saved =
-        localStorage.getItem("trackbase_onboarding_hidden") ||
-        localStorage.getItem("kirofy_onboarding_hidden");
+      const saved = localStorage.getItem("trackbase_onboarding_hidden");
       if (saved === "true") setDismissed(true);
 
       const savedCollapsed = localStorage.getItem("trackbase_onboarding_collapsed");
@@ -160,13 +158,6 @@ export function OnboardingChecklist({
 
   return (
     <>
-      <GuideModal
-        isOpen={guideOpen}
-        onClose={() => setGuideOpen(false)}
-        initialTab={guideInitialTab}
-        onNavigateTab={onNavigateTab}
-      />
-
       {!dismissed && (
         <div
           className="panel"

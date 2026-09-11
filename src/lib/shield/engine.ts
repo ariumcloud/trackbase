@@ -9,12 +9,22 @@ import {
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
+// Nunca cair num segredo fixo publicamente conhecido no código: se
+// ENCRYPTION_KEY faltar, qualquer pessoa que leia esta fonte conseguiria
+// forjar um token de "lead qualificado" e pular direto pra Black Page do
+// Shield de qualquer conta, sem passar por nenhuma das checagens de bot.
+function shieldSecretKey(): string {
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key) throw new Error("ENCRYPTION_KEY não configurada — Shield não pode assinar sessões com segurança.");
+  return key;
+}
+
 /**
  * Assina um token de sessão de lead usando HMAC-SHA256
  */
 export function createShieldSessionToken(
   shieldId: string,
-  secretKey: string = process.env.ENCRYPTION_KEY || "trackbase-shield-secret",
+  secretKey: string = shieldSecretKey(),
 ): string {
   const expiresAt = Date.now() + SESSION_TTL_MS;
   const payload = `${shieldId}:${expiresAt}`;
@@ -30,7 +40,7 @@ export function createShieldSessionToken(
 export function verifyShieldSessionToken(
   token: string | null | undefined,
   shieldId: string,
-  secretKey: string = process.env.ENCRYPTION_KEY || "trackbase-shield-secret",
+  secretKey: string = shieldSecretKey(),
 ): boolean {
   if (!token) return false;
   const parts = token.split(":");
