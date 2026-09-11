@@ -190,7 +190,11 @@ export function McpSettingsView({
     2,
   );
 
-  const cliCommand = `claude mcp add trackbase --env AUTH_HEADER="Bearer ${activeApiKey}" -- npx -y mcp-remote ${appUrl.replace(/\/$/, "")}/api/mcp --header "Authorization:\${AUTH_HEADER}"`;
+  // Aspas simples no --header: com aspas duplas, o PRÓPRIO shell (bash ou
+  // PowerShell) expande ${AUTH_HEADER} antes do mcp-remote ver o argumento —
+  // como a variável não existe na sessão do shell, vira string vazia e o
+  // header chega como "Authorization:" sem o token, derrubando a conexão.
+  const cliCommand = `claude mcp add trackbase --env AUTH_HEADER="Bearer ${activeApiKey}" -- npx -y mcp-remote ${appUrl.replace(/\/$/, "")}/api/mcp --header 'Authorization:${"$"}{AUTH_HEADER}'`;
 
   const codexConfig = `[mcp_servers.trackbase]
 url = "${appUrl.replace(/\/$/, "")}/api/mcp"
