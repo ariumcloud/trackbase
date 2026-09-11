@@ -692,29 +692,6 @@ export function UtmifySummary({
         </div>
       )}
 
-      <section className="overview-share-card" aria-label="Destaque visual da operação">
-        <div className="overview-share-card-brand">
-          <span>Trackbase</span>
-        </div>
-        <div className="overview-share-card-content">
-          <div className="overview-share-product">
-            <small>Produto</small>
-            <strong title={selectedOfferName}>{selectedOfferName}</strong>
-          </div>
-          <div className="overview-share-profit">
-            <small>Lucro operacional</small>
-            <strong className={metrics.operatingProfit === null ? "" : metrics.operatingProfit >= 0 ? "positive" : "negative"}>
-              {formatMoney(metrics.operatingProfit)}
-            </strong>
-          </div>
-        </div>
-        <div className="overview-share-stats">
-          <span>{metrics.purchases} vendas</span>
-          <span>{formatMoney(metrics.grossRevenue)} faturamento</span>
-          <span>trackbase.com.br</span>
-        </div>
-      </section>
-
       {/* 2. Barra de 4 Filtros Alinhados */}
       <div className="utmify-filters-bar">
         {/* 1. Data de cadastro */}
