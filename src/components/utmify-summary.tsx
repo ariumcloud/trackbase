@@ -148,7 +148,7 @@ export function UtmifySummary({
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
-  const [dragSection, setDragSection] = useState<string | null>(null);
+  const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
 
   const persistLayout = (next: string[]) => {
     setLayout(next);
@@ -164,7 +164,7 @@ export function UtmifySummary({
 
   const resetLayout = () => persistLayout(DEFAULT_DASHBOARD_LAYOUT);
 
-  const reorderSection = (draggedId: string, targetId: string) => {
+  const reorderWidget = (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return;
     const current = layout.filter((id) => id !== draggedId);
     const targetIndex = current.indexOf(targetId);
@@ -512,7 +512,9 @@ export function UtmifySummary({
     },
   ];
 
-  const visibleKpis = kpis.filter((kpi) => layout.includes(kpi.id));
+  const visibleKpis = layout
+    .map((id) => kpis.find((kpi) => kpi.id === id))
+    .filter((kpi): kpi is (typeof kpis)[number] => Boolean(kpi));
   const hiddenKpis = kpis.filter((kpi) => !layout.includes(kpi.id));
   const sectionOrder = layout.filter((id) => SECTION_CATALOG.some((s) => s.id === id));
   const hiddenSections = SECTION_CATALOG.filter((s) => !layout.includes(s.id));
@@ -532,19 +534,19 @@ export function UtmifySummary({
     if (!layout.includes(id)) return null;
     return (
       <div
-        className={`utmify-section${editMode ? " is-editable" : ""}${dragSection === id ? " is-dragging" : ""}`}
+        className={`utmify-section${editMode ? " is-editable" : ""}${draggedWidgetId === id ? " is-dragging" : ""}`}
         style={{ order: sectionOrder.indexOf(id) }}
         draggable={editMode}
-        onDragStart={() => setDragSection(id)}
+        onDragStart={() => setDraggedWidgetId(id)}
         onDragOver={(e) => {
           if (editMode) e.preventDefault();
         }}
         onDrop={(e) => {
           e.preventDefault();
-          if (dragSection) reorderSection(dragSection, id);
-          setDragSection(null);
+          if (draggedWidgetId) reorderWidget(draggedWidgetId, id);
+          setDraggedWidgetId(null);
         }}
-        onDragEnd={() => setDragSection(null)}
+        onDragEnd={() => setDraggedWidgetId(null)}
       >
         {editMode && (
           <div className="utmify-section-toolbar">
@@ -604,17 +606,35 @@ export function UtmifySummary({
 
       {editMode && (
         <div className="utmify-edit-bar">
-          <span className="utmify-edit-bar-hint">
-            Arraste os blocos pelo <GripVertical size={12} style={{ verticalAlign: "-2px" }} /> pra reordenar,
-            ou clique no <EyeOff size={12} style={{ verticalAlign: "-2px" }} /> pra esconder um.
-          </span>
-          <div className="utmify-edit-bar-actions">
-            <button type="button" className="utmify-btn-secondary" onClick={() => setShowPicker(!showPicker)}>
-              <Plus size={14} /> Adicionar métrica ou bloco
-            </button>
-            <button type="button" className="utmify-btn-secondary" onClick={resetLayout} title="Voltar ao layout padrão">
-              <RotateCcw size={14} /> Restaurar padrão
-            </button>
+          <div className="utmify-edit-banner">
+            <div className="utmify-edit-banner-left">
+              <Pencil size={18} />
+              <div>
+                <strong>Você está personalizando o Resumo</strong>
+                <span>
+                  Arraste qualquer card pelo <GripVertical size={12} style={{ verticalAlign: "-2px" }} /> pra reordenar,
+                  clique no <EyeOff size={12} style={{ verticalAlign: "-2px" }} /> pra esconder.
+                </span>
+              </div>
+            </div>
+            <div className="utmify-edit-banner-actions">
+              <button type="button" className="utmify-btn-secondary" onClick={() => setShowPicker(!showPicker)}>
+                <Plus size={14} /> Adicionar métrica ou bloco
+              </button>
+              <button type="button" className="utmify-btn-secondary" onClick={resetLayout} title="Voltar ao layout padrão">
+                <RotateCcw size={14} /> Restaurar padrão
+              </button>
+              <button
+                type="button"
+                className="utmify-edit-banner-done"
+                onClick={() => {
+                  setEditMode(false);
+                  setShowPicker(false);
+                }}
+              >
+                Concluir edição
+              </button>
+            </div>
           </div>
 
           {showPicker && (hiddenSections.length > 0 || hiddenKpis.length > 0) && (
@@ -1005,8 +1025,23 @@ export function UtmifySummary({
         {/* Coluna Direita: Grade com 12 UTMify KPI Cards */}
         <div className="utmify-kpi-grid">
           {visibleKpis.map((kpi) => (
-            <div key={kpi.id} className="utmify-kpi-card">
+            <div
+              key={kpi.id}
+              className={`utmify-kpi-card${editMode ? " is-editable" : ""}${draggedWidgetId === kpi.id ? " is-dragging" : ""}`}
+              draggable={editMode}
+              onDragStart={() => setDraggedWidgetId(kpi.id)}
+              onDragOver={(e) => {
+                if (editMode) e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedWidgetId) reorderWidget(draggedWidgetId, kpi.id);
+                setDraggedWidgetId(null);
+              }}
+              onDragEnd={() => setDraggedWidgetId(null)}
+            >
               <div className="utmify-kpi-header">
+                {editMode && <GripVertical size={13} className="utmify-kpi-grip" />}
                 <span>{kpi.title}</span>
                 {editMode ? (
                   <button

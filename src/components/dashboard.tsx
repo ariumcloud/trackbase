@@ -1173,7 +1173,7 @@ export function Dashboard(p: Props) {
         </header>
         <main
           id="dashboard-content"
-          className={`${tab === "campanhas" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""} ${tab === "ofertas" ? "main-ofertas" : ""}`}
+          className={`${tab === "campanhas" || tab === "visao" ? "main-fluid" : ""} ${tab === "assistente" ? "main-assistente" : ""} ${tab === "ofertas" ? "main-ofertas" : ""}`}
         >
           {accountView ? (
             <AccountPanels

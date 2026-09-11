@@ -5428,6 +5428,12 @@ textarea {
   gap: 0.85rem;
 }
 
+@media (min-width: 1680px) {
+  .utmify-kpi-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
 @media (max-width: 1200px) {
   .utmify-kpi-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -5750,23 +5756,74 @@ table.utmify-daily-table tbody tr:last-child td {
 .utmify-edit-bar {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-  border-radius: 10px;
-  background: var(--brand-soft, rgba(109, 62, 242, 0.06));
-  border: 1px dashed var(--brand-accent, #6D3EF2);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
-.utmify-edit-bar-hint {
+.utmify-edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6D3EF2, #4C1FD6);
+  color: #FFFFFF;
+  box-shadow: 0 8px 24px -8px rgba(109, 62, 242, 0.55);
+}
+
+.utmify-edit-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.utmify-edit-banner-left strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.utmify-edit-banner-left span {
+  display: block;
   font-size: 0.78rem;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
 }
 
-.utmify-edit-bar-actions {
+.utmify-edit-banner-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.utmify-edit-banner-actions .utmify-btn-secondary {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #FFFFFF;
+}
+
+.utmify-edit-banner-actions .utmify-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.utmify-edit-banner-done {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 1rem;
+  border-radius: 8px;
+  border: none;
+  background: #FFFFFF;
+  color: #4C1FD6;
+  font-size: 0.8rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.utmify-edit-banner-done:hover {
+  background: #F1ECFF;
 }
 
 .utmify-widget-picker {
@@ -5822,63 +5879,88 @@ table.utmify-daily-table tbody tr:last-child td {
 }
 
 .utmify-section.is-editable {
-  outline: 1px dashed var(--line);
-  outline-offset: 6px;
-  border-radius: 12px;
+  padding: 10px;
+  margin: -10px;
+  border: 1.5px solid var(--brand-accent, #6D3EF2);
+  border-radius: 14px;
+  background: var(--brand-soft, rgba(109, 62, 242, 0.04));
+  box-shadow: 0 4px 16px -8px rgba(109, 62, 242, 0.35);
   cursor: grab;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.utmify-section.is-editable:hover {
+  box-shadow: 0 8px 24px -8px rgba(109, 62, 242, 0.5);
 }
 
 .utmify-section.is-editable.is-dragging {
-  opacity: 0.45;
+  opacity: 0.4;
+  cursor: grabbing;
 }
 
 .utmify-section-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
-  padding: 0.3rem 0.6rem;
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.75rem;
   border-radius: 8px;
-  background: var(--brand-soft, rgba(109, 62, 242, 0.08));
+  background: var(--brand-accent, #6D3EF2);
 }
 
 .utmify-section-toolbar-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--brand-accent, #6D3EF2);
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: #FFFFFF;
 }
 
 .utmify-section-hide-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   border: none;
-  background: transparent;
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
   cursor: pointer;
 }
 
 .utmify-section-hide-btn:hover {
-  background: var(--surface-subtle);
-  color: var(--ink);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.utmify-kpi-card.is-editable {
+  border: 1.5px solid var(--brand-accent, #6D3EF2);
+  background: var(--brand-soft, rgba(109, 62, 242, 0.05));
+  cursor: grab;
+  box-shadow: 0 4px 14px -8px rgba(109, 62, 242, 0.4);
+}
+
+.utmify-kpi-card.is-editable.is-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.utmify-kpi-grip {
+  color: var(--brand-accent, #6D3EF2);
+  flex-shrink: 0;
 }
 
 .utmify-kpi-remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: none;
-  background: transparent;
-  color: var(--muted);
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--red, #EF4444);
   cursor: pointer;
   flex-shrink: 0;
 }
