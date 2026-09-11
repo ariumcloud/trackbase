@@ -695,7 +695,6 @@ export function UtmifySummary({
       <section className="overview-share-card" aria-label="Destaque visual da operação">
         <div className="overview-share-card-brand">
           <span>Trackbase</span>
-          <span>Visão geral · {getDateLabel()}</span>
         </div>
         <div className="overview-share-card-content">
           <div className="overview-share-product">
