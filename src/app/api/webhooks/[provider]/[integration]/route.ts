@@ -277,7 +277,12 @@ export async function POST(
 
     const webhookProductName = extractPayloadProductName(provider, payload);
     let configuredProductId = i.external_product_id;
-    let lastResultStatus = "processed";
+    // Starts as "ignored" so a batch where every event fails the product/offer
+    // match (the `continue` below) truthfully reports nothing was recorded,
+    // instead of keeping a stale "processed" default that made the sender —
+    // and this route's own caller — believe a sale had been saved when it
+    // hadn't.
+    let lastResultStatus = "ignored";
     for (const event of normalizedEvents) {
       // Hotmart sometimes sends the canonical numeric product ID while an
       // integration created from a checkout link was saved with a different
