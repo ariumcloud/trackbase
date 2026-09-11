@@ -146,7 +146,7 @@ export const hotmartAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isOrderBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id) || str(purchase.product_id) || str(data.product_id) || "prod";
+    const productId = str(product.id) || str(purchase.product_id) || str(data.product_id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -247,7 +247,7 @@ export const kiwifyAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : "main";
-    const productId = str(product.product_id || root.product_id || order.product_id) || "prod";
+    const productId = str(product.product_id || root.product_id || order.product_id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -328,7 +328,7 @@ export const caktoAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id || root.product_id) || "prod";
+    const productId = str(product.id || data.product_id || root.product_id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -408,7 +408,7 @@ export const kirvanoAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id) || "prod";
+    const productId = str(product.id || data.product_id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -477,7 +477,7 @@ export const eduzzAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : "main";
-    const productId = str(root.pro_cod || root.product_id) || "prod";
+    const productId = str(root.pro_cod || root.product_id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -547,7 +547,7 @@ export const monetizzeAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : "main";
-    const productId = str(produto.codigo || root.codigo_produto) || "prod";
+    const productId = str(produto.codigo || root.codigo_produto) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -622,7 +622,7 @@ export const wiapyAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : "main";
-    const productId = str(product.id || root.product_id) || "prod";
+    const productId = str(product.id || root.product_id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -720,7 +720,7 @@ export const lowfyAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id || root.product_id || data.external_id || product.name) || "prod";
+    const productId = str(product.id || data.product_id || root.product_id || data.external_id || product.name) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -799,7 +799,7 @@ export const greennAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id || root.product_id || product.name) || "prod";
+    const productId = str(product.id || data.product_id || root.product_id || product.name) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -884,7 +884,7 @@ export const stripeAdapter: PaymentAdapter = {
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const transaction = str(dataObj.id || dataObj.payment_intent || dataObj.charge || root.id) || "stripe_tx";
-    const productId = str(metadata.product_id || metadata.productId || dataObj.product || dataObj.client_reference_id) || "prod";
+    const productId = str(metadata.product_id || metadata.productId || dataObj.product || dataObj.client_reference_id) || "";
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
 
     const tracking = {

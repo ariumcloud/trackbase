@@ -373,13 +373,22 @@ export async function POST(
       dbPayment.attribution = evidence.attribution;
 
       if (!productMatches && !canRepairHotmartProductId || !offerMatches) {
+        // An empty productId means the adapter couldn't find a product field
+        // in this payload at all — a different problem than a real product
+        // mismatch (unexpected/changed payload shape, a webhook test event
+        // with no product context, etc.). Saying "recebido=" (nothing) instead
+        // of pretending some placeholder value was the real product avoids
+        // the confusing appearance of a specific-but-wrong product ID.
+        const reason = !event.productId
+          ? `Produto não identificado no payload recebido (esperado=${configuredProductId}).`
+          : `Produto/oferta não corresponde à integração (recebido=${event.productId}; esperado=${configuredProductId}).`;
         await service.from("utm_webhook_logs").upsert(
           {
             workspace_id: i.workspace_id,
             integration_id: integration,
             event_id: `product_mismatch:${webhookEventIdentity(event)}`,
             status: "ignored",
-            reason: `Produto/oferta não corresponde à integração (recebido=${event.productId}; esperado=${configuredProductId}).`,
+            reason,
             payment: dbPayment,
             is_test: event.isTest,
           },
