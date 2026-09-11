@@ -480,7 +480,21 @@ export const eduzzAdapter: PaymentAdapter = {
   provider: "eduzz",
   normalize(payload, context) {
     const root = record(payload);
-    const tracking = record(root.tracker || root.tracking);
+    // Eduzz's own webhook fields are flat, "tracker_"-prefixed keys at the
+    // root (tracker_utm_source, tracker_utm_campaign, ...), not a nested
+    // "tracker"/"tracking" object -- so the general attribution record (used
+    // for utm_source/utm_medium, which have no dedicated column below) was
+    // always empty even though the individual campaignId/adId/etc. fields
+    // still worked via their root.tracker_utm_* fallback.
+    const tracking: Record<string, unknown> = {
+      ...record(root.tracker || root.tracking),
+      utm_source: root.tracker_utm_source,
+      utm_medium: root.tracker_utm_medium,
+      utm_campaign: root.tracker_utm_campaign,
+      utm_content: root.tracker_utm_content,
+      utm_term: root.tracker_utm_term,
+      fbclid: root.tracker_fbclid,
+    };
 
     // Mapeamento de status numérico da Eduzz:
     // 3 = Paga, 4 = Cancelada, 6 = Aguardando, 7 = Reembolsada, 9 = Chargeback
@@ -552,7 +566,11 @@ export const monetizzeAdapter: PaymentAdapter = {
     const venda = record(root.venda);
     const produto = record(root.produto);
     const comprador = record(root.comprador);
-    const tracking = record(root.utm || root.tracking);
+    // Monetizze's own callback example (github.com/Monetizze/ExemploPOSTCallback)
+    // nests utm_source/utm_medium/utm_campaign/utm_content/src directly under
+    // "venda", not a separate "utm"/"tracking" object -- so every Monetizze
+    // sale lost its ad attribution here (extractAttribution got {} always).
+    const tracking = record(root.utm || root.tracking || venda);
 
     const status = str(root.tipoPost || root.status || venda.status).toLowerCase();
     const isBump = str(root.tipo_venda || venda.tipo_venda).toLowerCase().includes("bump") || Boolean(root.order_bump);
@@ -572,8 +590,10 @@ export const monetizzeAdapter: PaymentAdapter = {
 
     const transaction = str(root.codigoVenda || venda.codigo || root.id) || "monetizze_tx";
     const gross = num(root.valor) ?? num(venda.valor) ?? num(root.amount) ?? 0;
-    const fee = num(root.taxas) ?? num(venda.taxas) ?? 0;
-    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+    // Monetizze's callback reports the seller's take-home directly as
+    // "valorRecebido" -- no separate fee field exists to subtract from gross.
+    const net = num(venda.valorRecebido) ?? gross;
+    const fee = Math.max(0, Math.round((gross - net) * 100) / 100);
 
     const productType = isBump ? "order_bump" : "main";
     const productId = str(produto.codigo || root.codigo_produto) || "";
@@ -615,55 +635,60 @@ export const monetizzeAdapter: PaymentAdapter = {
 };
 
 // 7. ADAPTADOR WIAPY
+// Wiapy's own docs (ajuda.wiapy.com/wiapy/produtor/integracoes/webhook) put
+// everything the previous version read off the payload root inside nested
+// objects instead: status/amount/fee/payment_method/id live under "payment",
+// not the root, and every monetary field is in CENTAVOS (their own example:
+// "R$ 17,70 -> 1770"). The old code read root.status/root.amount directly
+// (always undefined -> status "", amount 0) and never divided by 100 on top
+// of that, so a Wiapy sale could never even reach "approved", let alone with
+// a correct value.
 export const wiapyAdapter: PaymentAdapter = {
   provider: "wiapy",
   normalize(payload, context) {
     const root = record(payload);
+    const payment = record(root.payment);
     const customer = record(root.customer);
-    const product = record(root.product);
-    const tracking = record(root.tracking || root.utms);
+    const products = Array.isArray(root.products) ? root.products.map(record) : [];
+    const tracking = record(root.tracking);
 
-    const status = str(root.event || root.status).toLowerCase();
-    const paymentMethod = str(root.payment_method).toLowerCase();
-    const isBump = Boolean(root.order_bump || str(root.type).toLowerCase().includes("bump"));
-    const isUpsell = str(root.type).toLowerCase().includes("upsell");
+    const status = str(payment.status).toLowerCase();
+    const paymentMethod = str(payment.payment_method).toLowerCase();
 
     let type: PaymentEventType = "payment_pending";
-    if (["approved", "paid", "payment_approved", "success"].includes(status)) {
-      if (isBump) type = "order_bump_approved";
-      else if (isUpsell) type = "upsell_approved";
-      else type = "purchase_approved";
-    } else if (status.includes("refund")) {
+    if (status === "paid") {
+      type = "purchase_approved";
+    } else if (status === "refunded") {
       type = "purchase_refunded";
-    } else if (status.includes("chargeback")) {
+    } else if (status === "chargedback") {
       type = "chargeback_created";
-    } else if (status.includes("cancel")) {
+    } else if (status === "credit_card_declined") {
       type = "purchase_canceled";
-    } else if (status.includes("pending") || status.includes("waiting")) {
+    } else if (status === "unpaid") {
       if (paymentMethod === "pix") type = "pix_created";
       else if (paymentMethod === "boleto") type = "boleto_created";
       else type = "payment_pending";
     }
 
-    const transaction = str(root.transaction_id || root.id) || "wiapy_tx";
-    const gross = num(root.amount) ?? num(root.total) ?? 0;
-    const fee = num(root.fee) ?? num(root.fees) ?? 0;
+    const transaction = str(payment.id) || "wiapy_tx";
+    // Every amount is centavos: divide by 100 to get the currency's base unit.
+    const gross = (num(payment.amount) ?? 0) / 100;
+    const fee = (num(payment.fee) ?? 0) / 100;
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
-    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : "main";
-    const productId = str(product.id || root.product_id) || "";
+    const productId = str(products[0]?.id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
         provider: "wiapy",
         externalTransactionId: transaction,
-        externalEventId: str(root.id) || null,
+        externalEventId: str(payment.id) || null,
         type,
         productId,
-        offerId: str(root.offer_id) || null,
-        productType,
+        offerId: null,
+        productType: "main",
         parentProductId: null,
-        parentTransactionId: str(root.parent_transaction_id || root.parent_id) || null,
+        parentTransactionId: null,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -680,9 +705,9 @@ export const wiapyAdapter: PaymentAdapter = {
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
         clickId: str(tracking.fbclid) || null,
-        occurredAt: parseDate(root.paid_at || root.created_at || root.occurred_at, context.receivedAt),
+        occurredAt: parseDate(payment.dt_update || payment.dt_create, context.receivedAt),
         receivedAt: context.receivedAt,
-        isTest: Boolean(root.is_test),
+        isTest: false,
         rawPayload: redactPaymentPayload(payload),
       }),
     ];
@@ -788,32 +813,39 @@ export const lowfyAdapter: PaymentAdapter = {
 };
 
 // 9. ADAPTADOR GREENN (https://greenn.com.br/)
+// Greenn's own docs (ajuda.greenn.com.br, "Documentação Webhook Greenn")
+// show a flat top-level shape -- { type: "sale", event: "saleUpdated",
+// oldStatus, currentStatus, product, sale, seller, client, saleMetas } --
+// with the real per-sale id/amount/method under "sale", not "order"/"data"
+// nor loose on root. The previous version checked root.event for the sale's
+// status, but "event" is always the literal string "saleUpdated" regardless
+// of outcome (the actual status is "currentStatus"); it also never read
+// "sale" at all, so amount was always 0 and the transaction id always fell
+// back to the same literal string ("greenn_tx") for every sale, colliding
+// them all onto one row. Greenn's docs don't show an order_bump/upsell/type
+// field on "sale" or "product", so that detection is dropped rather than
+// guessed -- every approved sale is booked as "main" until a confirmed field
+// surfaces.
 export const greennAdapter: PaymentAdapter = {
   provider: "greenn",
   normalize(payload, context) {
     const root = record(payload);
-    const data = record(root.order || root.data || root);
-    const customer = record(data.client || data.customer || root.client || root.customer);
-    const product = record(data.product || root.product || (Array.isArray(data.products) ? data.products[0] : {}));
-    const tracking = record(data.tracking || data.utms || root.tracking || root.utms || root.custom_fields);
+    const sale = record(root.sale);
+    const customer = record(root.client);
+    const product = record(root.product);
+    const tracking = record(root.tracking || root.utms || root.custom_fields);
 
-    const rawStatus = str(root.event || data.current_status || data.status || root.status).toLowerCase();
-    const paymentMethod = str(data.payment_method || root.payment_method).toLowerCase();
-    const isBump = Boolean(data.order_bump || data.is_bump || str(data.type).toLowerCase().includes("bump") || str(product.type).toLowerCase().includes("bump"));
-    const isUpsell = Boolean(str(data.type).toLowerCase().includes("upsell") || str(product.type).toLowerCase().includes("upsell"));
-    const isDownsell = Boolean(str(data.type).toLowerCase().includes("downsell") || str(product.type).toLowerCase().includes("downsell"));
+    const rawStatus = str(root.currentStatus || sale.status).toLowerCase();
+    const paymentMethod = str(sale.method || sale.payment_method).toLowerCase();
 
     let type: PaymentEventType = "payment_pending";
-    if (["paid", "approved", "order_paid", "order_approved", "success", "completed"].some((s) => rawStatus.includes(s))) {
-      if (isBump) type = "order_bump_approved";
-      else if (isUpsell) type = "upsell_approved";
-      else if (isDownsell) type = "downsell_approved";
-      else type = "purchase_approved";
+    if (["paid", "approved", "success", "completed"].some((s) => rawStatus.includes(s))) {
+      type = "purchase_approved";
     } else if (rawStatus.includes("refund")) {
       type = "purchase_refunded";
     } else if (rawStatus.includes("chargeback") || rawStatus.includes("dispute")) {
       type = "chargeback_created";
-    } else if (rawStatus.includes("cancel")) {
+    } else if (rawStatus.includes("refused") || rawStatus.includes("cancel")) {
       type = "purchase_canceled";
     } else if (rawStatus.includes("wait") || rawStatus.includes("pend")) {
       if (paymentMethod.includes("pix")) type = "pix_created";
@@ -821,32 +853,30 @@ export const greennAdapter: PaymentAdapter = {
       else type = "payment_pending";
     }
 
-    const transaction = str(data.id || data.code || data.order_id || root.id || root.order_id) || "greenn_tx";
-    const rawGross = num(data.amount) ?? num(data.total) ?? num(data.value) ?? num(root.amount) ?? num(root.total) ?? 0;
-    const gross = rawGross;
-    const fee = num(data.fee) ?? num(data.fees) ?? num(data.tax) ?? num(root.fee) ?? 0;
+    const transaction = str(sale.id) || "greenn_tx";
+    const gross = num(sale.amount) ?? 0;
+    const fee = num(sale.fee) ?? num(sale.tax) ?? 0;
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
-    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id || root.product_id || product.name) || "";
+    const productId = str(product.id) || "";
 
     return [
       normalizedPaymentEventSchema.parse({
         provider: "greenn",
         externalTransactionId: transaction,
-        externalEventId: str(root.event_id || root.id || data.event_id) || null,
+        externalEventId: str(sale.id) || null,
         type,
         productId,
-        offerId: str(data.offer_id || root.offer_id || product.offer_id) || null,
-        productType,
+        offerId: null,
+        productType: "main",
         parentProductId: null,
-        parentTransactionId: str(data.parent_id || data.parent_transaction_id || root.parent_id) || null,
+        parentTransactionId: null,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
-        grossCurrency: cleanCurrency(data.currency || root.currency, context.fallbackCurrency),
-        netCurrency: cleanCurrency(data.currency || root.currency, context.fallbackCurrency),
-        country: cleanCountry(customer.country || data.country),
+        grossCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
+        netCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
+        country: cleanCountry(customer.country),
         buyer: {
           name: str(customer.name || customer.full_name || customer.first_name) || null,
           email: str(customer.email) || null,
@@ -857,9 +887,9 @@ export const greennAdapter: PaymentAdapter = {
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
         clickId: str(tracking.fbclid) || null,
-        occurredAt: parseDate(data.paid_at || data.created_at || root.created_at || root.paid_at, context.receivedAt),
+        occurredAt: parseDate(sale.updated_at || sale.created_at, context.receivedAt),
         receivedAt: context.receivedAt,
-        isTest: Boolean(data.is_test || root.is_test || root.sandbox),
+        isTest: false,
         rawPayload: redactPaymentPayload(payload),
       }),
     ];
