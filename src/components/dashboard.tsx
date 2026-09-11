@@ -1311,11 +1311,13 @@ export function Dashboard(p: Props) {
             />
           ) : (
           <>
-          <div className="page-heading">
+          <div className={`page-heading${tab === "visao" ? " page-heading-compact" : ""}`}>
             <div>
-              <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>
+              {tab !== "visao" && (
+                <div className="eyebrow">CONTROLE NA MÃO. PAZ NO BOLSO.</div>
+              )}
               <h1>{titles[tab][0]}</h1>
-              <p>{titles[tab][1]}</p>
+              {tab !== "visao" && <p>{titles[tab][1]}</p>}
             </div>
             <div className="page-heading-actions">
               <div
@@ -1553,17 +1555,6 @@ export function Dashboard(p: Props) {
             ))}
           {tab === "visao" && (
             <>
-              <OnboardingChecklist
-                hasPaymentGateway={hasPayments}
-                hasTrackerActivity={metrics.pageviews > 0}
-                linksCount={p.links.length}
-                hasMetaConnected={p.integrations.some(
-                  (i) => i.provider === "meta" && i.status === "connected",
-                )}
-                hasShieldConfigured={(p.shields ?? []).some((shield) => shield.active)}
-                salesCount={sales.length}
-                onNavigateTab={selectTab}
-              />
               <UtmifySummary
                 sales={sales}
                 insights={insights}
@@ -1602,158 +1593,6 @@ export function Dashboard(p: Props) {
                 exchangeRates={exchangeRates}
               />
 
-              <div
-                className="panel"
-                style={{ marginTop: "1rem", marginBottom: "1rem" }}
-              >
-                <div className="panel-heading">
-                  <div>
-                    <h2>Funil da Operação</h2>
-                    <p>
-                      Visitas na página → Cliques em CTA → Checkouts iniciados →
-                      Compras aprovadas
-                      <br />
-                      <small>Contagem própria da Trackbase; scroll e visualização do CTA ficam fora dos cliques.</small>
-                    </p>
-                  </div>
-                  <span className="chip">Rastreamento ponta a ponta</span>
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: "0.75rem",
-                    marginTop: "0.75rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "0.75rem 1rem",
-                      borderRadius: "8px",
-                      background: "var(--surface-subtle, #F9FAFB)",
-                      border: "1px solid var(--line, #E5E7EB)",
-                    }}
-                  >
-                    <small
-                      style={{
-                        color: "var(--muted, #64748B)",
-                        display: "block",
-                      }}
-                    >
-                      1. Visitas
-                    </small>
-                    <strong
-                      style={{
-                        fontSize: "1.35rem",
-                        display: "block",
-                        margin: "0.2rem 0",
-                        color: "var(--ink, #0F172A)",
-                      }}
-                    >
-                      {metrics.pageviews}
-                    </strong>
-                    <small style={{ color: "var(--muted, #64748B)" }}>
-                      Pageviews
-                    </small>
-                  </div>
-                  <div
-                    style={{
-                      padding: "0.75rem 1rem",
-                      borderRadius: "8px",
-                      background: "var(--surface-subtle, #F9FAFB)",
-                      border: "1px solid var(--line, #E5E7EB)",
-                    }}
-                  >
-                    <small
-                      style={{
-                        color: "var(--muted, #64748B)",
-                        display: "block",
-                      }}
-                    >
-                      2. Cliques em CTA
-                    </small>
-                    <strong
-                      style={{
-                        fontSize: "1.35rem",
-                        display: "block",
-                        margin: "0.2rem 0",
-                        color: "var(--ink, #0F172A)",
-                      }}
-                    >
-                      {metrics.ctas}
-                    </strong>
-                    <small style={{ color: "var(--muted, #64748B)" }}>
-                      {metrics.pageviews > 0
-                        ? `${((metrics.ctas / metrics.pageviews) * 100).toFixed(1)}% das visitas`
-                        : "Sem visitas"}
-                    </small>
-                  </div>
-                  <div
-                    style={{
-                      padding: "0.75rem 1rem",
-                      borderRadius: "8px",
-                      background: "var(--surface-subtle, #F9FAFB)",
-                      border: "1px solid var(--line, #E5E7EB)",
-                    }}
-                  >
-                    <small
-                      style={{
-                        color: "var(--muted, #64748B)",
-                        display: "block",
-                      }}
-                    >
-                      3. Checkouts
-                    </small>
-                    <strong
-                      style={{
-                        fontSize: "1.35rem",
-                        display: "block",
-                        margin: "0.2rem 0",
-                        color: "var(--ink, #0F172A)",
-                      }}
-                    >
-                      {metrics.checkouts}
-                    </strong>
-                    <small style={{ color: "var(--muted, #64748B)" }}>
-                      {metrics.ctas > 0
-                        ? `${((metrics.checkouts / metrics.ctas) * 100).toFixed(1)}% dos CTAs`
-                        : "Sem CTAs"}
-                    </small>
-                  </div>
-                  <div
-                    style={{
-                      padding: "0.75rem 1rem",
-                      borderRadius: "8px",
-                      background: "var(--surface-subtle, #F9FAFB)",
-                      border: "1px solid var(--line, #E5E7EB)",
-                    }}
-                  >
-                    <small
-                      style={{
-                        color: "var(--muted, #64748B)",
-                        display: "block",
-                      }}
-                    >
-                      4. Compras
-                    </small>
-                    <strong
-                      style={{
-                        fontSize: "1.35rem",
-                        display: "block",
-                        margin: "0.2rem 0",
-                        color: "var(--ink, #0F172A)",
-                      }}
-                    >
-                      {metrics.purchases}
-                    </strong>
-                    <small style={{ color: "var(--muted, #64748B)" }}>
-                      {metrics.checkouts > 0
-                        ? `${((metrics.purchases / metrics.checkouts) * 100).toFixed(1)}% conversão`
-                        : "Aguardando"}
-                    </small>
-                  </div>
-                </div>
-              </div>
               <div className="dashboard-grid">
                 <section className="panel performance">
                   <div className="panel-heading">
@@ -2065,6 +1904,18 @@ export function Dashboard(p: Props) {
                   )}
                 </section>
               </div>
+
+              <OnboardingChecklist
+                hasPaymentGateway={hasPayments}
+                hasTrackerActivity={metrics.pageviews > 0}
+                linksCount={p.links.length}
+                hasMetaConnected={p.integrations.some(
+                  (i) => i.provider === "meta" && i.status === "connected",
+                )}
+                hasShieldConfigured={(p.shields ?? []).some((shield) => shield.active)}
+                salesCount={sales.length}
+                onNavigateTab={selectTab}
+              />
 
               <div className="footer-note">
                 <ShieldCheck size={14} /> Dados isolados por workspace{" "}

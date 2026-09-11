@@ -38,7 +38,7 @@ export function OnboardingChecklist({
   salesCount,
   onNavigateTab,
 }: OnboardingProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [dismissed, setDismissed] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideInitialTab, setGuideInitialTab] = useState<
@@ -52,6 +52,7 @@ export function OnboardingChecklist({
 
       const savedCollapsed = localStorage.getItem("trackbase_onboarding_collapsed");
       if (savedCollapsed === "true") setCollapsed(true);
+      else if (savedCollapsed === "false") setCollapsed(false);
     } catch {
       // ignore
     }

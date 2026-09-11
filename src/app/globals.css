@@ -4029,6 +4029,8 @@ textarea {
 .page-heading h1 { margin: 0; font-size: clamp(28px, 3vw, 42px); line-height: 1.1; letter-spacing: -1.5px; color: var(--ink); }
 .page-heading p { margin: 8px 0 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
 .eyebrow { margin-bottom: 8px; color: var(--brand-accent); font-size: 10px; font-weight: 800; letter-spacing: 1.45px; }
+.page-heading-compact { margin-bottom: 12px; }
+.page-heading-compact h1 { font-size: 20px; letter-spacing: -0.3px; }
 .page-heading > div:last-child { flex-shrink: 0; }
 .page-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .filterbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0 22px; }
