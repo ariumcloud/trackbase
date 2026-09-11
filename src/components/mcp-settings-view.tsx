@@ -935,7 +935,7 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
               <code>npx</code> na primeira execução, sem precisar de nenhum arquivo do Trackbase
               na sua máquina.
             </p>
-            <div style={{ position: "relative" }}>
+            <div style={{ position: "relative", maxWidth: "100%" }}>
               <pre
                 style={{
                   background: "#0F172A",
@@ -1139,19 +1139,23 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
               Se você usa o <strong>Claude Code</strong> no terminal, basta rodar o comando
               único abaixo:
             </p>
-            <div style={{ position: "relative" }}>
+            <div style={{ position: "relative", maxWidth: "100%" }}>
               <pre
                 style={{
                   background: "#0F172A",
                   color: "#E2E8F0",
-                  padding: "1.25rem",
+                  padding: "3.25rem 1.25rem 1.25rem",
                   borderRadius: "10px",
-                  fontSize: "0.84rem",
+                  fontSize: "0.82rem",
                   fontFamily:
                     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                  overflowX: "auto",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all",
+                  overflowWrap: "anywhere",
+                  maxWidth: "100%",
                   margin: 0,
-                  lineHeight: 1.5,
+                  lineHeight: 1.6,
+                  boxSizing: "border-box",
                 }}
               >
                 {cliCommand}

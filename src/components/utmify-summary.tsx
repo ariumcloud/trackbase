@@ -149,6 +149,7 @@ export function UtmifySummary({
   const [showPicker, setShowPicker] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
   const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
+  const [dragOverWidgetId, setDragOverWidgetId] = useState<string | null>(null);
 
   const persistLayout = (next: string[]) => {
     setLayout(next);
@@ -171,6 +172,32 @@ export function UtmifySummary({
     if (targetIndex === -1) return;
     current.splice(targetIndex, 0, draggedId);
     persistLayout(current);
+  };
+
+  // Pointer-based drag (not native HTML5 drag-and-drop): press the grip and
+  // move in one motion, no separate "select, then drag" step, and it works
+  // on touch too. Pointer capture keeps move/up events routed to the handle
+  // even as the finger/cursor travels over other cards; elementFromPoint at
+  // the pointer's live position (not the capturing element, which never
+  // moves) is what finds which card is being hovered.
+  const startDrag = (e: React.PointerEvent<Element>, id: string) => {
+    if (!editMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDraggedWidgetId(id);
+  };
+  const dragMove = (e: React.PointerEvent<Element>) => {
+    if (!draggedWidgetId) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const target = el?.closest<HTMLElement>("[data-widget-id]");
+    const targetId = target?.dataset.widgetId;
+    setDragOverWidgetId(targetId && targetId !== draggedWidgetId ? targetId : null);
+  };
+  const endDrag = () => {
+    if (draggedWidgetId && dragOverWidgetId) reorderWidget(draggedWidgetId, dragOverWidgetId);
+    setDraggedWidgetId(null);
+    setDragOverWidgetId(null);
   };
 
   const formatMoney = (val: number | null | undefined) => {
@@ -534,22 +561,19 @@ export function UtmifySummary({
     if (!layout.includes(id)) return null;
     return (
       <div
-        className={`utmify-section${editMode ? " is-editable" : ""}${draggedWidgetId === id ? " is-dragging" : ""}`}
+        className={`utmify-section${editMode ? " is-editable" : ""}${draggedWidgetId === id ? " is-dragging" : ""}${dragOverWidgetId === id ? " is-drop-target" : ""}`}
         style={{ order: sectionOrder.indexOf(id) }}
-        draggable={editMode}
-        onDragStart={() => setDraggedWidgetId(id)}
-        onDragOver={(e) => {
-          if (editMode) e.preventDefault();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          if (draggedWidgetId) reorderWidget(draggedWidgetId, id);
-          setDraggedWidgetId(null);
-        }}
-        onDragEnd={() => setDraggedWidgetId(null)}
+        data-widget-id={id}
       >
         {editMode && (
-          <div className="utmify-section-toolbar">
+          <div
+            className="utmify-section-toolbar"
+            style={{ touchAction: "none", cursor: draggedWidgetId === id ? "grabbing" : "grab" }}
+            onPointerDown={(e) => startDrag(e, id)}
+            onPointerMove={dragMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
             <span className="utmify-section-toolbar-label">
               <GripVertical size={14} /> {label}
             </span>
@@ -1027,21 +1051,21 @@ export function UtmifySummary({
           {visibleKpis.map((kpi) => (
             <div
               key={kpi.id}
-              className={`utmify-kpi-card${editMode ? " is-editable" : ""}${draggedWidgetId === kpi.id ? " is-dragging" : ""}`}
-              draggable={editMode}
-              onDragStart={() => setDraggedWidgetId(kpi.id)}
-              onDragOver={(e) => {
-                if (editMode) e.preventDefault();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (draggedWidgetId) reorderWidget(draggedWidgetId, kpi.id);
-                setDraggedWidgetId(null);
-              }}
-              onDragEnd={() => setDraggedWidgetId(null)}
+              data-widget-id={kpi.id}
+              className={`utmify-kpi-card${editMode ? " is-editable" : ""}${draggedWidgetId === kpi.id ? " is-dragging" : ""}${dragOverWidgetId === kpi.id ? " is-drop-target" : ""}`}
             >
               <div className="utmify-kpi-header">
-                {editMode && <GripVertical size={13} className="utmify-kpi-grip" />}
+                {editMode && (
+                  <GripVertical
+                    size={13}
+                    className="utmify-kpi-grip"
+                    style={{ touchAction: "none", cursor: draggedWidgetId === kpi.id ? "grabbing" : "grab" }}
+                    onPointerDown={(e) => startDrag(e, kpi.id)}
+                    onPointerMove={dragMove}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                  />
+                )}
                 <span>{kpi.title}</span>
                 {editMode ? (
                   <button
