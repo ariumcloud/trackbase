@@ -30,19 +30,32 @@ self.addEventListener("push", (event) => {
       requireInteraction: false,
     };
 
-    // Notifica abas/janelas abertas IMEDIATAMENTE em paralelo (sem esperar showNotification)
-    const notifyClients = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    const notified = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Notifica abas/janelas abertas IMEDIATAMENTE em paralelo (sem esperar showNotification)
       clientList.forEach((client) => {
         client.postMessage({
           type: "PLAY_SALE_SOUND",
           data: payload,
         });
       });
+
+      // iOS/Safari sempre usa o alerta e o som padrão do sistema para uma
+      // notificação disparada pelo Service Worker — não existe API que troque
+      // esse som por um customizado. Quando o app já está aberto e em primeiro
+      // plano, a própria página acabou de tocar o som real (acima); mostrar
+      // TAMBÉM a notificação do sistema aqui só duplica o alerta com o som
+      // errado por cima do correto. Só mostramos a notificação do SO quando
+      // nenhuma aba visível e focada existe — ou seja, quando o usuário
+      // realmente não está olhando para o app.
+      const hasFocusedVisibleClient = clientList.some(
+        (client) => client.focused && client.visibilityState === "visible",
+      );
+      if (hasFocusedVisibleClient) return null;
+
+      return self.registration.showNotification(title, options);
     });
 
-    const showNotification = self.registration.showNotification(title, options);
-
-    event.waitUntil(Promise.all([notifyClients, showNotification]));
+    event.waitUntil(notified);
   } catch (err) {
     console.error("Erro ao processar push notification:", err);
   }

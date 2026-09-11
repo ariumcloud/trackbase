@@ -79,7 +79,7 @@ export function SalesNotifier({ workspaceId }: Props) {
     // Registra e sincroniza o Service Worker se houver suporte a PushManager
     if ("PushManager" in window) {
       navigator.serviceWorker
-        .register("/sw.js?v=44e2368-restored", { updateViaCache: "none" })
+        .register("/sw.js?v=9cabea6-foreground-mute", { updateViaCache: "none" })
         .then(async (registration) => {
           await registration.update();
           const subscription = await registration.pushManager.getSubscription();
