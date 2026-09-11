@@ -258,11 +258,18 @@ async function main() {
   );
 
   // Teste de Dashboard Summary Agregado
+  // A janela precisa cobrir tanto as vendas com data fixa (2026-09-06) quanto
+  // os eventos de tracking inseridos acima via now() -- um intervalo fixo no
+  // passado ("apodrece" e passa a excluir o now() real assim que o relógio
+  // avança) fazia esse teste falhar sozinho, sem nenhuma mudança de código.
+  const since = "2020-01-01T00:00:00Z";
+  const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
   // 1. Usuário B tentando acessar dados do Workspace A deve ser rejeitado
   await assert.rejects(() =>
     db.query(
-      "select public.utm_dashboard_summary($1, '2026-09-01T00:00:00Z', '2026-09-10T23:59:59Z', 'BRL') summary",
-      [wa],
+      "select public.utm_dashboard_summary($1, $2, $3, 'BRL') summary",
+      [wa, since, until],
     ),
   );
 
@@ -271,8 +278,8 @@ async function main() {
   const summaryRes = await db.query<{
     summary: { pageviews: number; checkouts: number; refunded_count: number };
   }>(
-    "select public.utm_dashboard_summary($1, '2026-09-01T00:00:00Z', '2026-09-10T23:59:59Z', 'BRL') summary",
-    [wa],
+    "select public.utm_dashboard_summary($1, $2, $3, 'BRL') summary",
+    [wa, since, until],
   );
   const summary = summaryRes.rows[0].summary;
   assert.equal(summary.pageviews, 3);

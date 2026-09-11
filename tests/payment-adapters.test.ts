@@ -156,26 +156,34 @@ test("Cakto: normaliza venda aprovada, chargeback e taxas", () => {
   assert.equal(cbEvent.type, "chargeback_created");
 });
 
-test("Kirvano: normaliza venda aprovada, PIX e upsell", () => {
+test("Kirvano: normaliza venda aprovada com order bump (payload real, flat + products[])", () => {
+  // Shape confirmed against help.kirvano.com's own webhook doc: flat root
+  // (no "data" wrapper), sale_id (not id/transaction_id), a "products" array
+  // bundling main + order bump in one call, each with is_order_bump and a
+  // localized price string like Kirvano's own docs example ("R$ 169,80").
   const payload = {
     event: "SALE_APPROVED",
-    data: {
-      transaction_id: "KV-5544",
-      total_amount: 147.0,
-      fee: 14.7,
-      currency: "BRL",
-      type: "UPSELL",
-      product: { id: "kirv_prod_2" },
-      customer: { name: "Comprador Kirvano", email: "kirvano@example.com", country: "BR" },
-      utm: { utm_source: "meta", utm_campaign: "upsell_camp" },
-    },
+    sale_id: "KV-5544",
+    customer: { name: "Comprador Kirvano", email: "kirvano@example.com", country: "BR" },
+    products: [
+      { id: "kirv_prod_main", offer_id: "kirv_offer_main", price: "R$ 119,90", is_order_bump: false },
+      { id: "kirv_prod_2", offer_id: "kirv_offer_2", price: "R$ 49,90", is_order_bump: true },
+    ],
+    utm: { utm_source: "meta", utm_campaign: "upsell_camp" },
   };
 
-  const [event] = paymentAdapters.kirvano.normalize(payload, { receivedAt });
-  assert.equal(event.provider, "kirvano");
-  assert.equal(event.type, "upsell_approved");
-  assert.equal(event.productType, "upsell");
-  assert.equal(event.buyer?.name, "Comprador Kirvano");
+  const [main, bump] = paymentAdapters.kirvano.normalize(payload, { receivedAt });
+  assert.equal(main.provider, "kirvano");
+  assert.equal(main.type, "purchase_approved");
+  assert.equal(main.productType, "main");
+  assert.equal(main.grossAmount, 119.9);
+  assert.equal(main.buyer?.name, "Comprador Kirvano");
+  assert.equal(main.attribution.utm_source, "meta");
+
+  assert.equal(bump.type, "order_bump_approved");
+  assert.equal(bump.productType, "order_bump");
+  assert.equal(bump.grossAmount, 49.9);
+  assert.equal(bump.parentTransactionId, "KV-5544");
 });
 
 test("Eduzz: normaliza trans_status 3 (paga) e 7 (reembolsada)", () => {
@@ -235,16 +243,14 @@ test("Monetizze: normaliza status Finalizada, Devolvida e Bloqueada", () => {
 });
 
 test("Wiapy: normaliza pagamento aprovado, PIX e dados do comprador", () => {
+  // Shape confirmed against ajuda.wiapy.com's webhook doc: status/amount/fee
+  // live under "payment", not the payload root, and every amount is in
+  // centavos ("R$ 17,70" -> 1770).
   const payload = {
-    event: "payment_approved",
-    transaction_id: "WPY-9900",
-    amount: 247.0,
-    fee: 24.7,
-    currency: "BRL",
-    product: { id: "wpy_p1" },
+    payment: { id: "WPY-9900", status: "paid", payment_method: "pix", amount: 24700, fee: 2470 },
     customer: { name: "Cliente Wiapy", email: "wiapy@example.com", country: "BR" },
+    products: [{ id: "wpy_p1" }],
     tracking: { utm_source: "meta", utm_campaign: "direct_response" },
-    is_test: false,
   };
 
   const [event] = paymentAdapters.wiapy.normalize(payload, { receivedAt });
@@ -286,18 +292,25 @@ test("Status desconhecido não é contabilizado como compra aprovada", () => {
 });
 
 test("Greenn: normaliza compra aprovada, order bump e comprador", () => {
+  // Shape confirmed against ajuda.greenn.com.br's webhook doc: top-level
+  // { type: "sale", event: "saleUpdated", oldStatus, currentStatus, product,
+  // sale, seller, client }. "event" is always the fixed string "saleUpdated"
+  // regardless of outcome -- the real status is "currentStatus", and the
+  // sale's own id/amount/method live under "sale", not "order".
   const payload = {
-    event: "order_approved",
-    order: {
+    type: "sale",
+    event: "saleUpdated",
+    oldStatus: "waiting_payment",
+    currentStatus: "paid",
+    sale: {
       id: "GN-8877",
       amount: 197.0,
       fee: 19.7,
-      currency: "BRL",
-      payment_method: "credit_card",
-      product: { id: "gn_prod_1", name: "Curso Avançado" },
-      client: { name: "Cliente Greenn", email: "greenn@example.com", country: "BR" },
-      tracking: { utm_source: "instagram", utm_campaign: "feed_leads" },
+      method: "credit_card",
     },
+    product: { id: "gn_prod_1", name: "Curso Avançado" },
+    client: { name: "Cliente Greenn", email: "greenn@example.com", country: "BR" },
+    tracking: { utm_source: "instagram", utm_campaign: "feed_leads" },
   };
 
   const [event] = paymentAdapters.greenn.normalize(payload, { receivedAt });

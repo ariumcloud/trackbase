@@ -486,14 +486,14 @@ export const eduzzAdapter: PaymentAdapter = {
     // for utm_source/utm_medium, which have no dedicated column below) was
     // always empty even though the individual campaignId/adId/etc. fields
     // still worked via their root.tracker_utm_* fallback.
+    const nestedTracking = record(root.tracker || root.tracking);
     const tracking: Record<string, unknown> = {
-      ...record(root.tracker || root.tracking),
-      utm_source: root.tracker_utm_source,
-      utm_medium: root.tracker_utm_medium,
-      utm_campaign: root.tracker_utm_campaign,
-      utm_content: root.tracker_utm_content,
-      utm_term: root.tracker_utm_term,
-      fbclid: root.tracker_fbclid,
+      utm_source: nestedTracking.utm_source ?? root.tracker_utm_source,
+      utm_medium: nestedTracking.utm_medium ?? root.tracker_utm_medium,
+      utm_campaign: nestedTracking.utm_campaign ?? root.tracker_utm_campaign,
+      utm_content: nestedTracking.utm_content ?? root.tracker_utm_content,
+      utm_term: nestedTracking.utm_term ?? root.tracker_utm_term,
+      fbclid: nestedTracking.fbclid ?? root.tracker_fbclid,
     };
 
     // Mapeamento de status numérico da Eduzz:

@@ -1728,7 +1728,10 @@ export async function inviteMember(workspace: string, form: FormData): Promise<A
       return { error: "Esse e-mail ainda não tem conta no Trackbase. Peça para a pessoa se cadastrar primeiro." };
     const { error } = await service
       .from("utm_members")
-      .upsert({ workspace_id: workspace, user_id: found.id, role: "member" }, { onConflict: "workspace_id,user_id" });
+      // utm_members_role_check only allows 'owner' | 'admin' | 'viewer' -- 'member'
+      // isn't a valid role, so this insert always failed the check constraint and
+      // every invite silently errored out as "Não foi possível convidar".
+      .upsert({ workspace_id: workspace, user_id: found.id, role: "admin" }, { onConflict: "workspace_id,user_id" });
     if (error) throw error;
     revalidatePath("/painel");
     return { ok: true };
