@@ -142,15 +142,30 @@ export function McpSettingsView({
   // A prefix is only a visual identifier. It can never be used to authenticate.
   const activeApiKey = newKey || "COLE_A_CHAVE_MCP_GERADA_AQUI";
 
+  // Claude Desktop e Cursor só falam stdio, então a ponte pro nosso endpoint
+  // HTTP (/api/mcp) precisa de um processo local — mas em vez de depender de
+  // um script que só existe dentro do repositório privado do Trackbase (que
+  // nenhum cliente tem localmente!), usamos o mcp-remote, um pacote npm
+  // público mantido pela comunidade feito exatamente pra isso: qualquer
+  // pessoa com Node roda "npx mcp-remote" sem precisar baixar nada nosso.
+  // O token vai numa env var (não direto no header) por causa de um bug
+  // conhecido do mcp-remote no Windows com espaços dentro de argumentos.
+  const mcpRemoteArgs = (url: string) => [
+    "-y",
+    "mcp-remote",
+    url,
+    "--header",
+    "Authorization:${AUTH_HEADER}",
+  ];
+
   const claudeConfig = JSON.stringify(
     {
       mcpServers: {
         trackbase: {
-          command: "node",
-          args: ["./bin/trackbase-mcp.mjs"],
+          command: "npx",
+          args: mcpRemoteArgs(`${appUrl.replace(/\/$/, "")}/api/mcp`),
           env: {
-            TRACKBASE_API_KEY: activeApiKey,
-            TRACKBASE_API_URL: appUrl,
+            AUTH_HEADER: `Bearer ${activeApiKey}`,
           },
         },
       },
@@ -163,11 +178,10 @@ export function McpSettingsView({
     {
       mcpServers: {
         trackbase: {
-          command: "node",
-          args: ["./bin/trackbase-mcp.mjs"],
+          command: "npx",
+          args: mcpRemoteArgs(`${appUrl.replace(/\/$/, "")}/api/mcp`),
           env: {
-            TRACKBASE_API_KEY: activeApiKey,
-            TRACKBASE_API_URL: appUrl,
+            AUTH_HEADER: `Bearer ${activeApiKey}`,
           },
         },
       },
@@ -176,7 +190,7 @@ export function McpSettingsView({
     2,
   );
 
-  const cliCommand = `claude mcp add trackbase -- node bin/trackbase-mcp.mjs`;
+  const cliCommand = `claude mcp add trackbase --env AUTH_HEADER="Bearer ${activeApiKey}" -- npx -y mcp-remote ${appUrl.replace(/\/$/, "")}/api/mcp --header "Authorization:\${AUTH_HEADER}"`;
 
   const codexConfig = `[mcp_servers.trackbase]
 url = "${appUrl.replace(/\/$/, "")}/api/mcp"
@@ -916,10 +930,10 @@ bearer_token_env_var = "TRACKBASE_API_KEY"`;
                 lineHeight: 1.5,
               }}
             >
-              Abra o projeto que contém a pasta <code>bin</code> do Trackbase e crie ou
-              edite <code>.cursor/mcp.json</code> na raiz. Cole o JSON abaixo, salve e
-              reinicie o Cursor. Se o projeto estiver em outra pasta, troque o caminho do
-              script pelo caminho absoluto da sua cópia do Trackbase.
+              Crie ou edite <code>.cursor/mcp.json</code> na raiz do seu projeto (requer Node.js
+              instalado). Cole o JSON abaixo e salve — o próprio Cursor baixa o conector via{" "}
+              <code>npx</code> na primeira execução, sem precisar de nenhum arquivo do Trackbase
+              na sua máquina.
             </p>
             <div style={{ position: "relative" }}>
               <pre

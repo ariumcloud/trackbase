@@ -47,6 +47,7 @@ import {
   SlidersHorizontal,
   HelpCircle,
   ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { McpSettingsView } from "./mcp-settings-view";
 import { AccountPanels } from "./account-panels";
@@ -337,6 +338,8 @@ export function Dashboard(p: Props) {
     [deletingOfferId, setDeletingOfferId] = useState<string | null>(null),
     [viewingPixelSnippet, setViewingPixelSnippet] = useState<string | null>(null),
     [newRuleTrigger, setNewRuleTrigger] = useState<string>("page_load"),
+    [webhookLogsExpanded, setWebhookLogsExpanded] = useState(false),
+    [pixelSectionExpanded, setPixelSectionExpanded] = useState(false),
     [accountView, setAccountView] = useState<null | "assinatura" | "conta" | "avancado">(null),
     [accountMenuOpen, setAccountMenuOpen] = useState(false),
     [pending, start] = useTransition();
@@ -2577,12 +2580,25 @@ export function Dashboard(p: Props) {
                   <div>
                     <h2>Recebimentos de webhook</h2>
                     <p>
-                      Últimos 50 eventos · registros inválidos não geram vendas.
-                      Para enviar o POST original novamente, use “Reenviar Post” na Hotmart.
+                      {p.logs.length} evento{p.logs.length === 1 ? "" : "s"} recente
+                      {p.logs.length === 1 ? "" : "s"} · registros inválidos não geram vendas.
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setWebhookLogsExpanded(!webhookLogsExpanded)}
+                  >
+                    {webhookLogsExpanded ? "Ocultar" : "Mostrar"}
+                    {webhookLogsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </button>
                 </div>
-                {p.logs.length ? (
+                {webhookLogsExpanded && (
+                  <p className="form-help" style={{ marginTop: "-0.5rem" }}>
+                    Para enviar o POST original novamente, use “Reenviar Post” na Hotmart.
+                  </p>
+                )}
+                {webhookLogsExpanded && (p.logs.length ? (
                   <div className="table-wrap">
                     <table>
                       <thead>
@@ -2644,7 +2660,7 @@ export function Dashboard(p: Props) {
                     title="Aguardando o primeiro evento"
                     description="Configure o endpoint no provedor. Cada recebimento aparecerá aqui."
                   />
-                )}
+                ))}
               </section>
               {p.sales.some((s) => s.is_test) && (
                 <button
@@ -2673,8 +2689,17 @@ export function Dashboard(p: Props) {
                       Facebook Ads, imune ao iOS 14+ e bloqueadores de anúncios
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setPixelSectionExpanded(!pixelSectionExpanded)}
+                  >
+                    {pixelSectionExpanded ? "Ocultar" : "Configurar"}
+                    {pixelSectionExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </button>
                 </div>
 
+                {pixelSectionExpanded && (
                 <div
                   style={{
                     display: "grid",
@@ -2910,9 +2935,10 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     )}
                   </div>
                 </div>
+                )}
               </section>
 
-              {p.pixels.length > 0 && (
+              {pixelSectionExpanded && p.pixels.length > 0 && (
                 <section className="panel" style={{ marginTop: "1.5rem" }}>
                   <div className="panel-heading">
                     <div>
