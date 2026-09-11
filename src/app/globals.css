@@ -5554,7 +5554,7 @@ textarea {
 
 .utmify-funnel-chart {
   width: 100%;
-  height: auto;
+  height: 170px;
   display: block;
   overflow: visible;
 }
@@ -5599,8 +5599,15 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .utmify-funnel-chart { height: 210px; }
   .utmify-funnel-labels span { font-size: 0.52rem; }
   .utmify-funnel-overlay .count { font-size: 0.75rem; }
+
+  /* Cards aninhados (card dentro de card) somam padding rápido — numa tela
+     de ~375px, 3 níveis de padding de 20-24px cada comiam quase um terço da
+     largura só de respiro, sobrando pouco espaço real pro conteúdo. */
+  .utmify-card { padding: 0.9rem 0.85rem; }
+  .utmify-funnel-card, .utmify-donut-card { padding: 0.85rem; }
 }
 
 /* Vendas por Produto (ranking por oferta) --------------------------------- */
