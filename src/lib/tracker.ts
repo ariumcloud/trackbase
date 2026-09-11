@@ -77,7 +77,13 @@ export function createCheckoutUrlMatcher() {
       // Extra destination parameters are allowed; a configured parameter must have
       // exactly its configured values, preventing ambiguous duplicate values.
       for (const name of new Set(rule.searchParams.keys())) {
-        if (/^(?:utm_|trackbase_)/i.test(name) || /^(?:fbclid|fbc|fbp|_fbc|_fbp|gclid|dclid|gbraid|wbraid|ttclid|msclkid|sck|xcod|src|session_id)$/i.test(name)) continue;
+        // checkoutMode is Hotmart's own display-mode flag (single-step vs.
+        // modal, etc.) copied along whenever a checkout link is shared from
+        // their dashboard — it never identifies which offer was bought, and
+        // the real checkout URL a visitor lands on frequently drops or
+        // changes it. Treating it as a required business parameter rejected
+        // real checkouts whenever it didn't happen to match verbatim.
+        if (/^(?:utm_|trackbase_)/i.test(name) || /^(?:fbclid|fbc|fbp|_fbc|_fbp|gclid|dclid|gbraid|wbraid|ttclid|msclkid|sck|xcod|src|session_id|checkoutmode)$/i.test(name)) continue;
         const expected = rule.searchParams.getAll(name).sort();
         const received = url.searchParams.getAll(name).sort();
         if (expected.length !== received.length || expected.some((value, index) => value !== received[index])) return false;

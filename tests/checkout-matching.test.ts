@@ -53,6 +53,17 @@ test("tracking query parameters are ignored while configured business parameters
   assert.equal(matchesCheckoutUrl("https://pay.hotmart.com/P123?off=A&off=B", rule), false);
 });
 
+test("Hotmart's checkoutMode display flag is never enforced, even when saved on the configured URL", () => {
+  // checkoutMode is copied verbatim whenever a Hotmart checkout link is shared
+  // from their dashboard, but it selects a UI variant, not the product — a
+  // real visitor's checkout URL routinely omits or changes it.
+  const rule = "https://pay.hotmart.com/U107469187D?checkoutMode=10";
+  assert.equal(matchesCheckoutUrl("https://pay.hotmart.com/U107469187D", rule), true);
+  assert.equal(matchesCheckoutUrl("https://pay.hotmart.com/U107469187D?checkoutMode=1", rule), true);
+  assert.equal(matchesCheckoutUrl("https://pay.hotmart.com/U107469187D?CHECKOUTMODE=1", rule), true);
+  assert.equal(matchesCheckoutUrl("https://pay.hotmart.com/U107469187D?off=A", "https://pay.hotmart.com/U107469187D?checkoutMode=10&off=A"), true);
+});
+
 test("workspace matching returns the exact compatible offer and never resolves ambiguity by order", () => {
   const offers = [
     { id: "wiapy", checkout_url: "https://pay.wiapy.com/product/a" },
