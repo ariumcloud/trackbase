@@ -187,8 +187,11 @@ export function UtmifySummary({
   // Funil de Conversão: cada etapa é um dado que o Trackbase já rastreia de
   // verdade (impressão/clique vêm do Meta, page view/checkout do tracker.js,
   // compra do webhook do gateway) — nada aqui é estimado.
+  // Impressões fica de fora do funil de propósito: Meta costuma entregar
+  // impressões 30-50x maiores que cliques, e usá-la como base faz todo o
+  // resto do funil colapsar pra uma faixa fininha indistinguível. O funil
+  // começa em Cliques no Link, que é o primeiro número comparável ao resto.
   const funnelSteps = [
-    { name: "Impressões", value: metrics.impressions },
     { name: "Cliques no Link", value: metrics.clicks },
     { name: "Page View", value: metrics.pageviews },
     { name: "Início Checkout", value: metrics.checkouts },
@@ -210,7 +213,7 @@ export function UtmifySummary({
     return FUNNEL_MIN_HALF + ratio * (FUNNEL_MAX_HALF - FUNNEL_MIN_HALF);
   });
   const funnelPath = (() => {
-    const xs = [0, 250, 500, 750, 1000];
+    const xs = [0, 333.33, 666.67, 1000];
     const center = 70;
     const ctrl = 83; // ~1/3 do espaçamento entre pontos, pra uma curva em "onda"
     const top = xs.map((x, i) => [x, center - funnelHalfHeights[i]] as const);
@@ -622,7 +625,7 @@ export function UtmifySummary({
       <div className="utmify-funnel-card">
         <div className="utmify-card-header">
           <h3 className="utmify-card-title">Funil de Conversão</h3>
-          <span className="utmify-info-icon" title="Cada etapa é medida de verdade: impressão e clique vêm do Meta, page view e checkout do tracker.js, compra do webhook do gateway.">
+          <span className="utmify-info-icon" title="Cada etapa é medida de verdade: cliques no link vêm do Meta, page view e checkout do tracker.js, compra do webhook do gateway. Impressões ficam de fora para não distorcer a escala do funil.">
             <Info size={13} />
           </span>
         </div>
@@ -641,10 +644,9 @@ export function UtmifySummary({
               </linearGradient>
             </defs>
             <path fill="url(#utmifyFunnelGrad)" d={funnelPath} />
-            <line className="utmify-funnel-divider" x1="200" y1="4" x2="200" y2="136" />
-            <line className="utmify-funnel-divider" x1="400" y1="4" x2="400" y2="136" />
-            <line className="utmify-funnel-divider" x1="600" y1="4" x2="600" y2="136" />
-            <line className="utmify-funnel-divider" x1="800" y1="4" x2="800" y2="136" />
+            <line className="utmify-funnel-divider" x1="250" y1="4" x2="250" y2="136" />
+            <line className="utmify-funnel-divider" x1="500" y1="4" x2="500" y2="136" />
+            <line className="utmify-funnel-divider" x1="750" y1="4" x2="750" y2="136" />
           </svg>
           <div className="utmify-funnel-overlay">
             {funnelSteps.map((step) => (
