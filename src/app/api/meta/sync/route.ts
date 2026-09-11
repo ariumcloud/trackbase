@@ -2,7 +2,7 @@ import { requireFeature } from "@/lib/feature-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { body, sameOrigin, rateLimit } from "@/lib/security";
-import { credentials, pages, type RawInsight, MetaError } from "@/lib/meta";
+import { credentials, pages, type RawInsight, type RawDemographic, MetaError } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { admin } from "@/lib/supabase/server";
 import { metaInitiateCheckouts, metaLinkClicks, metaPurchases } from "@/lib/meta-clicks";
@@ -52,6 +52,19 @@ export async function POST(request: Request) {
         time_range: JSON.stringify({ since, until }),
       }, "insights",
     );
+    // Conta (não anúncio) pra não multiplicar o volume de utm_insights pela
+    // combinação de faixas etárias — só alimenta o card "Demográficos".
+    const demographicsRequest = pages<RawDemographic>(
+      `${integration.account_id}/insights`,
+      token,
+      {
+        fields: "spend,impressions,inline_link_clicks,account_currency",
+        level: "account",
+        breakdowns: "age,gender",
+        time_increment: "1",
+        time_range: JSON.stringify({ since, until }),
+      }, "insights_demographics",
+    ).catch(() => [] as RawDemographic[]);
     const entityEdges: Array<[string, "campaign" | "adset" | "ad"]> = [["campaigns", "campaign"], ["adsets", "adset"], ["ads", "ad"]];
     const now = Date.now();
     const entityRequests = entityEdges.map(async ([edge, kind]) => {
@@ -103,8 +116,21 @@ export async function POST(request: Request) {
           meta_created_at: r.created_time ?? null,
       }));
     });
-    const [insights, entityGroups] = await Promise.all([insightsRequest, Promise.all(entityRequests)]);
+    const [insights, entityGroups, demographics] = await Promise.all([
+      insightsRequest,
+      Promise.all(entityRequests),
+      demographicsRequest,
+    ]);
     const entities = entityGroups.flat();
+    const demographicRows = demographics.map((r) => ({
+      day: r.date_start,
+      age: r.age || "unknown",
+      gender: r.gender || "unknown",
+      currency: r.account_currency,
+      spend: Number(r.spend),
+      impressions: Number(r.impressions),
+      clicks: metaLinkClicks(r),
+    }));
     const rows = insights.map((r) => ({
       workspace_id: v.workspace,
       integration_id: v.integration,
@@ -129,6 +155,7 @@ export async function POST(request: Request) {
       p_until: until,
       p_entities: entities,
       p_insights: rows,
+      p_demographics: demographicRows,
     });
     if (error) throw error;
     return NextResponse.json({

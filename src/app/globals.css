@@ -5639,6 +5639,60 @@ textarea {
   white-space: nowrap;
 }
 
+/* Vendas por País / Posicionamento / Demográficos ------------------------- */
+.utmify-triple-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 960px) {
+  .utmify-triple-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.utmify-age-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.utmify-age-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 34px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.utmify-age-label {
+  font-size: 0.78rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.utmify-age-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  overflow: hidden;
+}
+
+.utmify-age-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4C1FD6, #6D3EF2);
+}
+
+.utmify-age-pct {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Visão Geral por Dia ------------------------------------------------------ */
 .utmify-table-scroll {
   overflow-x: auto;

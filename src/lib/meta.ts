@@ -164,3 +164,14 @@ export type RawInsight = {
   actions?: { action_type: string; value: string }[];
   action_values?: { action_type: string; value: string }[];
 };
+// Quebra de idade/gênero pedida em nível de CONTA (não por anúncio), pra não
+// multiplicar o volume de linhas de utm_insights por combinação etária.
+export type RawDemographic = {
+  date_start: string;
+  account_currency: string;
+  spend: string;
+  impressions: string;
+  inline_link_clicks?: string;
+  age?: string;
+  gender?: string;
+};

@@ -81,6 +81,15 @@ export type PixelRuleRow = {
   enabled: boolean;
   created_at: string;
 };
+export type DemographicRow = {
+  day: string;
+  age: string;
+  gender: string;
+  currency: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+};
 export type Integration = {
   id: string;
   name: string;

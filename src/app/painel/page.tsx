@@ -17,6 +17,7 @@ import type {
   DashboardSummary,
   PixelRow,
   PixelRuleRow,
+  DemographicRow,
   DiagnosticRow,
   ShieldRow,
   ShieldLogRow,
@@ -160,6 +161,7 @@ export default async function Page({
   // a configured pixel was incorrectly treated as missing until navigation.
   const needsPixels = ["integracoes", "campanhas", "ofertas"].includes(activeTab);
   const needsPixelRules = activeTab === "integracoes";
+  const needsDemographics = activeTab === "visao";
   const needsSummary = ["visao", "campanhas"].includes(activeTab);
   const needsAlerts = activeTab === "alertas";
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
@@ -191,6 +193,7 @@ export default async function Page({
     logs,
     pixels,
     pixelRules,
+    demographics,
     summaryRes,
     alerts,
     diagnosticsRes,
@@ -279,6 +282,14 @@ export default async function Page({
               .eq("workspace_id", w.id)
               .order("created_at", { ascending: false })
           : empty,
+        needsDemographics
+          ? client
+              .from("utm_insights_demographics")
+              .select("day,age,gender,currency,spend,impressions,clicks")
+              .eq("workspace_id", w.id)
+              .gte("day", since.slice(0, 10))
+              .lte("day", until.slice(0, 10))
+          : empty,
         needsSummary
           ? client.rpc("utm_dashboard_summary", {
               p_workspace: w.id,
@@ -337,6 +348,7 @@ export default async function Page({
         { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
+        { data: [], error: null },
         { data: null, error: null },
         [] as AlertItem[],
         { data: [], error: null },
@@ -356,6 +368,7 @@ export default async function Page({
     { name: "logs", error: logs.error },
     { name: "pixels", error: pixels.error },
     { name: "pixelRules", error: pixelRules.error },
+    { name: "demographics", error: demographics.error },
     { name: "events", error: events.error },
   ];
 
@@ -397,6 +410,7 @@ export default async function Page({
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
       pixelRules={(pixelRules.data ?? []) as PixelRuleRow[]}
+      demographics={(demographics.data ?? []) as DemographicRow[]}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       shields={(shields.data ?? []) as ShieldRow[]}
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}

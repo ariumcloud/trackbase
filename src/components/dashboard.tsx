@@ -42,7 +42,6 @@ import {
   Code2,
   Package,
   Search,
-  Smartphone,
   CreditCard,
   UserCog,
   SlidersHorizontal,
@@ -89,7 +88,7 @@ import {
   type ExchangeRates,
 } from "@/lib/currency";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
-import { countryName, normalizeCountryCode } from "@/lib/country";
+import { normalizeCountryCode } from "@/lib/country";
 import { placementValue, sessionReference } from "@/lib/attribution";
 import type { AlertItem } from "@/lib/alerts";
 import type {
@@ -104,6 +103,7 @@ import type {
   DashboardSummary,
   PixelRow,
   PixelRuleRow,
+  DemographicRow,
   DiagnosticRow,
   ShieldRow,
   ShieldLogRow,
@@ -157,6 +157,7 @@ type Props = {
   logs: WebhookLog[];
   pixels: PixelRow[];
   pixelRules?: PixelRuleRow[];
+  demographics?: DemographicRow[];
   diagnostics?: DiagnosticRow[];
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
@@ -1458,6 +1459,8 @@ export function Dashboard(p: Props) {
                 changeProvider={changeProvider}
                 changeCurrency={changeCurrency}
                 metrics={metrics}
+                byPlacement={byPlacement}
+                demographics={p.demographics || []}
                 onRefresh={() => {
                   start(() => {
                     router.refresh();
@@ -1935,112 +1938,6 @@ export function Dashboard(p: Props) {
                     <Empty
                       title="Nenhum dado por tipo"
                       description="As vendas processadas aparecerão divididas por produto principal e adicionais."
-                    />
-                  )}
-                </section>
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Posicionamentos Mais Vendidos (Meta Ads)</h2>
-                      <p>Onde suas vendas acontecem: Stories, Feed, Reels ou Facebook</p>
-                    </div>
-                    {byPlacement.top && (
-                      <span
-                        className="chip"
-                        style={{
-                          background: "rgba(91, 52, 234, 0.12)",
-                          color: "#5B34EA",
-                          fontWeight: 700,
-                        }}
-                      >
-                        🏆 Top: {byPlacement.top.name}
-                      </span>
-                    )}
-                  </div>
-                  {byPlacement.list.length ? (
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Posicionamento</th>
-                            <th>Plataforma</th>
-                            <th>Vendas</th>
-                            <th>% Vendas</th>
-                            <th>Faturamento</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {byPlacement.list.map((item) => (
-                            <tr key={item.name}>
-                              <td>
-                                <strong>
-                                  {item.icon} {item.name}
-                                </strong>
-                              </td>
-                              <td>
-                                <span className="chip">{item.platform}</span>
-                              </td>
-                              <td>{item.count}</td>
-                              <td>
-                                <span
-                                  style={{
-                                    fontWeight: 700,
-                                    color: "#5B34EA",
-                                  }}
-                                >
-                                  {item.percentage.toFixed(1)}%
-                                </span>
-                              </td>
-                              <td>{money(item.revenue)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <Empty
-                      icon={Smartphone}
-                      title="Nenhuma venda com posicionamento ainda"
-                      description="Adicione utm_placement={{placement}} nos seus anúncios da Meta para saber exatamente onde vendeu (Stories, Feed, Reels)."
-                    />
-                  )}
-                </section>
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Desdobramento por País</h2>
-                      <p>Origem geográfica dos compradores com conversão</p>
-                    </div>
-                  </div>
-                  {Object.keys(byCountry).length ? (
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>País</th>
-                            <th>Vendas</th>
-                            <th>Receita</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(byCountry).map(([code, stats]) => (
-                            <tr key={code}>
-                              <td>
-                                <strong>{countryName(code)}</strong>
-                              </td>
-                              <td>{stats.count}</td>
-                              <td>{money(stats.revenue)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <Empty
-                      title="Nenhum dado geográfico"
-                      description="Conforme os pedidos chegarem via webhook, os países serão listados aqui."
                     />
                   )}
                 </section>

@@ -7,10 +7,20 @@ import {
   Calendar,
   ChevronDown,
 } from "lucide-react";
-import type { SaleRow, InsightRow, Offer, Integration } from "@/lib/types";
+import type { SaleRow, InsightRow, Offer, Integration, DemographicRow } from "@/lib/types";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 import { convertCurrencyAmount, type ExchangeRates } from "@/lib/currency";
 import { dayInZone } from "@/lib/metrics";
+import { countryName } from "@/lib/country";
+
+type PlacementItem = {
+  name: string;
+  platform: string;
+  icon: string;
+  count: number;
+  revenue: number;
+  percentage: number;
+};
 
 interface UtmifySummaryProps {
   sales: SaleRow[];
@@ -46,7 +56,10 @@ interface UtmifySummaryProps {
     clicks: number;
     pageviews: number;
     checkouts: number;
+    byCountry: Record<string, { count: number; revenue: number }>;
   };
+  byPlacement: { list: PlacementItem[]; top: Omit<PlacementItem, "percentage"> | null };
+  demographics: DemographicRow[];
   onRefresh: () => void;
   pending: boolean;
 }
@@ -67,6 +80,8 @@ export function UtmifySummary({
   selectedProvider,
   changeProvider,
   metrics,
+  byPlacement,
+  demographics,
   onRefresh,
   pending,
 }: UtmifySummaryProps) {
@@ -231,6 +246,21 @@ export function UtmifySummary({
       .sort((a, b) => b.day.localeCompare(a.day));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sales, insights, timezone, currency, exchangeRates]);
+
+  // Demográficos: distribuição de impressões por faixa etária, vinda direto
+  // do breakdown age/gender que o Meta retorna em nível de conta.
+  const byAge = useMemo(() => {
+    const map = new Map<string, number>();
+    let total = 0;
+    for (const row of demographics) {
+      const age = row.age === "unknown" ? "Não informado" : row.age;
+      map.set(age, (map.get(age) || 0) + row.impressions);
+      total += row.impressions;
+    }
+    return Array.from(map.entries())
+      .map(([age, impressions]) => ({ age, impressions, pct: total > 0 ? (impressions / total) * 100 : 0 }))
+      .sort((a, b) => b.impressions - a.impressions);
+  }, [demographics]);
 
   const getDateLabel = () => {
     if (period === "1") return "Hoje";
@@ -779,6 +809,86 @@ export function UtmifySummary({
             Nenhuma venda por aqui ainda.
           </p>
         )}
+      </div>
+
+      {/* 4.5 Vendas por País, Posicionamento e Demográficos */}
+      <div className="utmify-triple-row">
+        <div className="utmify-funnel-card">
+          <div className="utmify-card-header">
+            <h3 className="utmify-card-title">Vendas por País</h3>
+            <span className="utmify-info-icon" title="Origem geográfica dos compradores com conversão aprovada.">
+              <Info size={13} />
+            </span>
+          </div>
+          {Object.keys(metrics.byCountry).length > 0 ? (
+            <div className="utmify-product-list">
+              {Object.entries(metrics.byCountry)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, 6)
+                .map(([code, stats]) => (
+                  <div key={code} className="utmify-product-row">
+                    <span className="utmify-product-name">{countryName(code)}</span>
+                    <span className="utmify-product-count">{stats.count} {stats.count === 1 ? "venda" : "vendas"}</span>
+                    <span className="utmify-product-revenue">{formatMoney(stats.revenue)}</span>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>
+              Nenhum dado geográfico ainda.
+            </p>
+          )}
+        </div>
+
+        <div className="utmify-funnel-card">
+          <div className="utmify-card-header">
+            <h3 className="utmify-card-title">Vendas por Posicionamento</h3>
+            <span className="utmify-info-icon" title="Onde suas vendas acontecem: Stories, Feed, Reels ou Facebook.">
+              <Info size={13} />
+            </span>
+          </div>
+          {byPlacement.list.length > 0 ? (
+            <div className="utmify-product-list">
+              {byPlacement.list.slice(0, 6).map((item) => (
+                <div key={item.name} className="utmify-product-row">
+                  <span className="utmify-product-name" title={item.name}>{item.icon} {item.name}</span>
+                  <span className="utmify-product-count">{item.percentage.toFixed(1)}%</span>
+                  <span className="utmify-product-revenue">{formatMoney(item.revenue)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>
+              Adicione utm_placement={"{{placement}}"} nos seus anúncios da Meta para saber onde vendeu.
+            </p>
+          )}
+        </div>
+
+        <div className="utmify-funnel-card">
+          <div className="utmify-card-header">
+            <h3 className="utmify-card-title">Demográficos</h3>
+            <span className="utmify-info-icon" title="Distribuição de impressões por faixa etária, direto do Meta Ads.">
+              <Info size={13} />
+            </span>
+          </div>
+          {byAge.length > 0 ? (
+            <div className="utmify-age-list">
+              {byAge.map((item) => (
+                <div key={item.age} className="utmify-age-row">
+                  <span className="utmify-age-label">{item.age}</span>
+                  <div className="utmify-age-track">
+                    <div className="utmify-age-fill" style={{ width: `${item.pct}%` }} />
+                  </div>
+                  <span className="utmify-age-pct">{item.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>
+              Sincronize uma conta Meta Ads para ver a faixa etária do seu público.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 5. Visão Geral por Dia */}
