@@ -1,4 +1,5 @@
 "use client";
+import { IntegrationTester } from "./integration-tester";
 import { gatewayWebhookUrl } from "@/lib/webhook-url";
 import { plans, canUse, normalizePlan } from "@/lib/plans";
 import { useState, useTransition, useEffect, useCallback, useMemo, useRef } from "react";
@@ -2486,6 +2487,7 @@ export function Dashboard(p: Props) {
           )}
           {tab === "integracoes" && (
             <>
+              <IntegrationTester workspace={workspace} integrations={p.integrations} />
               {pendingMetaIntegration && (
                 <div className="meta-pending-banner">
                   <div className="meta-pending-info">

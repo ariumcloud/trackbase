@@ -1784,3 +1784,67 @@ export async function listMembersWithEmail(
   }
 }
 
+export type IntegrationTestStatus = {
+  pageview: boolean;
+  checkout: boolean;
+  sale: {
+    provider: string;
+    status: string;
+    occurredAt: string;
+    attributionMatched: boolean;
+  } | null;
+};
+
+/**
+ * Acompanha um teste de integração ponta a ponta: o link testado carrega um
+ * utm_content único ("tbtest_<token>"). Se essa marca aparecer numa venda
+ * aprovada, é prova de que o gateway devolveu o rastreamento e o criativo
+ * exato sobreviveu até a venda -- não uma suposição, o dado apareceu de
+ * verdade no webhook.
+ */
+export async function getIntegrationTestStatus(
+  workspace: string,
+  token: string,
+): Promise<IntegrationTestStatus | { error: string }> {
+  try {
+    const { client } = await authorize(workspace);
+    const marker = `tbtest_${token}`;
+    const [eventsRes, salesRes] = await Promise.all([
+      client
+        .from("utm_events")
+        .select("event_type, created_at")
+        .eq("workspace_id", workspace)
+        .contains("attribution", { utm_content: marker })
+        .order("created_at", { ascending: true })
+        .limit(20),
+      client
+        .from("utm_sales")
+        .select("provider, status, occurred_at, attribution")
+        .eq("workspace_id", workspace)
+        .contains("attribution", { utm_content: marker })
+        .order("occurred_at", { ascending: false })
+        .limit(1),
+    ]);
+    if (eventsRes.error) throw eventsRes.error;
+    if (salesRes.error) throw salesRes.error;
+    const events = eventsRes.data || [];
+    const saleRow = (salesRes.data || [])[0] as
+      | { provider: string; status: string; occurred_at: string; attribution: Record<string, string> | null }
+      | undefined;
+    return {
+      pageview: events.some((e) => e.event_type === "pageview"),
+      checkout: events.some((e) => e.event_type === "checkout"),
+      sale: saleRow
+        ? {
+            provider: saleRow.provider,
+            status: saleRow.status,
+            occurredAt: saleRow.occurred_at,
+            attributionMatched: saleRow.attribution?.utm_content === marker,
+          }
+        : null,
+    };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Não foi possível verificar o teste." };
+  }
+}
+
