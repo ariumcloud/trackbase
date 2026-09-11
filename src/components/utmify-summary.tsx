@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   RefreshCw,
   Info,
@@ -10,6 +10,7 @@ import {
 import type { SaleRow, InsightRow, Offer, Integration } from "@/lib/types";
 import { isApprovedSaleStatus, isRefundedSaleStatus } from "@/lib/sale-status";
 import { convertCurrencyAmount, type ExchangeRates } from "@/lib/currency";
+import { dayInZone } from "@/lib/metrics";
 
 interface UtmifySummaryProps {
   sales: SaleRow[];
@@ -18,6 +19,7 @@ interface UtmifySummaryProps {
   integrations: Integration[];
   currency: string;
   exchangeRates?: ExchangeRates | null;
+  timezone: string;
   period: string;
   changePeriod: (val: string) => void;
   selectedOffer: string;
@@ -40,6 +42,10 @@ interface UtmifySummaryProps {
     refundedCount: number;
     refundedAmount: number;
     refundRate: number | null;
+    impressions: number;
+    clicks: number;
+    pageviews: number;
+    checkouts: number;
   };
   onRefresh: () => void;
   pending: boolean;
@@ -47,10 +53,12 @@ interface UtmifySummaryProps {
 
 export function UtmifySummary({
   sales,
+  insights,
   offers,
   integrations,
   currency,
   exchangeRates,
+  timezone,
   changeCurrency,
   period,
   changePeriod,
@@ -157,6 +165,72 @@ export function UtmifySummary({
   const cardOffset = pixOffset + pPix * circumference;
   const boletoOffset = cardOffset + pCard * circumference;
   const otherOffset = boletoOffset + pBoleto * circumference;
+
+  const convertAmount = (amount: number | null | undefined, sourceCurrency: string | null | undefined) =>
+    convertCurrencyAmount(amount, sourceCurrency, currency, exchangeRates);
+
+  // Funil de Conversão: cada etapa é um dado que o Trackbase já rastreia de
+  // verdade (impressão/clique vêm do Meta, page view/checkout do tracker.js,
+  // compra do webhook do gateway) — nada aqui é estimado.
+  const funnelSteps = [
+    { name: "Impressões", value: metrics.impressions },
+    { name: "Cliques no Link", value: metrics.clicks },
+    { name: "Page View", value: metrics.pageviews },
+    { name: "Início Checkout", value: metrics.checkouts },
+    { name: "Compras", value: metrics.purchases },
+  ].map((step, i, arr) => ({
+    ...step,
+    pctOfPrevious: i === 0 || !arr[i - 1].value ? null : (step.value / arr[i - 1].value) * 100,
+  }));
+
+  // Top produtos por venda aprovada (ranking por oferta, não por tipo).
+  const byOffer = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; revenue: number }>();
+    for (const sale of approvedSales) {
+      const offer = offers.find((o) => o.id === sale.offer_id);
+      const name = offer?.name || "Produto removido";
+      const current = map.get(sale.offer_id) || { name, count: 0, revenue: 0 };
+      current.count += 1;
+      current.revenue += convertAmount(sale.gross_amount ?? sale.amount, sale.currency) ?? 0;
+      map.set(sale.offer_id, current);
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count || b.revenue - a.revenue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales, offers, currency, exchangeRates]);
+
+  // Visão Geral por Dia: junta o gasto/cliques/impressões do Meta (por dia)
+  // com as vendas aprovadas do próprio dia (mesmo fuso do workspace).
+  const dailyRows = useMemo(() => {
+    type DayAgg = { spend: number; clicks: number; impressions: number; revenue: number; count: number };
+    const map = new Map<string, DayAgg>();
+    const bucket = (day: string) => {
+      const current = map.get(day) || { spend: 0, clicks: 0, impressions: 0, revenue: 0, count: 0 };
+      map.set(day, current);
+      return current;
+    };
+    for (const insight of insights) {
+      const entry = bucket(insight.day);
+      entry.spend += convertAmount(insight.spend, insight.currency) ?? 0;
+      entry.clicks += Number(insight.clicks || 0);
+      entry.impressions += Number(insight.impressions || 0);
+    }
+    for (const sale of approvedSales) {
+      const entry = bucket(dayInZone(new Date(sale.occurred_at), timezone));
+      entry.revenue += convertAmount(sale.gross_amount ?? sale.amount, sale.currency) ?? 0;
+      entry.count += 1;
+    }
+    return Array.from(map.entries())
+      .map(([day, v]) => ({
+        day,
+        ...v,
+        roas: v.spend > 0 ? v.revenue / v.spend : null,
+        ctr: v.impressions > 0 ? (v.clicks / v.impressions) * 100 : null,
+        cpm: v.impressions > 0 ? (v.spend / v.impressions) * 1000 : null,
+        costPerSale: v.count > 0 && v.spend > 0 ? v.spend / v.count : null,
+      }))
+      .sort((a, b) => b.day.localeCompare(a.day));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales, insights, timezone, currency, exchangeRates]);
 
   const getDateLabel = () => {
     if (period === "1") return "Hoje";
@@ -486,6 +560,49 @@ export function UtmifySummary({
         )}
       </div>
 
+      {/* 2.5 Funil de Conversão */}
+      <div className="utmify-funnel-card">
+        <div className="utmify-card-header">
+          <h3 className="utmify-card-title">Funil de Conversão</h3>
+          <span className="utmify-info-icon" title="Cada etapa é medida de verdade: impressão e clique vêm do Meta, page view e checkout do tracker.js, compra do webhook do gateway.">
+            <Info size={13} />
+          </span>
+        </div>
+        <div className="utmify-funnel-labels">
+          {funnelSteps.map((step) => (
+            <span key={step.name}>{step.name}</span>
+          ))}
+        </div>
+        <div className="utmify-funnel-chart-wrap">
+          <svg className="utmify-funnel-chart" viewBox="0 0 1000 140" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="utmifyFunnelGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1000" y2="0">
+                <stop offset="0%" stopColor="#4C1FD6" />
+                <stop offset="55%" stopColor="#6D3EF2" />
+                <stop offset="100%" stopColor="#0E7C86" />
+              </linearGradient>
+            </defs>
+            <path
+              fill="url(#utmifyFunnelGrad)"
+              d="M 0,10 L 200,20.8 L 400,31.6 L 600,40 L 800,47.2 L 1000,52
+                 L 1000,88 L 800,92.8 L 600,100 L 400,108.4 L 200,119.2 L 0,130 Z"
+            />
+            <line className="utmify-funnel-divider" x1="200" y1="14" x2="200" y2="126" />
+            <line className="utmify-funnel-divider" x1="400" y1="24" x2="400" y2="116" />
+            <line className="utmify-funnel-divider" x1="600" y1="32" x2="600" y2="108" />
+            <line className="utmify-funnel-divider" x1="800" y1="40" x2="800" y2="100" />
+          </svg>
+          <div className="utmify-funnel-overlay">
+            {funnelSteps.map((step) => (
+              <div key={step.name} className="col">
+                <span className="count">{step.value.toLocaleString("pt-BR")}</span>
+                <span className="pct">{step.pctOfPrevious === null ? "base" : `${step.pctOfPrevious.toFixed(1)}%`}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* 3. Layout: Donut à Esquerda + 12 KPIs à Direita */}
       <div className="utmify-metrics-layout">
         {/* Coluna Esquerda: Donut Vendas por Pagamento */}
@@ -637,6 +754,71 @@ export function UtmifySummary({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* 4. Vendas por Produto (ranking por oferta) */}
+      <div className="utmify-funnel-card" style={{ marginTop: "1.25rem" }}>
+        <div className="utmify-card-header">
+          <h3 className="utmify-card-title">Vendas por Produto</h3>
+          <span className="utmify-info-icon" title="Ranking de ofertas por número de vendas aprovadas no período.">
+            <Info size={13} />
+          </span>
+        </div>
+        {byOffer.length > 0 ? (
+          <div className="utmify-product-list">
+            {byOffer.slice(0, 6).map((item) => (
+              <div key={item.name} className="utmify-product-row">
+                <span className="utmify-product-name" title={item.name}>{item.name}</span>
+                <span className="utmify-product-count">{item.count} {item.count === 1 ? "venda" : "vendas"}</span>
+                <span className="utmify-product-revenue">{formatMoney(item.revenue)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>
+            Nenhuma venda por aqui ainda.
+          </p>
+        )}
+      </div>
+
+      {/* 5. Visão Geral por Dia */}
+      <div className="utmify-funnel-card" style={{ marginTop: "1.25rem" }}>
+        <div className="utmify-card-header">
+          <h3 className="utmify-card-title">Visão Geral por Dia</h3>
+          <span className="utmify-info-icon" title="Gasto e cliques vêm do Meta Ads; vendas e faturamento vêm das vendas aprovadas do próprio dia.">
+            <Info size={13} />
+          </span>
+        </div>
+        {dailyRows.length > 0 ? (
+          <div className="utmify-table-scroll">
+            <table className="utmify-daily-table">
+              <thead>
+                <tr>
+                  <th>Dia</th><th>Gasto</th><th>ROAS</th><th>CTR</th><th>Cliques</th>
+                  <th>Custo/Compra</th><th>CPM</th><th>Compras</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyRows.map((row) => (
+                  <tr key={row.day}>
+                    <td>{row.day.slice(8, 10)}/{row.day.slice(5, 7)}</td>
+                    <td>{formatMoney(row.spend)}</td>
+                    <td>{row.roas !== null ? `${row.roas.toFixed(2)}x` : "—"}</td>
+                    <td>{row.ctr !== null ? `${row.ctr.toFixed(2)}%` : "—"}</td>
+                    <td>{row.clicks.toLocaleString("pt-BR")}</td>
+                    <td>{row.costPerSale !== null ? formatMoney(row.costPerSale) : "—"}</td>
+                    <td>{row.cpm !== null ? formatMoney(row.cpm) : "—"}</td>
+                    <td>{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: "var(--muted)" }}>
+            Nenhum dado no período selecionado.
+          </p>
+        )}
       </div>
     </div>
   );

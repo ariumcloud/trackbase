@@ -5513,6 +5513,174 @@ textarea {
 }
 
 /* ==========================================================================
+   Funil de Conversão — faixa horizontal facetada (linhas retas, não a curva
+   suave "rio" que a UTMify usa), terminando em teal em vez de rosa/magenta.
+   Métricas ficam sobrepostas na própria faixa, não numa lista separada.
+   ========================================================================== */
+.utmify-funnel-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.utmify-funnel-labels {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-top: 0.6rem;
+}
+
+.utmify-funnel-labels span {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.utmify-funnel-chart-wrap {
+  position: relative;
+  margin-top: 0.5rem;
+}
+
+.utmify-funnel-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.utmify-funnel-chart .utmify-funnel-divider {
+  stroke: rgba(20, 10, 35, 0.22);
+  stroke-width: 1.5;
+}
+
+[data-theme="dark"] .utmify-funnel-chart .utmify-funnel-divider {
+  stroke: rgba(255, 255, 255, 0.28);
+}
+
+.utmify-funnel-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  pointer-events: none;
+}
+
+.utmify-funnel-overlay .col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.utmify-funnel-overlay .count {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.utmify-funnel-overlay .pct {
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 640px) {
+  .utmify-funnel-labels span { font-size: 0.52rem; }
+  .utmify-funnel-overlay .count { font-size: 0.75rem; }
+}
+
+/* Vendas por Produto (ranking por oferta) --------------------------------- */
+.utmify-product-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.utmify-product-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+}
+
+.utmify-product-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.utmify-product-count {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.utmify-product-revenue {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Visão Geral por Dia ------------------------------------------------------ */
+.utmify-table-scroll {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+table.utmify-daily-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 620px;
+}
+
+table.utmify-daily-table th {
+  text-align: left;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  padding: 0 0.6rem 0.5rem;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+table.utmify-daily-table td {
+  padding: 0.55rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--ink);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+table.utmify-daily-table td:first-child {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+table.utmify-daily-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ==========================================================================
    UTMIFY CAMPANHAS VIEW STYLES
    ========================================================================== */
 .utmify-campanhas-wrap {

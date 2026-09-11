@@ -1449,6 +1449,7 @@ export function Dashboard(p: Props) {
                 integrations={p.integrations}
                 currency={currency}
                 exchangeRates={exchangeRates}
+                timezone={timezone}
                 period={period}
                 changePeriod={changePeriod}
                 selectedOffer={offer}
