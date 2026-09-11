@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 function isInternalHost(hostname: string | undefined, appHost: string | null): boolean {
@@ -73,31 +73,40 @@ export async function middleware(request: NextRequest) {
       // Faz o rewrite transparente mantendo o domínio do cliente na barra do navegador
       const url = request.nextUrl.clone();
       url.pathname = `/s/${hostname}`;
-      return NextResponse.rewrite(url);
+      const rewriteHeaders = new Headers(request.headers);
+      rewriteHeaders.delete("x-tb-auth-user");
+      return NextResponse.rewrite(url, { request: { headers: rewriteHeaders } });
     }
   }
 
-  const response = NextResponse.next({ request });
+  // /login has no auth-dependent logic (AuthForm never reads the session),
+  // and /auth/callback exchanges its own code via a separate Supabase call
+  // that doesn't touch this cookie-refresh step either -- both used to pay
+  // for a getUser() round-trip here for nothing, right on the sign-in path.
   const needsAuth =
     pathname.startsWith("/painel") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/login") ||
     pathname.startsWith("/api/meta") ||
-    pathname.startsWith("/api/settings") ||
-    pathname.startsWith("/auth");
+    pathname.startsWith("/api/settings");
+
+  // Strip this on every path we don't compute it for ourselves below, so a
+  // client can never inject a value that downstream code (getAuthUser) would
+  // mistake for a value middleware actually verified against Supabase Auth.
+  const passthroughHeaders = new Headers(request.headers);
+  passthroughHeaders.delete("x-tb-auth-user");
 
   if (!needsAuth) {
-    return response;
+    return NextResponse.next({ request: { headers: passthroughHeaders } });
   }
 
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   ) {
-    return response;
+    return NextResponse.next({ request: { headers: passthroughHeaders } });
   }
 
-  let sessionResponse = response;
+  let pendingCookies: { name: string; value: string; options?: CookieOptions }[] = [];
   const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -107,15 +116,29 @@ export async function middleware(request: NextRequest) {
         getAll: () => request.cookies.getAll(),
         setAll: (items) => {
           items.forEach(({ name, value }) => request.cookies.set(name, value));
-          sessionResponse = NextResponse.next({ request });
-          items.forEach(({ name, value, options }) =>
-            sessionResponse.cookies.set(name, value, options),
-          );
+          pendingCookies = items;
         },
       },
     },
   );
-  await client.auth.getUser();
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+
+  // getAuthUser() (src/lib/platform-admin.ts) reads this instead of calling
+  // auth.getUser() again on every /painel and /admin page render -- that
+  // second call was a full extra round-trip to Supabase Auth on top of this
+  // one, doubling the auth latency on every protected page load and on login.
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set(
+    "x-tb-auth-user",
+    user ? Buffer.from(JSON.stringify(user)).toString("base64") : "",
+  );
+
+  const sessionResponse = NextResponse.next({ request: { headers: forwardedHeaders } });
+  pendingCookies.forEach(({ name, value, options }) =>
+    sessionResponse.cookies.set(name, value, options),
+  );
   return sessionResponse;
 }
 

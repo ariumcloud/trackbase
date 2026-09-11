@@ -1,12 +1,31 @@
 import "server-only";
 import { cache } from "react";
+import { headers } from "next/headers";
+import type { User } from "@supabase/supabase-js";
 import { db, admin } from "./supabase/server";
 
 /**
  * Memoized per-request authenticated user lookup.
- * Eliminates duplicate network calls across layout, page, and server helpers.
+ *
+ * middleware.ts already calls auth.getUser() for every /painel and /admin
+ * request (that's a real network round-trip to Supabase Auth, needed to
+ * validate the JWT and refresh the session cookie) and forwards the
+ * validated result via the x-tb-auth-user request header -- middleware
+ * always overwrites or strips that header itself, so a client can never
+ * forge it. Reusing it here avoids paying for that same round-trip twice
+ * on every protected page load. If the header is absent (a caller outside
+ * the paths middleware covers), fall back to a real check.
  */
 export const getAuthUser = cache(async () => {
+  const forwarded = (await headers()).get("x-tb-auth-user");
+  if (forwarded !== null) {
+    if (!forwarded) return null;
+    try {
+      return JSON.parse(Buffer.from(forwarded, "base64").toString("utf-8")) as User;
+    } catch {
+      // Malformed value: fall through to a real check rather than trust it.
+    }
+  }
   const client = await db();
   const {
     data: { user },
