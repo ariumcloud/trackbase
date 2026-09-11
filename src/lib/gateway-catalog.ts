@@ -58,7 +58,15 @@ async function kiwifyToken(credentials: GatewayCredentials) {
 }
 
 async function hotmartToken(credentials: GatewayCredentials) {
-  if (!credentials.basicToken) throw new GatewayCatalogError("Informe o token Basic da credencial Hotmart.");
+  // Hotmart's "Basic Token" is just base64(client_id:client_secret) — the
+  // standard OAuth2 "client_secret_basic" scheme — shown pre-computed on
+  // their credentials screen for convenience, not a separate secret. Some
+  // saved credentials may already carry one from before this was computed
+  // automatically; honor it rather than force a re-save, but never require a
+  // new caller to look it up and paste it in by hand.
+  const basicToken =
+    credentials.basicToken ||
+    Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64");
   const query = new URLSearchParams({
     grant_type: "client_credentials",
     client_id: credentials.clientId,
@@ -66,7 +74,7 @@ async function hotmartToken(credentials: GatewayCredentials) {
   });
   const response = await fetch(`https://api-sec-vlc.hotmart.com/security/oauth/token?${query}`, {
     method: "POST",
-    headers: { Authorization: `Basic ${credentials.basicToken}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Basic ${basicToken}`, "Content-Type": "application/json" },
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
   });

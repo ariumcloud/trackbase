@@ -731,7 +731,8 @@ export function GatewayConnectForm({
           {provider === "hotmart" && (
             <>
               <li>Abra o painel da Hotmart e entre em <b>Ferramentas &gt; Credenciais de API</b>.</li>
-              <li>Crie uma aplicação e copie <b>Client ID</b>, <b>Client Secret</b> e o <b>Token Basic</b>.</li>
+              <li>Crie uma aplicação e copie <b>Client ID</b> e <b>Client Secret</b>.</li>
+              <li>O <b>Hottok</b> fica numa tela diferente: <b>Ferramentas &gt; Webhook &gt; Autenticação</b>. Pode buscar os produtos primeiro e colar o Hottok depois, no próximo passo.</li>
               <li>Após buscar os produtos e importar, você receberá o link do Webhook para ativar as vendas.</li>
             </>
           )}
@@ -771,12 +772,6 @@ export function GatewayConnectForm({
         <label>
           Account ID da Kiwify
           <input name="account_id" autoComplete="off" required disabled={loading} />
-        </label>
-      )}
-      {provider === "hotmart" && (
-        <label>
-          Token Basic da Hotmart
-          <input name="basic_token" type="password" autoComplete="new-password" required disabled={loading} />
         </label>
       )}
       <label>
