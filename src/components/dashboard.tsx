@@ -341,6 +341,9 @@ export function Dashboard(p: Props) {
     [newRuleTrigger, setNewRuleTrigger] = useState<string>("page_load"),
     [webhookLogsExpanded, setWebhookLogsExpanded] = useState(false),
     [pixelSectionExpanded, setPixelSectionExpanded] = useState(false),
+    [integrationsSubTab, setIntegrationsSubTab] = useState<
+      "contas" | "webhooks" | "pixel" | "testes"
+    >("contas"),
     [accountView, setAccountView] = useState<null | "assinatura" | "conta" | "avancado">(null),
     [accountMenuOpen, setAccountMenuOpen] = useState(false),
     [pending, start] = useTransition();
@@ -2102,7 +2105,7 @@ export function Dashboard(p: Props) {
                         color: "var(--ink, #0F172A)",
                       }}
                     >
-                      Script Universal do Workspace (Padrão UTMify)
+                      Um script só rastreia todas as suas ofertas
                     </strong>
                   </div>
                   <p
@@ -2114,7 +2117,7 @@ export function Dashboard(p: Props) {
                       lineHeight: "1.45",
                     }}
                   >
-                    Você <strong>não precisa</strong> colar scripts separados para cada produto! Basta colar este <strong>único script universal</strong> na tag <code>&lt;head&gt;</code> do seu site para rastrear todas as suas ofertas, order bumps e checkouts.
+                    Você <strong>não precisa</strong> colar scripts separados para cada produto! O script e o pixel ficam reunidos em <strong>Integrações e Pixels → Pixel &amp; Script</strong>, prontos para copiar de uma vez.
                   </p>
                 </div>
                 <div
@@ -2125,27 +2128,16 @@ export function Dashboard(p: Props) {
                     flexWrap: "wrap",
                   }}
                 >
-                  <Clipboard
-                    value={`<script src="${p.appUrl}/tracker.js" data-key="${universalKey}" defer></script>`}
-                    label="Copiar Script Universal"
-                    className="button primary"
-                  />
                   <button
                     type="button"
-                    className="button secondary"
-                    onClick={() =>
-                      setViewingPixelSnippet(
-                        configuredPixel?.id || "universal",
-                      )
-                    }
-                    title={
-                      configuredPixel
-                        ? "Ver código do Meta Pixel + Trackbase juntos"
-                        : "Configure um Pixel da Meta antes de copiar o código"
-                    }
+                    className="button primary"
+                    onClick={() => {
+                      setIntegrationsSubTab("pixel");
+                      selectTab("integracoes");
+                    }}
                   >
                     <Code2 size={14} style={{ marginRight: "0.3rem" }} />
-                    Ver com Meta Pixel
+                    Ir para Pixel &amp; Script
                   </button>
                 </div>
               </div>
@@ -2487,7 +2479,26 @@ export function Dashboard(p: Props) {
           )}
           {tab === "integracoes" && (
             <>
-              <IntegrationTester workspace={workspace} integrations={p.integrations} />
+              <div className="integrations-subtabs">
+                {[
+                  { id: "contas" as const, name: "Contas e Gateways" },
+                  { id: "webhooks" as const, name: "Webhooks" },
+                  { id: "pixel" as const, name: "Pixel & Script" },
+                  { id: "testes" as const, name: "Testes" },
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    className={`integrations-subtab${integrationsSubTab === st.id ? " active" : ""}`}
+                    onClick={() => setIntegrationsSubTab(st.id)}
+                  >
+                    {st.name}
+                  </button>
+                ))}
+              </div>
+              {integrationsSubTab === "testes" && (
+                <IntegrationTester workspace={workspace} integrations={p.integrations} />
+              )}
               {pendingMetaIntegration && (
                 <div className="meta-pending-banner">
                   <div className="meta-pending-info">
@@ -2508,6 +2519,8 @@ export function Dashboard(p: Props) {
                   </button>
                 </div>
               )}
+              {integrationsSubTab === "contas" && (
+              <>
               <div className="integration-grid">
                 {[
                   {
@@ -2690,6 +2703,10 @@ export function Dashboard(p: Props) {
                   </div>
                 </section>
               )}
+              </>
+              )}
+              {integrationsSubTab === "webhooks" && (
+              <>
               <section className="panel">
                 <div className="panel-heading">
                   <div>
@@ -2791,7 +2808,11 @@ export function Dashboard(p: Props) {
                   Remover somente vendas marcadas como teste
                 </button>
               )}
+              </>
+              )}
 
+              {integrationsSubTab === "pixel" && (
+              <>
               <section className="panel" style={{ marginTop: "1.5rem" }}>
                 <div className="panel-heading">
                   <div>
@@ -3256,6 +3277,8 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     </div>
                   </div>
                 </section>
+              )}
+              </>
               )}
 
               <section className="panel" style={{ background: "linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.08) 100%)", border: "1px solid var(--brand-border, #C7D2FE)" }}>
