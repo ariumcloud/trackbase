@@ -5513,8 +5513,8 @@ textarea {
 }
 
 /* ==========================================================================
-   Funil de Conversão — faixa horizontal facetada (linhas retas, não a curva
-   suave "rio" que a UTMify usa), terminando em teal em vez de rosa/magenta.
+   Funil de Conversão — onda suave com a largura de cada trecho proporcional
+   ao dado real (não decorativa), terminando em teal em vez de rosa/magenta.
    Métricas ficam sobrepostas na própria faixa, não numa lista separada.
    ========================================================================== */
 .utmify-funnel-card {

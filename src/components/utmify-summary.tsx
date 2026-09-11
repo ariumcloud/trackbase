@@ -198,6 +198,34 @@ export function UtmifySummary({
     pctOfPrevious: i === 0 || !arr[i - 1].value ? null : (step.value / arr[i - 1].value) * 100,
   }));
 
+  // A largura de cada trecho do funil reflete a proporção real do dado (igual
+  // à UTMify: se caiu de 30 page views pra 2 checkouts, o trecho fica bem
+  // fino) — nunca um decorativo fixo. Uma altura mínima garante que uma
+  // etapa pequena ainda apareça como uma faixa visível, não uma linha zero.
+  const FUNNEL_MIN_HALF = 6;
+  const FUNNEL_MAX_HALF = 62;
+  const funnelBaseline = funnelSteps[0].value;
+  const funnelHalfHeights = funnelSteps.map((step) => {
+    const ratio = funnelBaseline > 0 ? Math.min(1, step.value / funnelBaseline) : 0;
+    return FUNNEL_MIN_HALF + ratio * (FUNNEL_MAX_HALF - FUNNEL_MIN_HALF);
+  });
+  const funnelPath = (() => {
+    const xs = [0, 250, 500, 750, 1000];
+    const center = 70;
+    const ctrl = 83; // ~1/3 do espaçamento entre pontos, pra uma curva em "onda"
+    const top = xs.map((x, i) => [x, center - funnelHalfHeights[i]] as const);
+    const bottom = xs.map((x, i) => [x, center + funnelHalfHeights[i]] as const);
+    let d = `M ${top[0][0]},${top[0][1]}`;
+    for (let i = 1; i < top.length; i++) {
+      d += ` C ${top[i - 1][0] + ctrl},${top[i - 1][1]} ${top[i][0] - ctrl},${top[i][1]} ${top[i][0]},${top[i][1]}`;
+    }
+    d += ` L ${bottom[bottom.length - 1][0]},${bottom[bottom.length - 1][1]}`;
+    for (let i = bottom.length - 2; i >= 0; i--) {
+      d += ` C ${bottom[i + 1][0] - ctrl},${bottom[i + 1][1]} ${bottom[i][0] + ctrl},${bottom[i][1]} ${bottom[i][0]},${bottom[i][1]}`;
+    }
+    return `${d} Z`;
+  })();
+
   // Top produtos por venda aprovada (ranking por oferta, não por tipo).
   const byOffer = useMemo(() => {
     const map = new Map<string, { name: string; count: number; revenue: number }>();
@@ -612,15 +640,11 @@ export function UtmifySummary({
                 <stop offset="100%" stopColor="#0E7C86" />
               </linearGradient>
             </defs>
-            <path
-              fill="url(#utmifyFunnelGrad)"
-              d="M 0,10 L 200,20.8 L 400,31.6 L 600,40 L 800,47.2 L 1000,52
-                 L 1000,88 L 800,92.8 L 600,100 L 400,108.4 L 200,119.2 L 0,130 Z"
-            />
-            <line className="utmify-funnel-divider" x1="200" y1="14" x2="200" y2="126" />
-            <line className="utmify-funnel-divider" x1="400" y1="24" x2="400" y2="116" />
-            <line className="utmify-funnel-divider" x1="600" y1="32" x2="600" y2="108" />
-            <line className="utmify-funnel-divider" x1="800" y1="40" x2="800" y2="100" />
+            <path fill="url(#utmifyFunnelGrad)" d={funnelPath} />
+            <line className="utmify-funnel-divider" x1="200" y1="4" x2="200" y2="136" />
+            <line className="utmify-funnel-divider" x1="400" y1="4" x2="400" y2="136" />
+            <line className="utmify-funnel-divider" x1="600" y1="4" x2="600" y2="136" />
+            <line className="utmify-funnel-divider" x1="800" y1="4" x2="800" y2="136" />
           </svg>
           <div className="utmify-funnel-overlay">
             {funnelSteps.map((step) => (
