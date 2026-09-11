@@ -76,12 +76,27 @@ export function SalesNotifier({ workspaceId }: Props) {
 
     navigator.serviceWorker.addEventListener("message", handleMessage);
 
+    // iOS Safari não reporta de forma confiável se uma aba está em foco através
+    // de clients.matchAll() dentro do Service Worker — o próprio WebKit tem
+    // esse gap. A única fonte confiável é a página avisando ativamente, então
+    // ela informa o Service Worker sempre que ganha ou perde foco/visibilidade.
+    const broadcastFocusState = () => {
+      const focused = document.visibilityState === "visible" && document.hasFocus();
+      navigator.serviceWorker.controller?.postMessage({ type: "APP_FOCUS_STATE", focused });
+    };
+    document.addEventListener("visibilitychange", broadcastFocusState);
+    window.addEventListener("focus", broadcastFocusState);
+    window.addEventListener("blur", broadcastFocusState);
+    navigator.serviceWorker.addEventListener("controllerchange", broadcastFocusState);
+
     // Registra e sincroniza o Service Worker se houver suporte a PushManager
     if ("PushManager" in window) {
       navigator.serviceWorker
-        .register("/sw.js?v=9cabea6-foreground-mute", { updateViaCache: "none" })
+        .register("/sw.js?v=e704532-focus-broadcast", { updateViaCache: "none" })
         .then(async (registration) => {
           await registration.update();
+          await navigator.serviceWorker.ready;
+          broadcastFocusState();
           const subscription = await registration.pushManager.getSubscription();
           if (!subscription) {
             setIsSubscribed(false);
@@ -131,6 +146,10 @@ export function SalesNotifier({ workspaceId }: Props) {
 
     return () => {
       navigator.serviceWorker.removeEventListener("message", handleMessage);
+      document.removeEventListener("visibilitychange", broadcastFocusState);
+      window.removeEventListener("focus", broadcastFocusState);
+      window.removeEventListener("blur", broadcastFocusState);
+      navigator.serviceWorker.removeEventListener("controllerchange", broadcastFocusState);
     };
   }, [playKaching, workspaceId]);
 

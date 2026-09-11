@@ -7,6 +7,20 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// iOS Safari does not reliably report WindowClient.focused/visibilityState to
+// the service worker (a known WebKit gap), so the client-id -> focused map
+// below is fed only by the page itself, which broadcasts its real focus state
+// on load, on visibilitychange and on focus/blur. A stale entry for a tab
+// that has since closed is harmless: it's only ever read filtered against the
+// current clients.matchAll() list, so a closed tab's id simply won't match.
+const focusedClients = new Map();
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "APP_FOCUS_STATE" && event.source) {
+    focusedClients.set(event.source.id, Boolean(event.data.focused));
+  }
+});
+
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -45,12 +59,19 @@ self.addEventListener("push", (event) => {
       // plano, a própria página acabou de tocar o som real (acima); mostrar
       // TAMBÉM a notificação do sistema aqui só duplica o alerta com o som
       // errado por cima do correto. Só mostramos a notificação do SO quando
-      // nenhuma aba visível e focada existe — ou seja, quando o usuário
-      // realmente não está olhando para o app.
-      const hasFocusedVisibleClient = clientList.some(
-        (client) => client.focused && client.visibilityState === "visible",
-      );
-      if (hasFocusedVisibleClient) return null;
+      // nenhuma aba em foco existe — ou seja, quando o usuário realmente não
+      // está olhando para o app. O estado de foco vem do mapa alimentado pela
+      // própria página (ver listener de "message" acima), não de
+      // client.focused/visibilityState, que o WebKit não reporta direito.
+      const hasFocusedClient = clientList.some((client) => focusedClients.get(client.id) === true);
+      console.log("[trackbase-push]", {
+        clientCount: clientList.length,
+        clientIds: clientList.map((c) => c.id),
+        focusMap: Array.from(focusedClients.entries()),
+        hasFocusedClient,
+        decision: hasFocusedClient ? "custom sound only" : "OS notification (default sound)",
+      });
+      if (hasFocusedClient) return null;
 
       return self.registration.showNotification(title, options);
     });
