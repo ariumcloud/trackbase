@@ -195,7 +195,8 @@ export function GatewayConnectForm({
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [message, setMessage] = useState("");
-  const [imported, setImported] = useState<{ integrationId: string; productName: string } | null>(null);
+  const [imported, setImported] = useState<Array<{ integrationId: string; productName: string }> | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [generatedWebhookUrl, setGeneratedWebhookUrl] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState<"webhook" | "api">("webhook");
   const [showSecretInput, setShowSecretInput] = useState(false);
@@ -519,9 +520,10 @@ export function GatewayConnectForm({
     );
   }
 
-  if (imported) {
+  if (imported && imported.length === 1) {
     const cfg = providerWebhookConfig[provider as CatalogProvider];
-    const webhookUrl = gatewayWebhookUrl(appUrl, provider, imported.integrationId);
+    const single = imported[0];
+    const webhookUrl = gatewayWebhookUrl(appUrl, provider, single.integrationId);
     return (
       <div className="gateway-next-step">
         <span className="gateway-next-step-kicker">PRODUTO IMPORTADO</span>
@@ -533,14 +535,14 @@ export function GatewayConnectForm({
         <ol className="gateway-webhook-steps">
           <li>
             <strong>Abra os Webhooks da {providerNames[provider]}.</strong>
-            <span>{cfg.step1Text(imported.productName)}</span>
+            <span>{cfg.step1Text(single.productName)}</span>
             <a href={cfg.dashboardUrl} target="_blank" rel="noreferrer">
               {cfg.dashboardLabel} <span aria-hidden="true">↗</span>
             </a>
           </li>
           <li>
             <strong>Cole esta URL e selecione o produto.</strong>
-            <span>Escolha “{imported.productName}” no campo Produtos. Esta URL pertence somente a esta integração; outro produto precisa do próprio endereço.</span>
+            <span>Escolha “{single.productName}” no campo Produtos. Esta URL pertence somente a esta integração; outro produto precisa do próprio endereço.</span>
             <div className="gateway-webhook-url">
               <code>{webhookUrl}</code>
               <button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)}>
@@ -566,7 +568,7 @@ export function GatewayConnectForm({
             event.preventDefault();
             const secret = String(new FormData(event.currentTarget).get("secret") || "");
             start(async () => {
-              const result = await saveGatewayWebhookSecret(workspace, imported.integrationId, secret);
+              const result = await saveGatewayWebhookSecret(workspace, single.integrationId, secret);
               if (result.error) {
                 setMessage(result.error);
                 return;
@@ -606,6 +608,44 @@ export function GatewayConnectForm({
     );
   }
 
+  if (imported && imported.length > 1) {
+    const cfg = providerWebhookConfig[provider as CatalogProvider];
+    return (
+      <div className="gateway-next-step">
+        <span className="gateway-next-step-kicker">{imported.length} PRODUTOS IMPORTADOS</span>
+        <h3>Falta conectar as vendas de cada produto.</h3>
+        <p>
+          A {providerNames[provider]} exige um Webhook próprio por produto — copie cada URL abaixo e cadastre em{" "}
+          <b>{cfg.dashboardLabel}</b>, selecionando o produto correspondente e marcando{" "}
+          <b>{cfg.eventsText}</b>. Depois cole o {cfg.tokenName} de cada um a qualquer momento, editando a
+          integração na lista de conexões.
+        </p>
+        <a href={cfg.dashboardUrl} target="_blank" rel="noreferrer">
+          {cfg.dashboardLabel} <span aria-hidden="true">↗</span>
+        </a>
+        <div style={{ display: "grid", gap: "0.6rem", marginTop: "0.85rem" }}>
+          {imported.map((item) => {
+            const webhookUrl = gatewayWebhookUrl(appUrl, provider, item.integrationId);
+            return (
+              <div key={item.integrationId} className="gateway-webhook-url" style={{ flexDirection: "column", alignItems: "stretch", gap: "4px" }}>
+                <strong style={{ fontSize: "0.82rem" }}>{item.productName}</strong>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <code style={{ flex: 1 }}>{webhookUrl}</code>
+                  <button type="button" onClick={() => navigator.clipboard.writeText(webhookUrl)}>
+                    Copiar URL
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button className="button primary" style={{ marginTop: "1rem", width: "100%" }} type="button" onClick={onSuccess}>
+          Concluir e fechar
+        </button>
+      </div>
+    );
+  }
+
   const fetchProducts = (form: HTMLFormElement) => {
     const data = new FormData(form);
     setMessage("");
@@ -629,9 +669,10 @@ export function GatewayConnectForm({
         return;
       }
       setProducts(result.products || []);
+      setSelectedProductIds([]);
       setMessage(
         result.products?.length
-          ? "Escolha o produto para importar."
+          ? "Marque os produtos que deseja importar."
           : "Nenhum produto ativo foi encontrado nessa conta.",
       );
     });
@@ -643,39 +684,44 @@ export function GatewayConnectForm({
         className="gateway-next-step"
         onSubmit={(event) => {
           event.preventDefault();
-          const productId = String(new FormData(event.currentTarget).get("external_product_id") || "");
+          if (!selectedProductIds.length) return;
           start(async () => {
-            const result = await connectAdditionalGatewayProduct(workspace, existingIntegrationId, productId);
+            const result = await connectAdditionalGatewayProduct(workspace, existingIntegrationId, selectedProductIds);
             if (result.error) {
               setMessage(result.error);
               return;
             }
-            const product = products.find((item) => item.externalProductId === productId);
-            if (result.integrationId) {
-              setImported({
-                integrationId: result.integrationId,
-                productName: product?.name || "seu produto",
-              });
+            if (result.items?.length) {
+              setImported(result.items);
             }
           });
         }}
       >
         <span className="gateway-next-step-kicker">CONEXÃO JÁ SALVA</span>
-        <h3>Adicione outro produto da {providerNames[provider]}.</h3>
-        <p>As credenciais já estão protegidas na Trackbase. Escolha apenas o produto que deseja acompanhar.</p>
-        <label>
-          Produto para importar
-          <select name="external_product_id" required disabled={loading}>
-            {products.map((product) => (
-              <option key={product.externalProductId} value={product.externalProductId}>
-                {product.name} · {product.currency}
-              </option>
-            ))}
-          </select>
-        </label>
+        <h3>Adicione outros produtos da {providerNames[provider]}.</h3>
+        <p>As credenciais já estão protegidas na Trackbase. Marque quantos produtos quiser acompanhar de uma vez.</p>
+        <div className="gateway-product-checklist">
+          {products.map((product) => (
+            <label key={product.externalProductId} className="gateway-product-checkbox">
+              <input
+                type="checkbox"
+                checked={selectedProductIds.includes(product.externalProductId)}
+                disabled={loading}
+                onChange={(event) => {
+                  setSelectedProductIds((current) =>
+                    event.target.checked
+                      ? [...current, product.externalProductId]
+                      : current.filter((id) => id !== product.externalProductId),
+                  );
+                }}
+              />
+              {product.name} · {product.currency}
+            </label>
+          ))}
+        </div>
         {!products.length && !message && <p className="form-help">Carregando produtos…</p>}
-        <button className="button primary" disabled={loading || !products.length}>
-          {loading ? "Carregando…" : "Adicionar produto"}
+        <button className="button primary" disabled={loading || !selectedProductIds.length}>
+          {loading ? "Carregando…" : selectedProductIds.length > 1 ? `Adicionar ${selectedProductIds.length} produtos` : "Adicionar produto"}
         </button>
         {message && <p className="form-message" role="status">{message}</p>}
       </form>
@@ -688,6 +734,10 @@ export function GatewayConnectForm({
         event.preventDefault();
         const form = event.currentTarget;
         if (!products.length) return fetchProducts(form);
+        if (!selectedProductIds.length) {
+          setMessage("Marque ao menos um produto para importar.");
+          return;
+        }
         setMessage("");
         start(async () => {
           const result = await connectImportedGateway(workspace, new FormData(form));
@@ -695,13 +745,8 @@ export function GatewayConnectForm({
             setMessage(result.error);
             return;
           }
-          if (result.integrationId) {
-            const selectedProductId = String(new FormData(form).get("external_product_id") || "");
-            const product = products.find((item) => item.externalProductId === selectedProductId);
-            setImported({
-              integrationId: result.integrationId,
-              productName: product?.name || "seu produto",
-            });
+          if (result.items?.length) {
+            setImported(result.items);
             return;
           }
           onSuccess();
@@ -792,19 +837,39 @@ export function GatewayConnectForm({
         No próximo passo, exibiremos a URL exclusiva do webhook para você cadastrar na {providerNames[provider]} e ativar os eventos.
       </p>
       {products.length > 0 && (
-        <label>
-          Produto para importar
-          <select name="external_product_id" required disabled={loading}>
+        <>
+          <p className="form-help" style={{ marginBottom: "-0.35rem" }}>Produtos para importar (marque quantos quiser):</p>
+          <div className="gateway-product-checklist">
             {products.map((product) => (
-              <option key={product.externalProductId} value={product.externalProductId}>
+              <label key={product.externalProductId} className="gateway-product-checkbox">
+                <input
+                  type="checkbox"
+                  name="external_product_id"
+                  value={product.externalProductId}
+                  checked={selectedProductIds.includes(product.externalProductId)}
+                  disabled={loading}
+                  onChange={(event) => {
+                    setSelectedProductIds((current) =>
+                      event.target.checked
+                        ? [...current, product.externalProductId]
+                        : current.filter((id) => id !== product.externalProductId),
+                    );
+                  }}
+                />
                 {product.name} · {product.currency}
-              </option>
+              </label>
             ))}
-          </select>
-        </label>
+          </div>
+        </>
       )}
       <button className="button primary" disabled={loading}>
-        {loading ? "Aguarde…" : products.length ? "Importar produto e conectar" : "Buscar produtos"}
+        {loading
+          ? "Aguarde…"
+          : !products.length
+            ? "Buscar produtos"
+            : selectedProductIds.length > 1
+              ? `Importar ${selectedProductIds.length} produtos e conectar`
+              : "Importar produto e conectar"}
       </button>
       {products.length > 0 && (
         <button
