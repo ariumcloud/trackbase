@@ -595,10 +595,7 @@ export function UtmifySummary({
   return (
     <div className="utmify-card">
       {/* 1. Header do Resumo */}
-      <div className="utmify-summary-header">
-        <div>
-          <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>Resumo</h2>
-        </div>
+      <div className="utmify-summary-header utmify-summary-header-compact">
         <div className="utmify-header-right">
           <span className="utmify-updated-text">
             {savingLayout ? "Salvando layout…" : "Atualizado há 1 minuto"}

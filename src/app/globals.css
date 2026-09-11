@@ -3705,6 +3705,7 @@ textarea {
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }.mobile-toggle { display: none; }
 .main-shell > main { width: min(100%, 1540px); margin: 0 auto; padding: 34px 38px 56px; }
 .main-shell > main.main-fluid { width: 100%; max-width: 100%; padding: 24px 28px 48px; }
+.main-shell > main.main-visao-compact { padding-top: 12px; }
 
 /* Sidebar & Header inside sidebar */
 .sidebar .brand { display: flex; align-items: center; gap: 8px; font-size: 23px; font-weight: 750; color: var(--ink); letter-spacing: -0.7px; }
@@ -4029,7 +4030,7 @@ textarea {
 .page-heading h1 { margin: 0; font-size: clamp(28px, 3vw, 42px); line-height: 1.1; letter-spacing: -1.5px; color: var(--ink); }
 .page-heading p { margin: 8px 0 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
 .eyebrow { margin-bottom: 8px; color: var(--brand-accent); font-size: 10px; font-weight: 800; letter-spacing: 1.45px; }
-.page-heading-compact { margin-bottom: 12px; }
+.page-heading-compact { margin-bottom: 8px; }
 .page-heading-compact h1 { font-size: 20px; letter-spacing: -0.3px; }
 .page-heading > div:last-child { flex-shrink: 0; }
 .page-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -5171,7 +5172,7 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 1.25rem 1.5rem;
+  padding: 0.9rem 1.25rem;
   box-shadow: var(--shadow-sm);
   transition: background 0.2s, border-color 0.2s;
 }
@@ -5183,6 +5184,11 @@ textarea {
   margin-bottom: 1rem;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.utmify-summary-header-compact {
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
 }
 
 .utmify-title {
@@ -5265,25 +5271,25 @@ textarea {
 /* Filters bar (4 columns) - Espaçamento corrigido e sem colar nos cards */
 .utmify-filters-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.25rem;
-  margin-top: 0.5rem;
-  margin-bottom: 1.85rem;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.85rem;
 }
 
 @media (max-width: 960px) {
   .utmify-filters-bar {
     grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
   }
 }
 
 @media (max-width: 540px) {
   .utmify-filters-bar {
     grid-template-columns: 1fr;
-    gap: 0.85rem;
-    margin-bottom: 1.25rem;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
   }
 }
 
@@ -5291,12 +5297,12 @@ textarea {
 .utmify-filter-col {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.25rem;
 }
 
 .utmify-filter-field label,
 .utmify-filter-label {
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 650;
   color: var(--muted);
   text-transform: none;
@@ -5305,13 +5311,13 @@ textarea {
 
 .utmify-select-styled,
 .utmify-select {
-  height: 42px;
-  border-radius: 10px;
+  height: 34px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
-  padding: 0 0.85rem;
-  font-size: 0.85rem;
+  padding: 0 0.65rem;
+  font-size: 0.8rem;
   font-weight: 550;
   outline: none;
   cursor: pointer;
@@ -7206,10 +7212,10 @@ table.utmify-daily-table tbody tr:last-child td {
 .overview-share-card {
   position: relative;
   display: grid;
-  gap: 14px;
+  gap: 10px;
   overflow: hidden;
-  margin: 18px 0;
-  padding: 18px 20px;
+  margin: 8px 0;
+  padding: 13px 18px;
   border: 1px solid rgba(124, 58, 237, 0.28);
   border-radius: 16px;
   background: linear-gradient(135deg, #26145F 0%, #4321A5 58%, #5B34EA 100%);
