@@ -576,7 +576,7 @@ export function LeadScrollVisualizer({
           label = "Passou da primeira dobra (25%)";
           detail = "Iniciou consumo da página";
           color = "#10B981";
-        } else if (t === "cta") {
+        } else if (t === "cta" || t === "cta_click" || a === "cta_click") {
           type = "CTA";
           label = "Lead interagiu com um CTA";
           detail = "Interação com chamada para ação registrada";

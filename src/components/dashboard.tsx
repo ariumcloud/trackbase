@@ -714,7 +714,7 @@ export function Dashboard(p: Props) {
         if (event.event_type === "pageview") pageviews += 1;
         if (event.event_type === "checkout") checkouts += 1;
         const action = event.attribution?.action || "";
-        if (event.event_type === "cta" && (action === "" || action === "cta_click")) ctaClicks += 1;
+        if ((event.event_type === "cta" && (action === "" || action === "cta_click")) || event.event_type === "cta_click") ctaClicks += 1;
 
         if (!event.session_id) continue;
         const lowerAction = action.toLowerCase();
@@ -2930,7 +2930,6 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${px.pixel_id}');
-fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
@@ -3888,7 +3887,6 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${pixelId}');
-fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
@@ -3912,7 +3910,6 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${pixelId}');
-fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
@@ -4135,7 +4132,7 @@ ${trackbaseTrackerCode}
                         fontSize: "0.9rem",
                       }}
                     >
-                      1. Trackbase Pixel Code (Meta Pixel &amp; PageView)
+                      1. Trackbase Pixel Code (Meta Pixel)
                     </strong>
                     <Clipboard
                       value={trackbasePixelCode}
@@ -4151,8 +4148,9 @@ ${trackbaseTrackerCode}
                       margin: "0 0 0.5rem",
                     }}
                   >
-                    Cole na tag <code>&lt;head&gt;</code> para registrar o
-                    PageView no Facebook:
+                    Cole na tag <code>&lt;head&gt;</code> para carregar o Pixel
+                    da Meta. O PageView é disparado pelo Script do Trackbase
+                    (item 2), evitando contar a visita em dobro:
                   </p>
                   <pre
                     style={{
