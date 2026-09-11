@@ -1108,6 +1108,115 @@ export async function deletePixel(
   }
 }
 
+// Cada trigger_type guarda seu único parâmetro configurável sob uma chave
+// própria em trigger_config — assim a UI pode ter um campo de valor genérico
+// sem o back-end perder o significado (padrão de URL vs. seletor de elemento).
+const TRIGGER_CONFIG_KEY: Record<string, string> = {
+  url_contains: "pattern",
+  element_click: "selector",
+  form_submit: "selector",
+};
+
+export async function savePixelRule(
+  workspace: string,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    await requireFeature(workspace, "capi");
+    const parsed = z
+      .object({
+        pixel_id: z.string().uuid("Selecione um Pixel."),
+        offer_id: z.string().uuid().optional().or(z.literal("")),
+        event_name: z.enum(["PageView", "Lead", "AddToCart", "InitiateCheckout", "Purchase"]),
+        trigger_type: z.enum([
+          "page_load",
+          "url_contains",
+          "element_click",
+          "form_submit",
+          "checkout_url_match",
+          "gateway_webhook",
+        ]),
+        trigger_value: z.string().trim().max(300).optional(),
+        send_pixel: z.string().optional(),
+        send_capi: z.string().optional(),
+      })
+      .parse(Object.fromEntries(form));
+
+    const configKey = TRIGGER_CONFIG_KEY[parsed.trigger_type];
+    if (configKey && !parsed.trigger_value) {
+      throw new Error("Esse gatilho precisa de um valor configurado.");
+    }
+
+    const service = admin();
+    const { error } = await service.from("utm_pixel_rules").insert({
+      workspace_id: workspace,
+      pixel_id: parsed.pixel_id,
+      offer_id: parsed.offer_id || null,
+      event_name: parsed.event_name,
+      trigger_type: parsed.trigger_type,
+      trigger_config: configKey && parsed.trigger_value ? { [configKey]: parsed.trigger_value } : {},
+      send_pixel: parsed.send_pixel === "on",
+      send_capi: parsed.send_capi === "on",
+    });
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch (e: unknown) {
+    return {
+      error:
+        e instanceof z.ZodError
+          ? e.issues[0]?.message || "Dados inválidos."
+          : e instanceof Error
+            ? e.message
+            : "Não foi possível salvar a regra do Pixel.",
+    };
+  }
+}
+
+export async function togglePixelRule(
+  workspace: string,
+  ruleId: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    const service = admin();
+    const { error } = await service
+      .from("utm_pixel_rules")
+      .update({ enabled, updated_at: new Date().toISOString() })
+      .eq("workspace_id", workspace)
+      .eq("id", ruleId);
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível atualizar a regra." };
+  }
+}
+
+export async function deletePixelRule(
+  workspace: string,
+  ruleId: string,
+): Promise<ActionResult> {
+  try {
+    await authorize(workspace, true);
+    const service = admin();
+    const { error } = await service
+      .from("utm_pixel_rules")
+      .delete()
+      .eq("workspace_id", workspace)
+      .eq("id", ruleId);
+
+    if (error) throw error;
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { error: "Não foi possível excluir a regra." };
+  }
+}
+
 export async function markAlertRead(
   workspace: string,
   alertId: string,

@@ -61,6 +61,26 @@ export type PixelRow = {
   active: boolean;
   created_at: string;
 };
+export type PixelEventName = "PageView" | "Lead" | "AddToCart" | "InitiateCheckout" | "Purchase";
+export type PixelTriggerType =
+  | "page_load"
+  | "url_contains"
+  | "element_click"
+  | "form_submit"
+  | "checkout_url_match"
+  | "gateway_webhook";
+export type PixelRuleRow = {
+  id: string;
+  pixel_id: string;
+  offer_id: string | null;
+  event_name: PixelEventName;
+  trigger_type: PixelTriggerType;
+  trigger_config: Record<string, string>;
+  send_pixel: boolean;
+  send_capi: boolean;
+  enabled: boolean;
+  created_at: string;
+};
 export type Integration = {
   id: string;
   name: string;

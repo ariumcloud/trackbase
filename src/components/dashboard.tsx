@@ -74,6 +74,9 @@ import {
   logout,
   savePixel,
   deletePixel,
+  savePixelRule,
+  togglePixelRule,
+  deletePixelRule,
   markAlertRead,
   savePushSettings,
   sendTestPushAction,
@@ -100,6 +103,7 @@ import type {
   WebhookLog,
   DashboardSummary,
   PixelRow,
+  PixelRuleRow,
   DiagnosticRow,
   ShieldRow,
   ShieldLogRow,
@@ -152,6 +156,7 @@ type Props = {
   entities: Entity[];
   logs: WebhookLog[];
   pixels: PixelRow[];
+  pixelRules?: PixelRuleRow[];
   diagnostics?: DiagnosticRow[];
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
@@ -292,6 +297,26 @@ function Empty({
     </div>
   );
 }
+const PIXEL_RULE_EVENT_LABELS: Record<string, string> = {
+  PageView: "PageView (visita à página)",
+  Lead: "Lead (cadastro/contato)",
+  AddToCart: "AddToCart (adicionou ao carrinho)",
+  InitiateCheckout: "InitiateCheckout (iniciou o checkout)",
+  Purchase: "Purchase (compra aprovada)",
+};
+const PIXEL_RULE_TRIGGER_LABELS: Record<string, string> = {
+  page_load: "Ao carregar a página",
+  url_contains: "URL contém um trecho",
+  element_click: "Clique em um elemento (seletor CSS)",
+  form_submit: "Envio de formulário (seletor CSS)",
+  checkout_url_match: "URL bate com o checkout da oferta",
+  gateway_webhook: "Webhook do gateway de pagamento",
+};
+const PIXEL_RULE_TRIGGER_VALUE_LABEL: Record<string, string> = {
+  url_contains: "Trecho da URL",
+  element_click: "Seletor CSS do elemento",
+  form_submit: "Seletor CSS do formulário",
+};
 export function Dashboard(p: Props) {
   const router = useRouter(),
     [tab, setTab] = useState(
@@ -309,6 +334,7 @@ export function Dashboard(p: Props) {
     [guideModalOpen, setGuideModalOpen] = useState(false),
     [deletingOfferId, setDeletingOfferId] = useState<string | null>(null),
     [viewingPixelSnippet, setViewingPixelSnippet] = useState<string | null>(null),
+    [newRuleTrigger, setNewRuleTrigger] = useState<string>("page_load"),
     [accountView, setAccountView] = useState<null | "assinatura" | "conta" | "avancado">(null),
     [accountMenuOpen, setAccountMenuOpen] = useState(false),
     [pending, start] = useTransition();
@@ -2984,6 +3010,212 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                   </div>
                 </div>
               </section>
+
+              {p.pixels.length > 0 && (
+                <section className="panel" style={{ marginTop: "1.5rem" }}>
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Regras de Evento (Pixel &amp; CAPI)</h2>
+                      <p>
+                        Decida quando cada evento dispara e para qual Pixel ele vai —
+                        sem depender do que a Meta consegue detectar sozinha. Purchase
+                        já é enviado automaticamente pelo webhook do gateway; use uma
+                        regra aqui só se quiser reforçá-lo ou desativá-lo.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
+                      gap: "1.5rem",
+                      marginTop: "1rem",
+                      width: "100%",
+                      maxWidth: "100%",
+                    }}
+                  >
+                    <div style={{ minWidth: 0, maxWidth: "100%" }}>
+                      <ActionForm
+                        action={(f) => savePixelRule(workspace, f)}
+                        label="Adicionar Regra"
+                        onSuccess={() => setNewRuleTrigger("page_load")}
+                      >
+                        <label>
+                          Pixel
+                          <select name="pixel_id" required>
+                            {p.pixels.map((px) => (
+                              <option key={px.id} value={px.id}>
+                                Pixel: {px.pixel_id || "(sem ID ainda)"}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Evento
+                          <select name="event_name" required defaultValue="InitiateCheckout">
+                            {Object.entries(PIXEL_RULE_EVENT_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Gatilho
+                          <select
+                            name="trigger_type"
+                            required
+                            value={newRuleTrigger}
+                            onChange={(e) => setNewRuleTrigger(e.target.value)}
+                          >
+                            {Object.entries(PIXEL_RULE_TRIGGER_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {PIXEL_RULE_TRIGGER_VALUE_LABEL[newRuleTrigger] && (
+                          <label>
+                            {PIXEL_RULE_TRIGGER_VALUE_LABEL[newRuleTrigger]}
+                            <input
+                              name="trigger_value"
+                              placeholder={
+                                newRuleTrigger === "url_contains"
+                                  ? "Ex: /obrigado"
+                                  : "Ex: #botao-comprar"
+                              }
+                              required
+                            />
+                          </label>
+                        )}
+                        <label>
+                          Oferta vinculada (opcional)
+                          <select name="offer_id">
+                            <option value="">Todas as ofertas deste workspace</option>
+                            {p.offers.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.4rem" }}>
+                          <input
+                            type="checkbox"
+                            id="rule-send-pixel"
+                            name="send_pixel"
+                            defaultChecked
+                            style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                          />
+                          <label htmlFor="rule-send-pixel" style={{ fontSize: "0.85rem", cursor: "pointer" }}>
+                            Disparar no Pixel do navegador
+                          </label>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          <input
+                            type="checkbox"
+                            id="rule-send-capi"
+                            name="send_capi"
+                            defaultChecked
+                            style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                          />
+                          <label htmlFor="rule-send-capi" style={{ fontSize: "0.85rem", cursor: "pointer" }}>
+                            Enviar também via CAPI (servidor)
+                          </label>
+                        </div>
+                      </ActionForm>
+                    </div>
+
+                    <div style={{ minWidth: 0, maxWidth: "100%" }}>
+                      <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
+                        Regras Configuradas
+                      </h3>
+                      {p.pixelRules && p.pixelRules.length > 0 ? (
+                        <div style={{ display: "grid", gap: "0.75rem", minWidth: 0, maxWidth: "100%" }}>
+                          {p.pixelRules.map((rule) => {
+                            const rulePixel = p.pixels.find((px) => px.id === rule.pixel_id);
+                            const ruleOffer = p.offers.find((o) => o.id === rule.offer_id);
+                            const configValue = Object.values(rule.trigger_config || {})[0];
+                            return (
+                              <div
+                                key={rule.id}
+                                style={{
+                                  padding: "0.85rem 1rem",
+                                  borderRadius: "8px",
+                                  background: "var(--surface-subtle, #F9FAFB)",
+                                  border: "1px solid var(--line, #E5E7EB)",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                  gap: "0.75rem",
+                                  minWidth: 0,
+                                  maxWidth: "100%",
+                                  boxSizing: "border-box",
+                                  opacity: rule.enabled ? 1 : 0.55,
+                                }}
+                              >
+                                <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+                                  <strong style={{ display: "block", fontSize: "0.95rem" }}>
+                                    {PIXEL_RULE_EVENT_LABELS[rule.event_name] || rule.event_name}
+                                  </strong>
+                                  <small style={{ color: "var(--muted, #64748B)", display: "block" }}>
+                                    {PIXEL_RULE_TRIGGER_LABELS[rule.trigger_type] || rule.trigger_type}
+                                    {configValue ? ` · "${configValue}"` : ""}
+                                  </small>
+                                  <small style={{ color: "var(--muted, #64748B)", display: "block" }}>
+                                    Pixel: {rulePixel?.pixel_id || "?"} · Escopo:{" "}
+                                    {ruleOffer ? ruleOffer.name : "Todas as ofertas"}
+                                  </small>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                                  <button
+                                    type="button"
+                                    className="button small secondary"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      run(async () => {
+                                        const res = await togglePixelRule(
+                                          workspace,
+                                          rule.id,
+                                          !rule.enabled,
+                                        );
+                                        if (res.error) throw new Error(res.error);
+                                      })
+                                    }
+                                  >
+                                    {rule.enabled ? "Ativa" : "Pausada"}
+                                  </button>
+                                  <button
+                                    className="icon-button"
+                                    aria-label="Excluir regra"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      run(async () => {
+                                        const res = await deletePixelRule(workspace, rule.id);
+                                        if (res.error) throw new Error(res.error);
+                                      })
+                                    }
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <Empty
+                          title="Nenhuma regra configurada"
+                          description="Por padrão, PageView e InitiateCheckout já funcionam sem regra. Adicione uma regra para Lead, AddToCart ou para reforçar o Purchase."
+                        />
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
 
               <section className="panel" style={{ background: "linear-gradient(135deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.08) 100%)", border: "1px solid var(--brand-border, #C7D2FE)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>

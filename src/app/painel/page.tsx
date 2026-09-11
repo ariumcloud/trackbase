@@ -16,6 +16,7 @@ import type {
   WebhookLog,
   DashboardSummary,
   PixelRow,
+  PixelRuleRow,
   DiagnosticRow,
   ShieldRow,
   ShieldLogRow,
@@ -158,6 +159,7 @@ export default async function Page({
   // needs the pixel rows available before opening that modal. Without this,
   // a configured pixel was incorrectly treated as missing until navigation.
   const needsPixels = ["integracoes", "campanhas", "ofertas"].includes(activeTab);
+  const needsPixelRules = activeTab === "integracoes";
   const needsSummary = ["visao", "campanhas"].includes(activeTab);
   const needsAlerts = activeTab === "alertas";
   const needsDiagnostics = ["diagnostico", "assistente"].includes(activeTab);
@@ -188,6 +190,7 @@ export default async function Page({
     entities,
     logs,
     pixels,
+    pixelRules,
     summaryRes,
     alerts,
     diagnosticsRes,
@@ -269,6 +272,13 @@ export default async function Page({
               .eq("workspace_id", w.id)
               .order("created_at", { ascending: false })
           : empty,
+        needsPixelRules
+          ? client
+              .from("utm_pixel_rules")
+              .select("id,pixel_id,offer_id,event_name,trigger_type,trigger_config,send_pixel,send_capi,enabled,created_at")
+              .eq("workspace_id", w.id)
+              .order("created_at", { ascending: false })
+          : empty,
         needsSummary
           ? client.rpc("utm_dashboard_summary", {
               p_workspace: w.id,
@@ -326,6 +336,7 @@ export default async function Page({
         { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
+        { data: [], error: null },
         { data: null, error: null },
         [] as AlertItem[],
         { data: [], error: null },
@@ -344,6 +355,7 @@ export default async function Page({
     { name: "entities", error: entities.error },
     { name: "logs", error: logs.error },
     { name: "pixels", error: pixels.error },
+    { name: "pixelRules", error: pixelRules.error },
     { name: "events", error: events.error },
   ];
 
@@ -384,6 +396,7 @@ export default async function Page({
       events={periodEvents}
       logs={(logs.data ?? []) as WebhookLog[]}
       pixels={(pixels.data ?? []) as PixelRow[]}
+      pixelRules={(pixelRules.data ?? []) as PixelRuleRow[]}
       diagnostics={(diagnosticsRes.data ?? []) as DiagnosticRow[]}
       shields={(shields.data ?? []) as ShieldRow[]}
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
