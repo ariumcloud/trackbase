@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { formatDocument, cleanDocument } from "@/lib/document";
 import {
   login,
@@ -15,6 +15,56 @@ import {
   updateOffer,
   type ActionResult,
 } from "@/app/actions";
+
+export function PasswordField({
+  name,
+  autoComplete,
+  minLength,
+  required,
+  placeholder,
+}: {
+  name: string;
+  autoComplete?: string;
+  minLength?: number;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        name={name}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        minLength={minLength}
+        required={required}
+        placeholder={placeholder}
+        style={{ paddingRight: 36, width: "100%" }}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+        title={visible ? "Ocultar senha" : "Mostrar senha"}
+        style={{
+          position: "absolute",
+          right: 8,
+          top: "50%",
+          transform: "translateY(-50%)",
+          background: "none",
+          border: "none",
+          padding: 4,
+          display: "flex",
+          alignItems: "center",
+          cursor: "pointer",
+          color: "var(--muted)",
+        }}
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 export function ActionForm({
   action,
@@ -184,9 +234,8 @@ export function AuthForm({ configured }: { configured: boolean }) {
                   </Link>
                 )}
               </div>
-              <input
+              <PasswordField
                 name="password"
-                type="password"
                 autoComplete={register ? "new-password" : "current-password"}
                 minLength={register ? 10 : 8}
                 required
@@ -241,7 +290,7 @@ export function NewPasswordForm() {
     <ActionForm action={updatePassword} label="Salvar nova senha" onSuccess={() => {}}>
       <label>
         Nova senha
-        <input name="password" type="password" minLength={10} autoComplete="new-password" required />
+        <PasswordField name="password" minLength={10} autoComplete="new-password" required />
       </label>
     </ActionForm>
   );
