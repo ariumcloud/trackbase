@@ -25,7 +25,7 @@ interface GuideModalProps {
 export function GuideModal({
   isOpen,
   onClose,
-  initialTab = "utm",
+  initialTab = "capi",
   onNavigateTab,
 }: GuideModalProps) {
   const [activeTab, setActiveTab] = useState<
@@ -43,11 +43,11 @@ export function GuideModal({
 
   const tabs = [
     {
-      id: "utm" as const,
-      label: "Gerador de Links UTM",
-      icon: Link2,
-      badge: "1 Clique",
-      desc: "Meta Ads, Google, TikTok e Zap",
+      id: "capi" as const,
+      label: "API de Conversões Meta",
+      icon: Zap,
+      badge: "CAPI",
+      desc: "Envio de compras e Event Quality",
     },
     {
       id: "gateway" as const,
@@ -57,11 +57,11 @@ export function GuideModal({
       desc: "Kiwify, Hotmart, Cakto e outros",
     },
     {
-      id: "capi" as const,
-      label: "API de Conversões Meta",
-      icon: Zap,
-      badge: "CAPI",
-      desc: "Envio de compras e Event Quality",
+      id: "utm" as const,
+      label: "Gerador de Links UTM",
+      icon: Link2,
+      badge: "1 Clique",
+      desc: "Meta Ads, Google, TikTok e Zap",
     },
     {
       id: "shield" as const,
