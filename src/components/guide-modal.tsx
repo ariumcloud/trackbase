@@ -25,7 +25,7 @@ interface GuideModalProps {
 export function GuideModal({
   isOpen,
   onClose,
-  initialTab = "radar",
+  initialTab = "utm",
   onNavigateTab,
 }: GuideModalProps) {
   const [activeTab, setActiveTab] = useState<
@@ -42,20 +42,6 @@ export function GuideModal({
   if (!isOpen) return null;
 
   const tabs = [
-    {
-      id: "radar" as const,
-      label: "Radar de Leads",
-      icon: Radio,
-      badge: "Tempo Real",
-      desc: "Sessões ao vivo & Mapa de Rolagem",
-    },
-    {
-      id: "shield" as const,
-      label: "Shield Anti-Bloqueio",
-      icon: ShieldCheck,
-      badge: "Cloaker & DNS",
-      desc: "Proteção de ofertas e domínio CNAME",
-    },
     {
       id: "utm" as const,
       label: "Gerador de Links UTM",
@@ -78,11 +64,25 @@ export function GuideModal({
       desc: "Envio de compras e Event Quality",
     },
     {
+      id: "shield" as const,
+      label: "Shield Anti-Bloqueio",
+      icon: ShieldCheck,
+      badge: "Cloaker & DNS",
+      desc: "Proteção de ofertas e domínio CNAME",
+    },
+    {
       id: "alertas" as const,
       label: "Alertas & Notificações",
       icon: Volume2,
       badge: "Push & Som",
       desc: "Som de venda e avisos no celular",
+    },
+    {
+      id: "radar" as const,
+      label: "Radar de Leads",
+      icon: Radio,
+      badge: "Tempo Real",
+      desc: "Sessões ao vivo & Mapa de Rolagem",
     },
   ];
 
