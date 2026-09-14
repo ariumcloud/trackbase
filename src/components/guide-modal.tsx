@@ -682,28 +682,32 @@ export function GuideModal({
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <span className="tag" style={{ background: "#FEF3C7", color: "#B45309" }}>
-                      SERVER-SIDE TRACKING
+                      CONEXÃO COM O FACEBOOK
                     </span>
                     <span style={{ fontSize: "0.75rem", color: "#16A34A", fontWeight: 700 }}>
-                      ● 100% Automático
+                      ● 100% Automático depois de conectar
                     </span>
                   </div>
                   <h3 style={{ fontSize: "1.4rem", fontWeight: 800, margin: "0.4rem 0 0.25rem" }}>
-                    Como Funciona a API de Conversões (CAPI)
+                    Conecte o Facebook e deixe seu anúncio mais barato
                   </h3>
                   <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: 0 }}>
-                    Envie compras aprovadas direto do servidor para o Facebook Ads, blindando sua conta
-                    contra AdBlockers e restrições do iOS 14+.
+                    Quando o Facebook não sabe direito quais anúncios trouxeram venda de verdade, ele
+                    cobra mais caro e entrega pra pessoa errada. Conectando sua conta aqui, o Trackbase
+                    avisa o Facebook, direto do servidor, toda vez que uma venda é aprovada — mesmo
+                    quando o celular do cliente bloqueia rastreamento (iPhone, AdBlock, etc). Resultado:
+                    o Facebook aprende mais rápido quem realmente compra, e seu CPA cai.
                   </p>
                 </div>
 
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>1</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Você não precisa configurar código</h4>
+                    <h4 style={stepTitleStyle}>Conecte sua conta do Facebook</h4>
                     <p style={stepDescStyle}>
-                      Ao conectar o pixel da Meta e autorizar via OAuth na aba Integrações, o Trackbase
-                      já assume o envio dos eventos de conversão no servidor automaticamente.
+                      Vá em <strong>Integrações e Pixels</strong>, clique em <strong>Conectar Facebook</strong> e
+                      faça login com a conta que administra os anúncios. É o mesmo login que você já usa
+                      no Gerenciador de Anúncios.
                     </p>
                   </div>
                 </div>
@@ -711,12 +715,32 @@ export function GuideModal({
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>2</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Criptografia SHA-256 e Event Quality Match</h4>
+                    <h4 style={stepTitleStyle}>Escolha a conta de anúncios</h4>
                     <p style={stepDescStyle}>
-                      Quando a venda é confirmada pelo webhook, os dados pessoais (e-mail, telefone)
-                      são hasheados em SHA-256 e enviados com os identificadores <code>fbp</code>, <code>fbc</code>,
-                      IP e User-Agent brutos coletados pelo Tracker. Isso garante pontuação máxima (8 a 10)
-                      na qualidade do evento no Gerenciador de Eventos da Meta.
+                      Se você administra mais de uma conta de anúncios, selecione qual delas vai ficar
+                      ligada a este workspace. É pra essa conta que as vendas vão ser enviadas.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="onboarding-guide-card" style={guideCardStyle}>
+                  <div style={stepNumberStyle}>3</div>
+                  <div>
+                    <h4 style={stepTitleStyle}>Adicione seu Pixel</h4>
+                    <p style={stepDescStyle}>
+                      Escolha o Pixel que já está instalado na sua página (ou crie um novo, se ainda não
+                      tiver). É esse Pixel que recebe o aviso de cada venda aprovada.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="onboarding-guide-card" style={guideCardStyle}>
+                  <div style={stepNumberStyle}>4</div>
+                  <div>
+                    <h4 style={stepTitleStyle}>Pronto — o resto é automático</h4>
+                    <p style={stepDescStyle}>
+                      A partir daqui, toda venda aprovada é avisada ao Facebook sozinha, sem precisar
+                      mexer em código. Você não precisa fazer mais nada nessa parte.
                     </p>
                   </div>
                 </div>
