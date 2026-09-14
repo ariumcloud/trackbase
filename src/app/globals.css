@@ -4652,7 +4652,7 @@ textarea {
 .campaign-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13.5px;
   text-align: left;
   white-space: nowrap;
 }
@@ -4661,11 +4661,11 @@ textarea {
 .campaign-table th {
   background: #0B0F19;
   color: #9CA3AF;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 9px 12px;
+  padding: 13px 14px;
   border-bottom: 1px solid #1F2937;
   border-top: 1px solid #1F2937;
   user-select: none;
@@ -4715,7 +4715,7 @@ textarea {
 }
 
 .campaign-table td {
-  padding: 8px 12px;
+  padding: 13px 14px;
   border-bottom: 1px solid #1F2937;
   color: #D1D5DB;
   background: #111827;
@@ -4852,8 +4852,8 @@ textarea {
   color: #0F172A !important;
   border-top: 2px solid #CBD5E1 !important;
   border-bottom: none;
-  font-size: 12px;
-  padding: 8px 10px;
+  font-size: 13px;
+  padding: 13px 14px;
   box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
 }
 
@@ -4928,18 +4928,18 @@ textarea {
 .campaign-table-wrapper { background: #fff; scrollbar-color: #c9cbd4 #f5f6f8; }
 .campaign-table-wrapper::-webkit-scrollbar-track { background: #f5f6f8; }
 .campaign-table-wrapper::-webkit-scrollbar-thumb { background: #c9cbd4; }
-.campaign-table { font-size: 12px; }
-.campaign-table th { position: sticky; top: 0; z-index: 10; background: #f8f9fb; color: #667085; border-color: #e9ebf0; padding: 8px 10px; }
+.campaign-table { font-size: 13.5px; }
+.campaign-table th { position: sticky; top: 0; z-index: 10; background: #f8f9fb; color: #667085; border-color: #e9ebf0; padding: 13px 14px; }
 .campaign-table th.th-sortable:hover { background: #f1effb; color: #4d28d9; }
 .sort-icon-active { color: #5c34d7; }
-.campaign-table td { color: #344054; background: #fff; border-color: #edf0f3; padding: 7px 10px; }
+.campaign-table td { color: #344054; background: #fff; border-color: #edf0f3; padding: 13px 14px; }
 .campaign-table tr:hover td { background: #faf9ff; }
 .campaign-table th.col-sticky-name, .campaign-table td.col-sticky-name { box-shadow: 4px 0 9px rgba(20,33,61,.04); }
 .campaign-table td.col-sticky-name { background: #FFFFFF; }
 .campaign-table tr:hover td.col-sticky-name { background: #faf9ff; }
 .campaign-table th.col-sticky-name { background: #f8f9fb; }
-.campaign-name-cell strong { color: #1d2939; font-size: 12px; line-height: 1.3; }
-.campaign-name-cell small { color: #98a2b3; font-size: 10.5px; }
+.campaign-name-cell strong { color: #1d2939; font-size: 13.5px; line-height: 1.35; }
+.campaign-name-cell small { color: #98a2b3; font-size: 11.5px; }
 .status-slider { background-color: #d0d5dd; }
 .status-switch input:checked + .status-slider { background-color: #6b42e6; }
 .metric-val-highlight { color: #5c34d7; }

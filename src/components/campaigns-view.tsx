@@ -384,7 +384,7 @@ export function CampaignsView({
 }) {
   const [kind, setKind] = useState<CampaignEntityKind>("campaign");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState(offerFilter || "all");
   const [selectedCurrency, setSelectedCurrency] = useState<string>(currency || "BRL");
