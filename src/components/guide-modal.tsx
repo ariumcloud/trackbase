@@ -703,11 +703,13 @@ export function GuideModal({
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>1</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Conecte sua conta do Facebook</h4>
+                    <h4 style={stepTitleStyle}>
+                      Em <strong>Integrações e Pixels → Contas e Gateways</strong>, clique em{" "}
+                      <strong>Conectar Meta Ads</strong>
+                    </h4>
                     <p style={stepDescStyle}>
-                      Vá em <strong>Integrações e Pixels</strong>, clique em <strong>Conectar Facebook</strong> e
-                      faça login com a conta que administra os anúncios. É o mesmo login que você já usa
-                      no Gerenciador de Anúncios.
+                      Faça login com a conta do Facebook que administra os seus anúncios — a mesma que
+                      você já usa no Gerenciador de Anúncios.
                     </p>
                   </div>
                 </div>
@@ -715,10 +717,12 @@ export function GuideModal({
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>2</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Escolha a conta de anúncios</h4>
+                    <h4 style={stepTitleStyle}>Selecione a Conta de Anúncios</h4>
                     <p style={stepDescStyle}>
-                      Se você administra mais de uma conta de anúncios, selecione qual delas vai ficar
-                      ligada a este workspace. É pra essa conta que as vendas vão ser enviadas.
+                      Depois do login, aparece um aviso <em>&quot;Conexão com Facebook autorizada! Escolha
+                      sua conta de anúncios&quot;</em>. Clique em <strong>Selecionar Conta de Anúncios Agora</strong> e
+                      escolha qual conta vai ficar ligada a este workspace — é dela que a Trackbase puxa
+                      gastos e campanhas.
                     </p>
                   </div>
                 </div>
@@ -726,10 +730,13 @@ export function GuideModal({
                 <div className="onboarding-guide-card" style={guideCardStyle}>
                   <div style={stepNumberStyle}>3</div>
                   <div>
-                    <h4 style={stepTitleStyle}>Adicione seu Pixel</h4>
+                    <h4 style={stepTitleStyle}>
+                      Em <strong>Pixel &amp; Script</strong>, adicione seu Pixel
+                    </h4>
                     <p style={stepDescStyle}>
-                      Escolha o Pixel que já está instalado na sua página (ou crie um novo, se ainda não
-                      tiver). É esse Pixel que recebe o aviso de cada venda aprovada.
+                      Ainda dentro de Integrações e Pixels, vá na aba <strong>Pixel &amp; Script</strong> e
+                      selecione o Pixel que já está instalado na sua página (ou crie um novo por lá, se
+                      ainda não tiver um). É esse Pixel que recebe o aviso de cada venda aprovada.
                     </p>
                   </div>
                 </div>
