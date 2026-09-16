@@ -199,6 +199,20 @@ function isEntityDelivering(status: string): boolean {
   return ["ACTIVE", "LEARNING", "LEARNING_LIMITED"].includes(status.trim().toUpperCase());
 }
 
+// Status que a Meta já deu como encerrado -- não vão virar ativo sozinhos.
+// O filtro padrão esconde só esses, mantendo visível qualquer coisa que
+// ainda esteja a caminho de veicular (em análise, aprendendo, aguardando).
+const DEAD_STATUSES = new Set([
+  "PAUSED",
+  "CAMPAIGN_PAUSED",
+  "ADSET_PAUSED",
+  "DISAPPROVED",
+  "COMPLETED",
+  "ARCHIVED",
+  "DELETED",
+  "DISABLED",
+]);
+
 export type ColumnKey =
   | "status"
   | "name"
@@ -384,7 +398,7 @@ export function CampaignsView({
 }) {
   const [kind, setKind] = useState<CampaignEntityKind>("campaign");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [statusFilter, setStatusFilter] = useState("default");
   const [selectedIntegration, setSelectedIntegration] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState(offerFilter || "all");
   const [selectedCurrency, setSelectedCurrency] = useState<string>(currency || "BRL");
@@ -808,7 +822,11 @@ export function CampaignsView({
         !adsetsForSelectedCampaigns.has(e.parent_id ?? "")
       )
         return false;
-      if (statusFilter !== "all" && e.status !== statusFilter) return false;
+      if (statusFilter === "default") {
+        if (DEAD_STATUSES.has(e.status.trim().toUpperCase())) return false;
+      } else if (statusFilter !== "all" && e.status !== statusFilter) {
+        return false;
+      }
       if (
         search &&
         !e.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()) &&
@@ -1553,8 +1571,9 @@ export function CampaignsView({
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Status da Campanha"
           >
+            <option value="default">Status: Ativas e pendentes</option>
             <option value="all">Status: Todos</option>
-            <option value="ACTIVE">Veiculando</option>
+            <option value="ACTIVE">Só veiculando</option>
             <option value="PAUSED">Pausados</option>
             <option value="SCHEDULED">Programados</option>
             <option value="PENDING_REVIEW">Em análise</option>
