@@ -828,6 +828,54 @@ export function CampaignsView({
     search,
   ]);
 
+  // O filtro de status esconde linhas da tabela pra não poluir a tela (ex.:
+  // "Ativas" por padrão), mas os totais do rodapé precisam continuar batendo
+  // com o total gasto/vendido de verdade -- inclusive campanhas pausadas ou
+  // ainda em análise -- senão o painel some com dinheiro que o Facebook
+  // ainda está contando. totalsEntities reaplica os mesmos filtros, exceto
+  // o de status.
+  const totalsEntities = useMemo(() => {
+    return entities.filter((e) => {
+      if (e.kind !== kind) return false;
+      if (selectedIntegration !== "all" && e.integration_id !== selectedIntegration)
+        return false;
+      if (
+        kind === "adset" &&
+        selectedCampaignIds.size > 0 &&
+        !selectedCampaignIds.has(e.parent_id ?? "")
+      )
+        return false;
+      if (
+        kind === "ad" &&
+        selectedAdsetIds.size > 0 &&
+        !selectedAdsetIds.has(e.parent_id ?? "")
+      )
+        return false;
+      if (
+        kind === "ad" &&
+        selectedAdsetIds.size === 0 &&
+        selectedCampaignIds.size > 0 &&
+        !adsetsForSelectedCampaigns.has(e.parent_id ?? "")
+      )
+        return false;
+      if (
+        search &&
+        !e.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()) &&
+        !e.external_id.includes(search)
+      )
+        return false;
+      return true;
+    });
+  }, [
+    entities,
+    kind,
+    selectedIntegration,
+    selectedCampaignIds,
+    selectedAdsetIds,
+    adsetsForSelectedCampaigns,
+    search,
+  ]);
+
   // 4. Mapeamento de métricas completas para ordenação
   interface RowData {
     entity: Entity;
@@ -851,56 +899,66 @@ export function CampaignsView({
     cpm: number | null;
   }
 
-  const computedRows: RowData[] = useMemo(() => {
-    return filteredEntities.map((e) => {
-      const ins = insightsMap.get(`${e.integration_id}:${e.external_id}`) || insightsMap.get(`:${e.external_id}`) || {
-        spend: 0,
-        clicks: 0,
-        impressions: 0,
-        metaInitiateCheckouts: null,
-      };
-      const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0, netRevenue: 0 };
-      const profit = sls.netRevenue - ins.spend;
-      const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
-      const cpa = sls.count > 0 ? ins.spend / sls.count : null;
-      const margin = sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;
-      const roi = ins.spend > 0 ? (profit / ins.spend) * 100 : null;
-      const cpc = ins.clicks > 0 ? ins.spend / ins.clicks : null;
-      const ctr =
-        ins.impressions > 0 ? (ins.clicks / ins.impressions) * 100 : null;
-      const cpm =
-        ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
+  const toRow = (e: Entity): RowData => {
+    const ins = insightsMap.get(`${e.integration_id}:${e.external_id}`) || insightsMap.get(`:${e.external_id}`) || {
+      spend: 0,
+      clicks: 0,
+      impressions: 0,
+      metaInitiateCheckouts: null,
+    };
+    const sls = salesMap.get(e.external_id) || { count: 0, revenue: 0, netRevenue: 0 };
+    const profit = sls.netRevenue - ins.spend;
+    const roas = ins.spend > 0 ? sls.revenue / ins.spend : null;
+    const cpa = sls.count > 0 ? ins.spend / sls.count : null;
+    const margin = sls.revenue > 0 ? (profit / sls.revenue) * 100 : null;
+    const roi = ins.spend > 0 ? (profit / ins.spend) * 100 : null;
+    const cpc = ins.clicks > 0 ? ins.spend / ins.clicks : null;
+    const ctr =
+      ins.impressions > 0 ? (ins.clicks / ins.impressions) * 100 : null;
+    const cpm =
+      ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
 
-      const ic = checkoutMap.get(e.external_id) || 0;
-      const cpi = ic > 0 ? ins.spend / ic : null;
+    const ic = checkoutMap.get(e.external_id) || 0;
+    const cpi = ic > 0 ? ins.spend / ic : null;
 
-      const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";
-      const zeroDecimal = ["CLP", "COP", "JPY", "KRW", "VND"].includes(budgetCurrency);
-      const budget = e.budget_minor == null ? null : Number(e.budget_minor) / (zeroDecimal ? 1 : 100);
+    const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";
+    const zeroDecimal = ["CLP", "COP", "JPY", "KRW", "VND"].includes(budgetCurrency);
+    const budget = e.budget_minor == null ? null : Number(e.budget_minor) / (zeroDecimal ? 1 : 100);
 
-      return {
-        entity: e,
-        budget,
-        budgetCurrency,
-        budgetType: e.budget_type || null,
-        spend: ins.spend,
-        clicks: ins.clicks,
-        impressions: ins.impressions,
-        salesCount: sls.count,
-        revenue: sls.revenue,
-        profit,
-        ic,
-        cpi,
-        roas,
-        cpa,
-        margin,
-        roi,
-        cpc,
-        ctr,
-        cpm,
-      };
-    });
-  }, [filteredEntities, insightsMap, salesMap, checkoutMap, integrations]);
+    return {
+      entity: e,
+      budget,
+      budgetCurrency,
+      budgetType: e.budget_type || null,
+      spend: ins.spend,
+      clicks: ins.clicks,
+      impressions: ins.impressions,
+      salesCount: sls.count,
+      revenue: sls.revenue,
+      profit,
+      ic,
+      cpi,
+      roas,
+      cpa,
+      margin,
+      roi,
+      cpc,
+      ctr,
+      cpm,
+    };
+  };
+
+  const computedRows: RowData[] = useMemo(
+    () => filteredEntities.map(toRow),
+    [filteredEntities, insightsMap, salesMap, checkoutMap, integrations],
+  );
+
+  // Totais do rodapé: sempre a partir de TODAS as entidades relevantes,
+  // independente do filtro de status escolhido pra exibição da tabela.
+  const totalsRows: RowData[] = useMemo(
+    () => totalsEntities.map(toRow),
+    [totalsEntities, insightsMap, salesMap, checkoutMap, integrations],
+  );
 
   // 5. Ordenação dinâmica
   const sortedRows = useMemo(() => {
@@ -1034,7 +1092,7 @@ export function CampaignsView({
   let totalImpressions = 0;
   let totalIc = 0;
 
-  for (const row of sortedRows) {
+  for (const row of totalsRows) {
     totalSales += row.salesCount;
     totalSpend += row.spend;
     totalRevenue += row.revenue;
@@ -1048,7 +1106,7 @@ export function CampaignsView({
   totalSales += unattributedSalesSummary.count;
   totalRevenue += unattributedSalesSummary.revenue;
 
-  const totalNetRevenue = sortedRows.reduce((sum, row) => {
+  const totalNetRevenue = totalsRows.reduce((sum, row) => {
     const salesForRow = salesMap.get(row.entity.external_id);
     return sum + (salesForRow?.netRevenue || 0);
   }, unattributedSalesSummary.netRevenue);
@@ -2156,7 +2214,11 @@ export function CampaignsView({
                 )}
                 {visibleCols.name && (
                   <td className="col-sticky-name">
-                    <strong>TOTAL ({sortedRows.length})</strong>
+                    <strong
+                      title="Soma de todas as campanhas do período, inclusive as escondidas pelo filtro de status acima"
+                    >
+                      TOTAL ({totalsRows.length})
+                    </strong>
                   </td>
                 )}
                 {visibleCols.budget && (
