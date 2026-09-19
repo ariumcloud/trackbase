@@ -210,7 +210,7 @@ export async function DELETE(request: Request) {
 
     // Delete every child first; none of these queries can cross the workspace
     // boundary because the integration was verified above.
-    for (const table of ["utm_meta_action_logs", "utm_ad_entities", "utm_insights", "utm_webhook_logs", "utm_sales", "utm_credentials"] as const) {
+    for (const table of ["utm_meta_action_logs", "utm_ad_entities", "utm_insights", "utm_insights_demographics", "utm_webhook_logs", "utm_sales", "utm_credentials"] as const) {
       const { error } = await service.from(table).delete().eq("workspace_id", workspace).eq("integration_id", integration);
       if (error) throw error;
     }

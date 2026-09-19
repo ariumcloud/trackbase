@@ -581,6 +581,7 @@ export async function deleteIntegration(workspace: string, id: string): Promise<
       service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).eq("integration_id", id),
       service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).eq("integration_id", id),
       service.from("utm_insights").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_insights_demographics").delete().eq("workspace_id", workspace).eq("integration_id", id),
       service.from("utm_ad_entities").delete().eq("workspace_id", workspace).eq("integration_id", id),
       service.from("utm_sales").delete().eq("workspace_id", workspace).eq("integration_id", id),
     ]);
