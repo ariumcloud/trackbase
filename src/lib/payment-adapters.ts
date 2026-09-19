@@ -1414,11 +1414,82 @@ export const cartpandaAdapter: PaymentAdapter = {
   },
 };
 
+// Shopify fires a different REST resource per webhook topic, not the same
+// Order object with a changed status: `orders/paid` and `orders/cancelled`
+// send the Order resource (financial_status, line_items, total_price...),
+// but `refunds/create` sends a distinct Refund resource — order_id instead
+// of id, refund_line_items/transactions instead of line_items/total_price,
+// and no financial_status at all. Treating every payload as an Order made
+// every refund normalize as financialStatus="" -> "payment_pending" with
+// gross=0 and productId = the refund's own id (never a known product), so
+// resolveProductTarget silently dropped it and the original sale stayed
+// marked "approved" forever. A Refund resource is identified by having
+// order_id but no financial_status (an Order never has order_id; it has id).
+function normalizeShopifyRefund(root: Record<string, unknown>, context: { receivedAt: string; fallbackCurrency?: string }) {
+  const lineItems = Array.isArray(root.refund_line_items) ? root.refund_line_items.map(record) : [];
+  const firstLineItem = record(lineItems[0]);
+  const originalLineItem = record(firstLineItem.line_item);
+
+  const transactions = Array.isArray(root.transactions) ? root.transactions.map(record) : [];
+  const refundTransactions = transactions.filter((t) => str(t.kind) === "refund" && str(t.status) !== "failure");
+  const transactionsTotal = refundTransactions.reduce((sum, t) => sum + (num(t.amount) ?? 0), 0);
+  const lineItemsTotal = lineItems.reduce(
+    (sum, li) => sum + (num(li.subtotal) ?? 0) + (num(li.total_tax) ?? 0),
+    0,
+  );
+  const gross = transactionsTotal > 0 ? transactionsTotal : lineItemsTotal;
+
+  const productId = str(originalLineItem.product_id || originalLineItem.id || root.order_id || "shopify_product");
+  const offerId = str(originalLineItem.variant_id || originalLineItem.sku) || null;
+  const currency = cleanCurrency(
+    refundTransactions[0]?.currency || root.currency,
+    context.fallbackCurrency || "USD",
+  );
+  const occurredAt = parseDate(root.processed_at || root.created_at, context.receivedAt);
+
+  return [
+    normalizedPaymentEventSchema.parse({
+      provider: "shopify",
+      // Matches the same external_transaction_id the original orders/paid
+      // event was recorded under (order.id there == order_id here), so this
+      // updates that sale row to refunded instead of inserting a new one.
+      externalTransactionId: str(root.order_id || "shopify_tx"),
+      externalEventId: str(root.id) ? `refund_${str(root.id)}` : null,
+      type: "purchase_refunded" as PaymentEventType,
+      productId,
+      offerId,
+      productType: "main",
+      parentProductId: null,
+      parentTransactionId: null,
+      grossAmount: gross,
+      netAmount: gross,
+      fees: 0,
+      grossCurrency: currency,
+      netCurrency: currency,
+      country: null,
+      buyer: { name: null, email: null },
+      attribution: extractAttribution({}),
+      campaignId: null,
+      adsetId: null,
+      adId: null,
+      creativeId: null,
+      clickId: null,
+      occurredAt,
+      receivedAt: context.receivedAt,
+      isTest: false,
+      rawPayload: redactPaymentPayload(root),
+    }),
+  ];
+}
+
 // 14. ADAPTADOR SHOPIFY
 export const shopifyAdapter: PaymentAdapter = {
   provider: "shopify",
   normalize(payload, context) {
     const root = record(payload);
+    const isRefundResource = root.order_id !== undefined && root.financial_status === undefined;
+    if (isRefundResource) return normalizeShopifyRefund(root, context);
+
     const order = record(root.order || root);
     const customer = record(order.customer || root.customer);
     const items = Array.isArray(order.line_items) ? order.line_items.map(record) : [];

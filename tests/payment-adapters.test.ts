@@ -683,6 +683,44 @@ test("Shopify: normaliza orders/paid, note_attributes UTMs e landing_site", () =
   assert.equal(event.clickId, "fb_click_999");
 });
 
+test("Shopify: refunds/create manda um recurso Refund distinto do Order, e precisa marcar a venda original como reembolsada", () => {
+  // Shape real de um webhook `refunds/create` da Shopify: tem order_id (não
+  // id), refund_line_items/transactions (não line_items/total_price), e
+  // nenhum financial_status -- bem diferente do Order que orders/paid manda.
+  const refundPayload = {
+    id: 209908389,
+    order_id: 9876543210, // mesmo id do pedido original em orders/paid
+    created_at: "2026-09-19T16:00:00Z",
+    processed_at: "2026-09-19T16:00:00Z",
+    refund_line_items: [
+      {
+        id: 1,
+        line_item_id: 111,
+        subtotal: "150.00",
+        total_tax: "0.00",
+        line_item: {
+          id: 111,
+          product_id: 222,
+          variant_id: 333,
+          title: "Vestido Floral",
+        },
+      },
+    ],
+    transactions: [
+      { id: 1, order_id: 9876543210, amount: "150.00", kind: "refund", gateway: "shopify_payments", status: "success", currency: "BRL" },
+    ],
+  };
+
+  const [event] = paymentAdapters.shopify.normalize(refundPayload, { receivedAt });
+  assert.equal(event.provider, "shopify");
+  assert.equal(event.type, "purchase_refunded");
+  // Mesmo external_transaction_id do pedido original (order.id lá == order_id aqui),
+  // para o UPSERT em utm_sales atualizar a mesma linha em vez de criar outra.
+  assert.equal(event.externalTransactionId, "9876543210");
+  assert.equal(event.productId, "222");
+  assert.equal(event.grossAmount, 150);
+});
+
 test("Ticto: normaliza v2.0 com centavos, bumps e remove 'Não Informado'", () => {
   const payload = {
     status: "authorized",
