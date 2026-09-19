@@ -199,20 +199,6 @@ function isEntityDelivering(status: string): boolean {
   return ["ACTIVE", "LEARNING", "LEARNING_LIMITED"].includes(status.trim().toUpperCase());
 }
 
-// Status que a Meta já deu como encerrado -- não vão virar ativo sozinhos.
-// O filtro padrão esconde só esses, mantendo visível qualquer coisa que
-// ainda esteja a caminho de veicular (em análise, aprendendo, aguardando).
-const DEAD_STATUSES = new Set([
-  "PAUSED",
-  "CAMPAIGN_PAUSED",
-  "ADSET_PAUSED",
-  "DISAPPROVED",
-  "COMPLETED",
-  "ARCHIVED",
-  "DELETED",
-  "DISABLED",
-]);
-
 export type ColumnKey =
   | "status"
   | "name"
@@ -823,7 +809,18 @@ export function CampaignsView({
       )
         return false;
       if (statusFilter === "default") {
-        if (DEAD_STATUSES.has(e.status.trim().toUpperCase())) return false;
+        // "Ativas e pendentes" agora significa "teve atividade no período
+        // selecionado" -- muito mais preciso do que adivinhar por status.
+        // Sem isso, uma conta com anos de histórico mostrava lixo antigo (ou,
+        // pior, escondia tudo quando o histórico inteiro já estava pausado),
+        // mesmo com "Últimos 30 dias" escolhido no filtro de data.
+        const hasActivity =
+          insightsMap.has(`${e.integration_id}:${e.external_id}`) ||
+          insightsMap.has(`:${e.external_id}`);
+        // Sem atividade no período, só sobra visível quem já está veiculando
+        // agora (cobre o caso raro de campanha nova, ativa, mas cuja sync
+        // ainda não trouxe o primeiro dado de gasto).
+        if (!hasActivity && !isEntityDelivering(e.status)) return false;
       } else if (statusFilter !== "all" && e.status !== statusFilter) {
         return false;
       }
@@ -844,6 +841,7 @@ export function CampaignsView({
     adsetsForSelectedCampaigns,
     statusFilter,
     search,
+    insightsMap,
   ]);
 
   // O filtro de status esconde linhas da tabela pra não poluir a tela (ex.:
@@ -1301,26 +1299,25 @@ export function CampaignsView({
         </div>
       </div>
 
-      <p role="status" style={{ fontSize: "0.85rem", margin: "0.75rem 0" }}>
-        IC: sessões com clique para checkout recebido pela Trackbase. Vendas: pagamentos aprovados recebidos do gateway.
-        Gastos, impressões e cliques de anúncio: Meta. Zero significa nenhum registro atribuído recebido, não ausência comprovada de atividade.
-        {checkoutSummary.unattributed > 0 && <strong> {checkoutSummary.unattributed} checkout(s) sem atribuição neste nível, considerando o período e produto selecionados.</strong>}
-      </p>
       {unattributedSalesSummary.count > 0 && (
         <div
           role="status"
+          title="A plataforma recebeu a venda, mas não encontrou um vínculo comprovado neste nível. Ela não é colocada em um criativo por aproximação para evitar atribuição falsa; quando o vínculo existir, a venda aparecerá no anúncio exato."
           style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
             margin: "0.75rem 0",
-            padding: "0.75rem 0.9rem",
+            padding: "0.3rem 0.65rem",
             border: "1px solid #FCD34D",
-            borderRadius: "10px",
+            borderRadius: "999px",
             background: "#FFFBEB",
             color: "#92400E",
-            fontSize: "0.82rem",
+            fontSize: "0.75rem",
+            fontWeight: 700,
           }}
         >
-          <strong>{unattributedSalesSummary.count} venda(s) aprovada(s) sem atribuição de campanha.</strong>{" "}
-          A plataforma recebeu a venda, mas não encontrou um vínculo comprovado neste nível. Ela não é colocada em um criativo por aproximação para evitar atribuição falsa; quando o vínculo existir, a venda aparecerá no anúncio exato.
+          {unattributedSalesSummary.count} venda(s) sem atribuição
         </div>
       )}
 
@@ -1571,7 +1568,7 @@ export function CampaignsView({
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Status da Campanha"
           >
-            <option value="default">Status: Ativas e pendentes</option>
+            <option value="default">Status: Com atividade no período</option>
             <option value="all">Status: Todos</option>
             <option value="ACTIVE">Só veiculando</option>
             <option value="PAUSED">Pausados</option>
