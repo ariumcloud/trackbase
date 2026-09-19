@@ -452,7 +452,7 @@ export function UtmifySummary({
       id: "kpi-roas",
       title: "ROAS",
       value: metrics.roas !== null ? `${metrics.roas.toFixed(2)}x` : "—",
-      tooltip: "Retorno sobre investimento em anúncios (Faturamento Bruto / Gastos).",
+      tooltip: "ROAS: faturamento bruto dividido pelos gastos com anúncios.",
       tone: metrics.roas !== null && metrics.roas >= 1.0 ? "positive" : metrics.roas !== null && metrics.roas < 1.0 ? "negative" : "neutral",
     },
     {
@@ -481,7 +481,7 @@ export function UtmifySummary({
       id: "kpi-roi",
       title: "ROI",
       value: metrics.roi !== null ? `${metrics.roi.toFixed(0)}%` : "—",
-      tooltip: "Retorno percentual sobre o capital investido em tráfego pago.",
+      tooltip: "ROI: lucro líquido após as taxas da plataforma de pagamento, dividido pelos gastos com anúncios.",
       tone:
         metrics.roi !== null && metrics.roi > 0
           ? "positive"
@@ -700,6 +700,7 @@ export function UtmifySummary({
           <button
             type="button"
             className="utmify-select-styled"
+            title="Gastos, impressões e cliques seguem o fuso da conta de anúncios; vendas seguem o fuso do workspace."
             onClick={() => setShowDatePicker(!showDatePicker)}
             style={{
               display: "flex",
@@ -1195,7 +1196,7 @@ export function UtmifySummary({
             <table className="utmify-daily-table">
               <thead>
                 <tr>
-                  <th>Dia</th><th>Gasto</th><th>ROAS</th><th>CTR</th><th>Cliques</th>
+                  <th>Dia</th><th>Gasto</th><th title="ROAS: faturamento bruto dividido pelos gastos com anúncios.">ROAS</th><th>CTR</th><th title="Cliques no link registrados pela Meta; não inclui cliques totais em curtidas, comentários ou no perfil.">Cliques no link</th>
                   <th>Custo/Compra</th><th>CPM</th><th>Compras</th>
                 </tr>
               </thead>

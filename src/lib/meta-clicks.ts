@@ -50,16 +50,21 @@ export function metaInitiateCheckouts(actions?: MetaAction[]): number {
 }
 
 /**
- * Returns the Meta Ads "link_click" action, never the aggregate "clicks"
- * metric. Older API responses may omit actions, so inline_link_clicks is kept
- * only as a compatibility fallback.
+ * Returns the same link-click number the client sees in Ads Manager by
+ * prioritizing inline_link_clicks. Older API responses and test payloads may
+ * omit that field, so the link_click action is kept as a compatibility
+ * fallback instead of using the aggregate "clicks" metric.
  */
 export function metaLinkClicks(source: MetaClickSource): number {
+  if (source.inline_link_clicks !== undefined && source.inline_link_clicks !== null && source.inline_link_clicks !== "") {
+    return nonNegativeNumber(source.inline_link_clicks) ?? 0;
+  }
+
   const linkClick = source.actions?.find(
     (action) => action.action_type === "link_click",
   );
   const actionValue = nonNegativeNumber(linkClick?.value);
   if (actionValue !== null) return actionValue;
 
-  return nonNegativeNumber(source.inline_link_clicks) ?? 0;
+  return 0;
 }

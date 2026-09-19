@@ -400,6 +400,9 @@ export default async function Page({
   const resolvedIntegrations = (integrations.data ?? []) as Integration[];
   const periodStartDay = since.slice(0, 10);
   const periodEndDay = until.slice(0, 10);
+  // Keep gateway sales on the workspace calendar. Meta insight rows retain
+  // the ad account's calendar so their daily values stay comparable to Ads
+  // Manager; the UI warns about this split near the period filter.
   const periodSales = ((sales.data ?? []) as SaleRow[]).filter((sale) => {
     const day = dayInZone(new Date(sale.occurred_at), timezone);
     return day >= periodStartDay && day <= periodEndDay;

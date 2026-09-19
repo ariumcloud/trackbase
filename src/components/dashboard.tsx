@@ -1941,7 +1941,7 @@ export function Dashboard(p: Props) {
 
               <div className="footer-note">
                 <ShieldCheck size={14} /> Dados isolados por workspace{" "}
-                <span>•</span> Valores de moedas diferentes nunca são somados.
+                <span>•</span> Valores de outras moedas são convertidos para {currency} antes da soma.
               </div>
             </>
           )}

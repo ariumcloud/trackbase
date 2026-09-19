@@ -233,9 +233,9 @@ export const DEFAULT_COLUMNS: Record<
   ic: { label: "IC", defaultVisible: true, numeric: true, tooltip: "Inícios de checkout reportados pela Meta; cargas antigas usam o tracker." },
   profit: { label: "Lucro", defaultVisible: true, numeric: true, tooltip: "Comissão líquida menos gastos em anúncios" },
   cpi: { label: "CPI", defaultVisible: true, numeric: true, tooltip: "Custo por Início de Checkout" },
-  roas: { label: "ROAS", defaultVisible: true, numeric: true, tooltip: "Retorno sobre o investimento em anúncios" },
+  roas: { label: "ROAS", defaultVisible: true, numeric: true, tooltip: "ROAS: faturamento bruto dividido pelos gastos com anúncios." },
   margin: { label: "Margem", defaultVisible: false, numeric: true, tooltip: "Margem de lucro líquida" },
-  roi: { label: "ROI", defaultVisible: false, numeric: true, tooltip: "Retorno sobre o investimento total" },
+  roi: { label: "ROI", defaultVisible: false, numeric: true, tooltip: "ROI: lucro líquido após as taxas da plataforma de pagamento, dividido pelos gastos com anúncios." },
   cpc: { label: "CPC", defaultVisible: false, numeric: true, tooltip: "Custo médio por clique" },
   ctr: { label: "CTR", defaultVisible: false, numeric: true, tooltip: "Taxa de cliques no anúncio" },
   cpm: { label: "CPM", defaultVisible: false, numeric: true, tooltip: "Custo por mil impressões" },
@@ -1860,7 +1860,7 @@ export function CampaignsView({
                     onClick={() => handleSort("roas")}
                   >
                     <div className="th-content-right">
-                      <span>ROAS</span>
+                      <span title="ROAS: faturamento bruto dividido pelos gastos com anúncios.">ROAS</span>
                       {renderSortIndicator("roas")}
                     </div>
                   </th>
@@ -1884,7 +1884,7 @@ export function CampaignsView({
                     onClick={() => handleSort("roi")}
                   >
                     <div className="th-content-right">
-                      <span>ROI</span>
+                      <span title="ROI: lucro líquido após as taxas da plataforma de pagamento, dividido pelos gastos com anúncios.">ROI</span>
                       {renderSortIndicator("roi")}
                     </div>
                   </th>

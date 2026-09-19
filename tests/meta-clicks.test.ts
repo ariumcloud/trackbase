@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { metaInitiateCheckouts, metaLinkClicks } from "../src/lib/meta-clicks";
 
-test("usa link_click da Meta e não o contador de cliques totais", () => {
+test("prioriza inline_link_clicks para bater com a coluna de cliques no link do Ads Manager", () => {
   assert.equal(
     metaLinkClicks({
       actions: [
@@ -11,11 +11,20 @@ test("usa link_click da Meta e não o contador de cliques totais", () => {
       ],
       inline_link_clicks: "24",
     }),
+    24,
+  );
+});
+
+test("usa link_click como fallback quando inline_link_clicks não existe", () => {
+  assert.equal(
+    metaLinkClicks({
+      actions: [{ action_type: "link_click", value: "5" }],
+    }),
     5,
   );
 });
 
-test("mantém compatibilidade quando a API não envia actions", () => {
+test("mantém compatibilidade quando a API não envia actions nem link_click", () => {
   assert.equal(metaLinkClicks({ inline_link_clicks: "7" }), 7);
   assert.equal(metaLinkClicks({ inline_link_clicks: "not-a-number" }), 0);
 });

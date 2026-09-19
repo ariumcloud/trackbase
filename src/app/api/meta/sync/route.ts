@@ -29,6 +29,10 @@ export async function POST(request: Request) {
     );
     if (!integration.account_id)
       return NextResponse.json({ error: "Conecte e selecione uma conta Meta antes de sincronizar.", code: "account_not_selected", stage: "account_selection" }, { status: 409 });
+    // Meta's daily `date_start` is defined in the ad account timezone. Keep
+    // the sync window in that timezone so persisted insight days match Ads
+    // Manager; gateway sales are intentionally bucketed later in the
+    // workspace timezone when the dashboard builds its period.
     const until = dayInZone(new Date(), integration.account_timezone || "UTC");
     const start = new Date(`${until}T12:00:00Z`);
     start.setUTCDate(start.getUTCDate() - 29);
