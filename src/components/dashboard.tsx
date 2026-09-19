@@ -3519,9 +3519,11 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                                     ? "Lowfy"
                                                     : modal === "greenn"
                                                       ? "Greenn"
-                                                      : modal === "stripe"
-                                                        ? "Stripe"
-                                                        : modal
+                                                      : modal === "yampi"
+                                                        ? "Yampi"
+                                                        : modal === "stripe"
+                                                          ? "Stripe"
+                                                          : modal
                                   }`}
             </h2>
             {modal === "workspace" ? (
@@ -3583,6 +3585,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 "wiapy",
                 "lowfy",
                 "greenn",
+                "yampi",
               ].includes(modal.replace("-add", "")) ? (
               <GatewayConnectForm
                 workspace={workspace}
@@ -3597,6 +3600,7 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     | "wiapy"
                     | "lowfy"
                     | "greenn"
+                    | "yampi"
                 }
                 offers={p.offers.map((offer) => ({
                   id: offer.id,
@@ -3673,9 +3677,11 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                   ? "Token / Secret de webhook Lowfy"
                                   : modal === "greenn"
                                     ? "Token de autenticação Greenn"
-                                    : modal === "stripe"
-                                      ? "Signing Secret Stripe (whsec_...) ou Token"
-                                      : "Secret / Token do webhook"}
+                                    : modal === "yampi"
+                                      ? "Chave Secreta (Token HMAC) do Webhook Yampi"
+                                      : modal === "stripe"
+                                        ? "Signing Secret Stripe (whsec_...) ou Token"
+                                        : "Secret / Token do webhook"}
                   <input
                     name="secret"
                     type="password"
@@ -3703,6 +3709,8 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     "Na Lowfy (Webhooks), insira a URL do webhook gerada e o token de autenticação (ou defina uma chave segura)."}
                   {modal === "greenn" &&
                     "Na Greenn (Ferramentas > Webhooks), insira a URL da Trackbase e seu token de validação."}
+                  {modal === "yampi" &&
+                    "Na Yampi (Configurações > Webhooks), insira a URL da Trackbase e a Chave Secreta (Token HMAC)."}
                   {modal === "stripe" &&
                     "No Stripe Dashboard (Developers > Webhooks), adicione a URL e copie o Signing Secret (whsec_...) ou token de segurança."}
                   O token será armazenado como hash seguro para autenticar cada
@@ -5076,6 +5084,7 @@ function IntegrationCard({
             "wiapy",
             "lowfy",
             "greenn",
+            "yampi",
           ].includes(i.provider) &&
           i.status === "connected" &&
           !editingWebhookSecret ? (
@@ -5098,7 +5107,9 @@ function IntegrationCard({
                     ? "Hottok"
                     : i.provider === "kiwify"
                       ? "token"
-                      : "secret"}
+                      : i.provider === "yampi"
+                        ? "token HMAC"
+                        : "secret"}
                 </button>
                 <button
                   className="text-button danger"
@@ -5195,6 +5206,8 @@ function IntegrationCard({
               "Configure na área de Webhooks da Lowfy com o token cadastrado."}
             {i.provider === "greenn" &&
               "Configure em Ferramentas > Webhooks na Greenn com seu token de autenticação."}
+            {i.provider === "yampi" &&
+              "Configure em Configurações > Webhooks na Yampi com sua Chave Secreta (Token HMAC)."}
             {i.provider === "stripe" &&
               "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
           </small>
@@ -5208,6 +5221,7 @@ function IntegrationCard({
             "wiapy",
             "lowfy",
             "greenn",
+            "yampi",
           ].includes(i.provider) &&
             (i.status !== "connected" || editingWebhookSecret) && (
               <form
@@ -5241,7 +5255,9 @@ function IntegrationCard({
                         ? "Token / assinatura da Kiwify"
                         : i.provider === "hotmart"
                           ? "Hottok / token da Hotmart"
-                          : "Token/secret do webhook"
+                          : i.provider === "yampi"
+                            ? "Chave Secreta (Token HMAC) da Yampi"
+                            : "Token/secret do webhook"
                   }
                 />
                 <button className="button secondary" disabled={pending}>

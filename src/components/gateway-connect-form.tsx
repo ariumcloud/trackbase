@@ -4,7 +4,7 @@ import { gatewayWebhookUrl } from "@/lib/webhook-url";
 import { useState, useTransition } from "react";
 import { connectGatewayHub, savePaymentIntegration } from "@/app/actions";
 
-type Provider = "hotmart" | "kiwify" | "cakto" | "kirvano" | "eduzz" | "monetizze" | "wiapy" | "lowfy" | "greenn";
+type Provider = "hotmart" | "kiwify" | "cakto" | "kirvano" | "eduzz" | "monetizze" | "wiapy" | "lowfy" | "greenn" | "yampi";
 type CatalogProvider = "hotmart" | "kiwify" | "cakto";
 
 const providerNames: Record<Provider, string> = {
@@ -17,6 +17,7 @@ const providerNames: Record<Provider, string> = {
   wiapy: "Wiapy",
   lowfy: "Lowfy",
   greenn: "Greenn",
+  yampi: "Yampi",
 };
 
 type ManualProviderConfig = {
@@ -111,6 +112,16 @@ const manualProviders: Record<string, ManualProviderConfig> = {
     product: "ID do produto Greenn",
     productHelp: "Código do produto na Greenn.",
     credentialHelp: "Token informado pela Greenn na criação do webhook.",
+  },
+  yampi: {
+    credential: "Chave Secreta (Token HMAC) do Webhook",
+    where: "Configurações > Webhooks",
+    events: "order.paid, order.created, order.status.updated",
+    product: "ID ou Nome do produto na Yampi",
+    productHelp: "O identificador ou título do produto cadastrado na Yampi.",
+    productPlaceholder: "Ex.: 5555 ou Meu Produto",
+    credentialHelp: "Na Yampi, acesse Configurações > Webhooks, cadastre a URL do webhook e informe a Chave Secreta (Token HMAC).",
+    directUrl: "https://app.yampi.com.br",
   },
 };
 

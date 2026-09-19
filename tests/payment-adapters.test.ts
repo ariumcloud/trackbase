@@ -358,3 +358,101 @@ test("Stripe: normaliza checkout.session.completed, conversão de centavos e met
   assert.equal(event.buyer?.name, "John Stripe");
   assert.equal(event.attribution.utm_source, "google_ads");
 });
+
+test("Yampi: normaliza order.paid com comprador, itens e UTMs", () => {
+  const payload = {
+    event: "order.paid",
+    time: "2026-09-19T18:00:00-03:00",
+    resource: {
+      id: 987654,
+      number: "YP-100234",
+      status: {
+        data: {
+          alias: "paid",
+          name: "Pago",
+        },
+      },
+      value_total: 199.9,
+      value_tax: 5.0,
+      currency: "BRL",
+      customer: {
+        data: {
+          name: "Comprador Yampi",
+          email: "comprador@yampi.com.br",
+          phone: "11999999999",
+        },
+      },
+      shipping_address: {
+        data: {
+          country: "BR",
+          state: "SP",
+          city: "São Paulo",
+        },
+      },
+      items: {
+        data: [
+          {
+            product_id: 12345,
+            sku_id: 67890,
+            item_sku: "SKU-CURSO-01",
+            price: 199.9,
+            sku: {
+              data: {
+                token: "token-oferta-123",
+              },
+            },
+          },
+        ],
+      },
+      utm_source: "instagram",
+      utm_medium: "stories",
+      utm_campaign: "campanha_natal",
+      utm_content: "criativo_01",
+      utm_term: "publico_lookalike",
+    },
+  };
+
+  const [event] = paymentAdapters.yampi.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "yampi");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "YP-100234");
+  assert.equal(event.productId, "12345");
+  assert.equal(event.offerId, "token-oferta-123");
+  assert.equal(event.grossAmount, 199.9);
+  assert.equal(event.fees, 5.0);
+  assert.equal(event.netAmount, 194.9);
+  assert.equal(event.grossCurrency, "BRL");
+  assert.equal(event.buyer?.name, "Comprador Yampi");
+  assert.equal(event.buyer?.email, "comprador@yampi.com.br");
+  assert.equal(event.attribution.utm_source, "instagram");
+  assert.equal(event.attribution.utm_campaign, "campanha_natal");
+  assert.equal(event.attribution.utm_content, "criativo_01");
+  assert.equal(event.country, "BR");
+});
+
+test("Yampi: normaliza status de reembolso e recusa", () => {
+  const refundedPayload = {
+    event: "order.status.updated",
+    resource: {
+      id: 555,
+      number: "YP-REF-1",
+      status: { data: { alias: "refunded" } },
+      value_total: 100,
+    },
+  };
+  const [refundEvent] = paymentAdapters.yampi.normalize(refundedPayload, { receivedAt });
+  assert.equal(refundEvent.type, "purchase_refunded");
+
+  const refusedPayload = {
+    event: "transaction.payment.refused",
+    resource: {
+      id: 666,
+      number: "YP-REFUSED-1",
+      status: { data: { alias: "refused" } },
+      value_total: 50,
+    },
+  };
+  const [refusedEvent] = paymentAdapters.yampi.normalize(refusedPayload, { receivedAt });
+  assert.equal(refusedEvent.type, "purchase_canceled");
+});
+

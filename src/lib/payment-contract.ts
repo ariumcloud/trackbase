@@ -10,6 +10,7 @@ export const paymentProviders = [
   "lowfy",
   "greenn",
   "stripe",
+  "yampi",
 ] as const;
 export type PaymentProvider = (typeof paymentProviders)[number];
 
@@ -66,6 +67,11 @@ export const DEFAULT_PLATFORM_FEES: Record<
     percent: 3.99,
     fixed: 0.5,
     note: "Stripe: 3,99% + R$ 0,50",
+  },
+  yampi: {
+    percent: 2.5,
+    fixed: 0,
+    note: "Yampi: 2,5%",
   },
 };
 export const paymentEventTypes = [

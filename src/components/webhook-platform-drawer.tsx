@@ -17,7 +17,7 @@ export const ALL_GATEWAY_PLATFORMS: PlatformItem[] = [
   { id: "kirvano", name: "Kirvano", native: true },
   { id: "shopify", name: "Shopify", native: false },
   { id: "perfectpay", name: "PerfectPay", native: false },
-  { id: "yampi", name: "Yampi", native: false },
+  { id: "yampi", name: "Yampi", native: true },
   { id: "lastlink", name: "Lastlink", native: false },
   { id: "stripe", name: "Stripe", native: true },
   { id: "payt", name: "Payt", native: false },

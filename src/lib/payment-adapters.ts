@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PLATFORM_FEES,
   normalizedPaymentEventSchema,
   redactPaymentPayload,
   type PaymentAdapter,
@@ -987,6 +988,173 @@ export const stripeAdapter: PaymentAdapter = {
   },
 };
 
+// 11. ADAPTADOR YAMPI
+export const yampiAdapter: PaymentAdapter = {
+  provider: "yampi",
+  normalize(payload, context) {
+    const root = record(payload);
+    const eventName = str(root.event).toLowerCase();
+    const resource = record(root.resource || root.data || root);
+    const customer = record(record(resource.customer).data || resource.customer);
+    const statusObj = record(record(resource.status).data || resource.status);
+    const statusAlias = str(statusObj.alias || resource.status || root.status).toLowerCase();
+
+    let type: PaymentEventType = "payment_pending";
+    if (
+      eventName === "order.paid" ||
+      statusAlias === "paid" ||
+      statusAlias === "approved" ||
+      Boolean(resource.authorized && resource.has_payment)
+    ) {
+      type = "purchase_approved";
+    } else if (
+      eventName === "transaction.payment.refused" ||
+      statusAlias === "refused"
+    ) {
+      type = "purchase_canceled";
+    } else if (statusAlias === "refunded") {
+      type = "purchase_refunded";
+    } else if (statusAlias === "chargeback" || statusAlias === "chargedback") {
+      type = "chargeback_created";
+    } else if (statusAlias === "cancelled" || statusAlias === "canceled") {
+      type = "purchase_canceled";
+    } else {
+      const payments = Array.isArray(resource.payments) ? resource.payments : [];
+      const firstPayment = record(payments[0]);
+      const paymentAlias = str(firstPayment.alias).toLowerCase();
+      if (paymentAlias === "pix") {
+        type = "pix_created";
+      } else if (
+        paymentAlias === "billet" ||
+        paymentAlias === "bank_slip" ||
+        paymentAlias === "boleto"
+      ) {
+        type = "boleto_created";
+      } else {
+        type = "payment_pending";
+      }
+    }
+
+    const itemsData = Array.isArray(resource.items)
+      ? resource.items
+      : Array.isArray((resource.items as Record<string, unknown>)?.data)
+        ? ((resource.items as Record<string, unknown>).data as unknown[])
+        : [];
+    const spreadsheetData = Array.isArray((resource.spreadsheet as Record<string, unknown>)?.data)
+      ? ((resource.spreadsheet as Record<string, unknown>).data as unknown[])
+      : [];
+
+    const firstItem = record(itemsData[0] || spreadsheetData[0]);
+    const firstSku = record(record(firstItem.sku).data || firstItem.sku);
+
+    const productId = str(
+      firstItem.product_id ||
+        firstSku.product_id ||
+        firstItem.sku_id ||
+        firstSku.id ||
+        firstItem.item_sku ||
+        resource.number ||
+        resource.id ||
+        "yampi_product",
+    );
+    const offerId = str(firstSku.token || firstItem.sku || firstItem.item_sku || resource.cart_token) || null;
+
+    const isUpsell = Boolean(resource.is_upsell || resource.has_upsell || firstItem.is_upsell);
+    const isBump = Boolean(resource.has_order_bump || firstItem.is_order_bump);
+    let productType: "main" | "upsell" | "order_bump" = "main";
+    if (isBump) productType = "order_bump";
+    else if (isUpsell) productType = "upsell";
+
+    const gross = num(
+      resource.value_total ||
+        resource.buyer_value_total ||
+        resource.value_products ||
+        firstItem.price ||
+        firstItem.price_sale,
+    ) || 0;
+    const feeRate = DEFAULT_PLATFORM_FEES.yampi.percent / 100;
+    const fee = num(resource.value_tax) ?? Number((gross * feeRate).toFixed(2));
+    const net = num(resource.net_amount) ?? Number((gross - fee).toFixed(2));
+
+    const tracking: Record<string, string> = {};
+    if (resource.utm_source) tracking.utm_source = str(resource.utm_source);
+    if (resource.utm_medium) tracking.utm_medium = str(resource.utm_medium);
+    if (resource.utm_campaign) tracking.utm_campaign = str(resource.utm_campaign);
+    if (resource.utm_content) tracking.utm_content = str(resource.utm_content);
+    if (resource.utm_term) tracking.utm_term = str(resource.utm_term);
+
+    const metadata = resource.metadata;
+    if (Array.isArray(metadata)) {
+      for (const m of metadata) {
+        if (m && typeof m === "object" && "key" in m && "value" in m) {
+          tracking[str((m as Record<string, unknown>).key)] = str((m as Record<string, unknown>).value);
+        }
+      }
+    } else if (metadata && typeof metadata === "object") {
+      const metaDataArr = (metadata as Record<string, unknown>).data;
+      if (Array.isArray(metaDataArr)) {
+        for (const m of metaDataArr) {
+          if (m && typeof m === "object" && "key" in m && "value" in m) {
+            tracking[str((m as Record<string, unknown>).key)] = str((m as Record<string, unknown>).value);
+          }
+        }
+      } else {
+        Object.assign(tracking, extractAttribution(metadata));
+      }
+    }
+
+    const shippingAddress = record(record(resource.shipping_address).data || resource.shipping_address);
+    const country = cleanCountry(
+      shippingAddress.country || customer.country || "BR",
+    );
+
+    const createdAt = record(resource.created_at);
+    const dateStr = str(createdAt.date || resource.created_at || root.time);
+    const occurredAt = parseDate(dateStr, context.receivedAt);
+
+    const buyerName =
+      str(customer.name) ||
+      `${str(customer.first_name)} ${str(customer.last_name)}`.trim() ||
+      null;
+
+    const currency = cleanCurrency(resource.currency, context.fallbackCurrency || "BRL");
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "yampi",
+        externalTransactionId: str(resource.number || resource.id || root.id || "yampi_tx"),
+        externalEventId: str(root.event_id || root.id) || null,
+        type,
+        productId,
+        offerId,
+        productType,
+        parentProductId: null,
+        parentTransactionId: null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country,
+        buyer: {
+          name: buyerName,
+          email: str(customer.email) || null,
+        },
+        attribution: extractAttribution(tracking),
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId: str(tracking.fbclid || tracking.sck || tracking.src) || null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: Boolean(root.is_test || resource.is_test || root.test),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
 export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   hotmart: hotmartAdapter,
   kiwify: kiwifyAdapter,
@@ -998,4 +1166,5 @@ export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   lowfy: lowfyAdapter,
   greenn: greennAdapter,
   stripe: stripeAdapter,
+  yampi: yampiAdapter,
 };

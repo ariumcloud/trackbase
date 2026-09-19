@@ -112,11 +112,31 @@ function extractWebhookToken(
       )
     );
   }
+  if (provider === "yampi") {
+    return (
+      request.headers.get("x-yampi-hmac-sha256") ||
+      request.headers.get("x-yampi-token") ||
+      request.headers.get("x-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(
+        p.token ||
+        p.secret ||
+        p.signature ||
+        url.searchParams.get("token") ||
+        url.searchParams.get("secret") ||
+        ""
+      )
+    );
+  }
   return "";
 }
 
-function validCaktoSignature(request: Request, raw: string, secret: string) {
-  const timestamp = request.headers.get("x-cakto-timestamp");
+function validCaktoSignature(
+  request: Request,
+  raw: string,
+  secret: string,
+): boolean {
+  const timestamp = request.headers.get("x-cakto-timestamp")?.trim();
   const signature = request.headers.get("x-cakto-signature")?.trim();
   if (!timestamp || !signature || !/^\d{10,13}$/.test(timestamp)) return false;
 
@@ -132,6 +152,23 @@ function validCaktoSignature(request: Request, raw: string, secret: string) {
     .digest("hex");
   const a = Buffer.from(expected, "hex");
   const b = Buffer.from(received, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function validYampiSignature(
+  request: Request,
+  raw: string,
+  secret: string,
+): boolean {
+  const signature = (
+    request.headers.get("x-yampi-hmac-sha256") ||
+    request.headers.get("x-yampi-signature") ||
+    ""
+  ).trim();
+  if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) return false;
+  const expected = createHmac("sha256", secret).update(raw).digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(signature, "hex");
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
@@ -154,6 +191,19 @@ function extractPayloadProductName(provider: string, payload: unknown): string |
   if (provider === "cakto") {
     const prod = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
     const name = String(prod.title || prod.name || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "yampi") {
+    const resource = (p.resource && typeof p.resource === "object" ? p.resource : p.data && typeof p.data === "object" ? p.data : p) as Record<string, unknown>;
+    const items = Array.isArray(resource.items)
+      ? resource.items
+      : Array.isArray((resource.items as Record<string, unknown>)?.data)
+        ? ((resource.items as Record<string, unknown>).data as unknown[])
+        : [];
+    const firstItem = (items[0] && typeof items[0] === "object" ? items[0] : {}) as Record<string, unknown>;
+    const sku = (firstItem.sku && typeof firstItem.sku === "object" ? firstItem.sku : {}) as Record<string, unknown>;
+    const skuData = (sku.data && typeof sku.data === "object" ? sku.data : sku) as Record<string, unknown>;
+    const name = String(skuData.title || firstItem.title || firstItem.name || firstItem.item_sku || "").trim();
     return name || null;
   }
   const generic = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
@@ -201,7 +251,7 @@ export async function POST(
     let payload: unknown;
     let raw: string | undefined;
     try {
-      if (provider === "cakto") {
+      if (provider === "cakto" || provider === "yampi") {
         raw = await rawBody(request);
         payload = JSON.parse(raw);
       } else {
@@ -223,13 +273,22 @@ export async function POST(
         raw,
         decrypt(credentials.webhook_secret_ciphertext),
       );
+    const signedYampiRequest =
+      provider === "yampi" &&
+      raw !== undefined &&
+      credentials?.webhook_secret_ciphertext &&
+      validYampiSignature(
+        request,
+        raw,
+        decrypt(credentials.webhook_secret_ciphertext),
+      );
     const token = extractWebhookToken(provider, request, payload);
     const legacyTokenMatches =
       !!credentials?.webhook_hash && matches(token, credentials.webhook_hash);
     const authenticated =
-      provider === "cakto" && credentials?.webhook_secret_ciphertext
-        ? signedCaktoRequest
-        : legacyTokenMatches;
+      (provider === "cakto" && credentials?.webhook_secret_ciphertext && signedCaktoRequest) ||
+      (provider === "yampi" && credentials?.webhook_secret_ciphertext && signedYampiRequest) ||
+      legacyTokenMatches;
     if (!authenticated) {
       return NextResponse.json({ error: "Token inválido." }, { status: 401 });
     }
