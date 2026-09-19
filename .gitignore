@@ -11,3 +11,5 @@ coverage/
 test-results/
 .next-cache-backup*
 .superdesign/
+.codex/
+

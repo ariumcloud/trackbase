@@ -61,6 +61,7 @@ import {
   WorkspaceRenameForm,
 } from "./forms";
 import { GatewayConnectForm } from "./gateway-connect-form";
+import { WebhookPlatformDrawer } from "./webhook-platform-drawer";
 import { GuideModal } from "./guide-modal";
 import { LockedFeatureCard } from "./locked-feature-card";
 import {
@@ -346,6 +347,7 @@ export function Dashboard(p: Props) {
     >("contas"),
     [accountView, setAccountView] = useState<null | "assinatura" | "conta" | "avancado">(null),
     [accountMenuOpen, setAccountMenuOpen] = useState(false),
+    [gatewayDrawerOpen, setGatewayDrawerOpen] = useState(false),
     [pending, start] = useTransition();
 
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1003,6 +1005,20 @@ export function Dashboard(p: Props) {
       return;
     }
     setModal(workspace ? type : "workspace");
+  };
+  const handleSelectPlatform = (platformId: string) => {
+    if (!workspace) {
+      create("workspace");
+      return;
+    }
+    if (
+      ["cakto", "kiwify", "hotmart"].includes(platformId) &&
+      p.integrations.some((connection) => connection.provider === platformId)
+    ) {
+      setModal(`${platformId}-add`);
+    } else {
+      setModal(platformId);
+    }
   };
   const request = useCallback(async (path: string, data: unknown) => {
     const response = await fetch(path, {
@@ -2394,76 +2410,6 @@ export function Dashboard(p: Props) {
                     text: "Métricas de cliques, impressões e custo com sincronização segura.",
                     color: "red",
                   },
-                  {
-                    id: "hotmart",
-                    name: "Hotmart",
-                    letter: "H",
-                    text: "Receba vendas, reembolsos e atualizações por webhook.",
-                    color: "orange",
-                  },
-                  {
-                    id: "kiwify",
-                    name: "Kiwify",
-                    letter: "K",
-                    text: "Rastreie pedidos aprovados, bumps, upsells e reembolsos.",
-                    color: "green",
-                  },
-                  {
-                    id: "cakto",
-                    name: "Cakto",
-                    letter: "C",
-                    text: "Conecte seus produtos e acompanhe os pedidos aprovados.",
-                    color: "green",
-                  },
-                  {
-                    id: "kirvano",
-                    name: "Kirvano",
-                    letter: "K",
-                    text: "Vendas digitais, assinaturas e webhooks em tempo real.",
-                    color: "purple",
-                  },
-                  {
-                    id: "eduzz",
-                    name: "Eduzz",
-                    letter: "E",
-                    text: "Vendas, faturas e contratos de produtos digitais e físicos.",
-                    color: "orange",
-                  },
-                  {
-                    id: "monetizze",
-                    name: "Monetizze",
-                    letter: "M",
-                    text: "Produtos físicos e digitais com comissões e pós-venda.",
-                    color: "blue",
-                  },
-                  {
-                    id: "wiapy",
-                    name: "Wiapy",
-                    letter: "W",
-                    text: "Plataforma de vendas com checkout de alta conversão.",
-                    color: "purple",
-                  },
-                  {
-                    id: "lowfy",
-                    name: "Lowfy",
-                    letter: "L",
-                    text: "Checkout e pagamentos para infoprodutos e vendas digitais.",
-                    color: "purple",
-                  },
-                  {
-                    id: "greenn",
-                    name: "Greenn",
-                    letter: "G",
-                    text: "Plataforma de infoprodutos, cursos e checkout de alta conversão.",
-                    color: "green",
-                  },
-                  {
-                    id: "stripe",
-                    name: "Stripe",
-                    letter: "S",
-                    text: "Infraestrutura global de pagamentos em múltiplas moedas (USD, EUR, BRL).",
-                    color: "blue",
-                  },
                 ].map((i) => {
                   const currentPlan = normalizePlan(p.workspace?.plan || "devedor");
                   const metaLimit = plans[currentPlan].meta;
@@ -2503,29 +2449,48 @@ export function Dashboard(p: Props) {
                             window.location.assign(
                               `/api/google/connect?workspace=${workspace}`,
                             );
-                          } else if (
-                            ["cakto", "kiwify", "hotmart"].includes(i.id) &&
-                            p.integrations.some(
-                              (connection) => connection.provider === i.id,
-                            )
-                          ) {
-                            setModal(`${i.id}-add`);
-                          } else setModal(i.id);
+                          }
                         }}
                       >
                         {isMetaLimitReached
                           ? `Limite atingido (${metaLimit}/${metaLimit})`
-                          : ["cakto", "kiwify", "hotmart"].includes(i.id) &&
-                            p.integrations.some(
-                              (connection) => connection.provider === i.id,
-                            )
-                          ? "Adicionar outro produto"
                           : `Conectar ${i.name}`}{" "}
                         {!isMetaLimitReached && <ArrowUpRight size={15} />}
                       </button>
                     </section>
                   );
                 })}
+
+                {/* Gateway / Checkout Card */}
+                {(() => {
+                  const gatewayIntegrations = p.integrations.filter(
+                    (c) => c.provider !== "meta" && c.provider !== "google",
+                  );
+                  return (
+                    <section className="panel integration-card" key="gateway-checkout">
+                      <div className="provider-logo green">⚡</div>
+                      <h2>Gateways / Checkout</h2>
+                      <p>Conecte Hotmart, Kiwify, Cakto, Eduzz, Stripe e mais de 50 plataformas de venda.</p>
+                      <span className="chip">
+                        {gatewayIntegrations.length}{" "}
+                        {gatewayIntegrations.length === 1 ? "conexão ativa" : "conexões ativas"}
+                      </span>
+                      <button
+                        type="button"
+                        className="button primary"
+                        onClick={() => {
+                          if (!workspace) {
+                            create("workspace");
+                            return;
+                          }
+                          setGatewayDrawerOpen(true);
+                        }}
+                      >
+                        Conectar Gateway / Checkout <ArrowUpRight size={15} />
+                      </button>
+                    </section>
+                  );
+                })()}
               </div>
               {p.integrations.length > 0 && (
                 <section
@@ -2564,6 +2529,38 @@ export function Dashboard(p: Props) {
               )}
               {integrationsSubTab === "webhooks" && (
               <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "12px",
+                  padding: "16px 20px",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: "0 0 4px", fontSize: "16px", color: "var(--text)" }}>Webhooks de Venda</h3>
+                  <p className="form-help" style={{ margin: 0 }}>Adicione webhooks para se conectar com as plataformas de venda:</p>
+                </div>
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => {
+                    if (!workspace) {
+                      create("workspace");
+                      return;
+                    }
+                    setGatewayDrawerOpen(true);
+                  }}
+                >
+                  <Plus size={15} /> Adicionar Webhook
+                </button>
+              </div>
               <section className="panel">
                 <div className="panel-heading">
                   <div>
@@ -3741,6 +3738,13 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
           pending={pending}
         />
       )}
+      <WebhookPlatformDrawer
+        open={gatewayDrawerOpen}
+        onClose={() => setGatewayDrawerOpen(false)}
+        onSelectPlatform={handleSelectPlatform}
+        workspace={workspace}
+        appUrl={p.appUrl}
+      />
       <BottomBar
         currentTab={tab}
         onSelectTab={selectTab}
