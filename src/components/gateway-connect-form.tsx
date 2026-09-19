@@ -18,7 +18,9 @@ type Provider =
   | "perfectpay"
   | "cartpanda"
   | "shopify"
-  | "ticto";
+  | "ticto"
+  | "lastlink"
+  | "hubla";
 type CatalogProvider = "hotmart" | "kiwify" | "cakto";
 
 const providerNames: Record<Provider, string> = {
@@ -36,6 +38,8 @@ const providerNames: Record<Provider, string> = {
   cartpanda: "Cartpanda",
   shopify: "Shopify",
   ticto: "Ticto",
+  lastlink: "Lastlink",
+  hubla: "Hubla",
 };
 
 type ManualProviderConfig = {
@@ -180,6 +184,26 @@ const manualProviders: Record<string, ManualProviderConfig> = {
     productPlaceholder: "Ex.: 12345",
     credentialHelp: "Na Ticto, vá em TicTools > Webhooks, crie o webhook e copie o Token de verificação gerado.",
     directUrl: "https://dashboard.ticto.com.br",
+  },
+  lastlink: {
+    credential: "Token de validação do Webhook",
+    where: "Produtos > [Seu Produto] > Integrações > Lastlink - Webhook",
+    events: "Compra Completa (Purchase_Order_Confirmed), Reembolso, Chargeback e Cancelamento",
+    product: "ID ou Nome do produto na Lastlink",
+    productHelp: "O identificador ou nome do produto na Lastlink.",
+    productPlaceholder: "Ex.: Meu Curso Online",
+    credentialHelp: "Na Lastlink, vá em Produtos > [Seu Produto] > Integrações > Lastlink - Webhook, crie a regra e informe o Token de validação.",
+    directUrl: "https://app.lastlink.com",
+  },
+  hubla: {
+    credential: "Token de autenticação do Webhook",
+    where: "Integrações > Webhooks > Autenticação",
+    events: "Pagamento da fatura realizado (invoice.payment_succeeded), Reembolso, Fatura expirada/cancelada",
+    product: "ID ou Nome do produto na Hubla",
+    productHelp: "O identificador ou título do produto na Hubla.",
+    productPlaceholder: "Ex.: inAVzweR0QYw5y03K5mq ou Minha Comunidade",
+    credentialHelp: "Na Hubla, acesse Integrações > Webhooks, copie o token na aba de Autenticação e cadastre a regra com a URL do webhook.",
+    directUrl: "https://app.hubla.com",
   },
 };
 

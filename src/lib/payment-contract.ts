@@ -15,6 +15,8 @@ export const paymentProviders = [
   "cartpanda",
   "shopify",
   "ticto",
+  "lastlink",
+  "hubla",
 ] as const;
 export type PaymentProvider = (typeof paymentProviders)[number];
 
@@ -96,6 +98,16 @@ export const DEFAULT_PLATFORM_FEES: Record<
     percent: 6.9,
     fixed: 2.49,
     note: "Ticto: 6,90% + R$ 2,49",
+  },
+  lastlink: {
+    percent: 8.9,
+    fixed: 1.5,
+    note: "Lastlink: 8,90% + R$ 1,50",
+  },
+  hubla: {
+    percent: 8.9,
+    fixed: 2.49,
+    note: "Hubla: 8,90% + R$ 2,49",
   },
 };
 export const paymentEventTypes = [

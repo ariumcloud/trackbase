@@ -3529,9 +3529,13 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                                               ? "Shopify"
                                                               : modal === "ticto"
                                                                 ? "Ticto"
-                                                                : modal === "stripe"
-                                                                  ? "Stripe"
-                                                                  : modal
+                                                                : modal === "lastlink"
+                                                                  ? "Lastlink"
+                                                                  : modal === "hubla"
+                                                                    ? "Hubla"
+                                                                    : modal === "stripe"
+                                                                      ? "Stripe"
+                                                                      : modal
                                   }`}
             </h2>
             {modal === "workspace" ? (
@@ -3598,6 +3602,8 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 "cartpanda",
                 "shopify",
                 "ticto",
+                "lastlink",
+                "hubla",
               ].includes(modal.replace("-add", "")) ? (
               <GatewayConnectForm
                 workspace={workspace}
@@ -3617,6 +3623,8 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     | "cartpanda"
                     | "shopify"
                     | "ticto"
+                    | "lastlink"
+                    | "hubla"
                 }
                 offers={p.offers.map((offer) => ({
                   id: offer.id,
@@ -3703,9 +3711,13 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                             ? "Chave Secreta Compartilhada da Shopify"
                                             : modal === "ticto"
                                               ? "Token de validação Ticto"
-                                              : modal === "stripe"
-                                                ? "Signing Secret Stripe (whsec_...) ou Token"
-                                                : "Secret / Token do webhook"}
+                                              : modal === "lastlink"
+                                                ? "Token de validação Lastlink"
+                                                : modal === "hubla"
+                                                  ? "Token de autenticação Hubla"
+                                                  : modal === "stripe"
+                                                    ? "Signing Secret Stripe (whsec_...) ou Token"
+                                                    : "Secret / Token do webhook"}
                   <input
                     name="secret"
                     type="password"
@@ -3743,6 +3755,10 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     "Na Shopify (Configurações > Notificações > Webhooks), cadastre a URL da Trackbase e copie a Chave Secreta compartilhada no rodapé."}
                   {modal === "ticto" &&
                     "Na Ticto (TicTools > Webhooks), cadastre a URL da Trackbase e copie o Token de validação."}
+                  {modal === "lastlink" &&
+                    "Na Lastlink (Produtos > Integrações > Webhook), cadastre a URL da Trackbase e informe o Token de validação."}
+                  {modal === "hubla" &&
+                    "Na Hubla (Integrações > Webhooks), cadastre a URL da Trackbase e copie o Token na aba Autenticação."}
                   {modal === "stripe" &&
                     "No Stripe Dashboard (Developers > Webhooks), adicione a URL e copie o Signing Secret (whsec_...) ou token de segurança."}
                   O token será armazenado como hash seguro para autenticar cada
@@ -5121,6 +5137,8 @@ function IntegrationCard({
             "cartpanda",
             "shopify",
             "ticto",
+            "lastlink",
+            "hubla",
           ].includes(i.provider) &&
           i.status === "connected" &&
           !editingWebhookSecret ? (
@@ -5254,6 +5272,10 @@ function IntegrationCard({
               "Configure em Configurações > Notificações > Webhooks na Shopify com sua Chave Secreta compartilhada."}
             {i.provider === "ticto" &&
               "Configure em TicTools > Webhooks na Ticto com seu Token de validação."}
+            {i.provider === "lastlink" &&
+              "Configure em Produtos > Integrações > Webhook na Lastlink com seu Token de validação."}
+            {i.provider === "hubla" &&
+              "Configure em Integrações > Webhooks na Hubla com seu Token de autenticação."}
             {i.provider === "stripe" &&
               "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
           </small>
@@ -5272,6 +5294,8 @@ function IntegrationCard({
             "cartpanda",
             "shopify",
             "ticto",
+            "lastlink",
+            "hubla",
           ].includes(i.provider) &&
             (i.status !== "connected" || editingWebhookSecret) && (
               <form
@@ -5315,7 +5339,11 @@ function IntegrationCard({
                                   ? "Chave Secreta (Shared Secret) da Shopify"
                                   : i.provider === "ticto"
                                     ? "Token de validação da Ticto"
-                                    : "Token/secret do webhook"
+                                    : i.provider === "lastlink"
+                                      ? "Token de validação da Lastlink"
+                                      : i.provider === "hubla"
+                                        ? "Token de autenticação da Hubla"
+                                        : "Token/secret do webhook"
                   }
                 />
                 <button className="button secondary" disabled={pending}>

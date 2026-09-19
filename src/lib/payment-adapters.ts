@@ -583,9 +583,10 @@ export const monetizzeAdapter: PaymentAdapter = {
 
     const status = str(root.tipoPost || root.status || venda.status).toLowerCase();
     const isBump = str(root.tipo_venda || venda.tipo_venda).toLowerCase().includes("bump") || Boolean(root.order_bump);
+    const paymentMethod = str(venda.formaPagamento || venda.meio_pagamento || root.formaPagamento).toLowerCase();
 
     let type: PaymentEventType = "payment_pending";
-    if (status.includes("finalizada") || status === "2" || status === "aprovada") {
+    if (status.includes("finalizada") || status === "2" || status === "6" || status.includes("completa") || status === "aprovada") {
       type = isBump ? "order_bump_approved" : "purchase_approved";
     } else if (status.includes("devolvida") || status === "4" || status.includes("reembolsada")) {
       type = "purchase_refunded";
@@ -594,7 +595,13 @@ export const monetizzeAdapter: PaymentAdapter = {
     } else if (status.includes("cancelada") || status === "3") {
       type = "purchase_canceled";
     } else if (status.includes("aguardando") || status === "1") {
-      type = "payment_pending";
+      if (paymentMethod.includes("pix")) {
+        type = "pix_created";
+      } else if (paymentMethod.includes("boleto")) {
+        type = "boleto_created";
+      } else {
+        type = "payment_pending";
+      }
     }
 
     const transaction = str(root.codigoVenda || venda.codigo || root.id) || "monetizze_tx";
@@ -633,7 +640,7 @@ export const monetizzeAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
         occurredAt: parseDate(venda.dataFinalizada || venda.dataInicio || root.data, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test),
@@ -848,10 +855,23 @@ export const greennAdapter: PaymentAdapter = {
   provider: "greenn",
   normalize(payload, context) {
     const root = record(payload);
-    const sale = record(root.sale);
-    const customer = record(root.client);
+    const sale = record(root.sale || root.currentSale);
+    const customer = record(root.client || root.customer);
     const product = record(root.product);
-    const tracking = record(root.tracking || root.utms || root.custom_fields);
+
+    // Greenn envia parâmetros de rastreamento primordialmente em saleMetas:
+    // [{ meta_key: "utm_source", meta_value: "facebook" }, ...]
+    const saleMetas = Array.isArray(root.saleMetas) ? root.saleMetas : [];
+    const metaTracking: Record<string, unknown> = {};
+    for (const item of saleMetas) {
+      if (item && typeof item === "object" && "meta_key" in item && "meta_value" in item) {
+        metaTracking[String((item as Record<string, unknown>).meta_key)] = (item as Record<string, unknown>).meta_value;
+      }
+    }
+    const tracking = {
+      ...metaTracking,
+      ...record(root.tracking || root.utms || root.custom_fields),
+    };
 
     const rawStatus = str(root.currentStatus || sale.status).toLowerCase();
     const paymentMethod = str(sale.method || sale.payment_method).toLowerCase();
@@ -873,8 +893,13 @@ export const greennAdapter: PaymentAdapter = {
 
     const transaction = str(sale.id) || "greenn_tx";
     const gross = num(sale.amount) ?? 0;
-    const fee = num(sale.fee) ?? num(sale.tax) ?? 0;
-    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+    const feeRate = DEFAULT_PLATFORM_FEES.greenn.percent / 100;
+    const feeFixed = DEFAULT_PLATFORM_FEES.greenn.fixed;
+    const fee =
+      num(sale.fee) ??
+      num(sale.tax) ??
+      (gross > 0 ? Number((gross * feeRate + feeFixed).toFixed(2)) : 0);
+    const net = num(sale.net_amount) ?? Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productId = str(product.id) || "";
 
@@ -904,7 +929,7 @@ export const greennAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
         occurredAt: parseDate(sale.updated_at || sale.created_at, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: false,
@@ -1778,6 +1803,260 @@ export const tictoAdapter: PaymentAdapter = {
   },
 };
 
+// 16. ADAPTADOR LASTLINK (https://lastlink.com)
+// Lastlink envia requisições HTTP POST em JSON com o formato:
+// { Id, IsTest, Event, CreatedAt, Data: { Products, Buyer, Purchase, Offer, Utm, DeviceInfo } }
+export const lastlinkAdapter: PaymentAdapter = {
+  provider: "lastlink",
+  normalize(payload, context) {
+    const root = record(payload);
+    const data = record(root.Data || root.data || root);
+    const purchase = record(data.Purchase || data.purchase);
+    const buyerObj = record(data.Buyer || data.buyer);
+    const offer = record(data.Offer || data.offer);
+    const rawUtm = record(data.Utm || data.utm || root.utm || root.tracking);
+    const eventName = str(root.Event || root.event || root.status).toUpperCase();
+    const paymentMethod = str(purchase.PaymentMethod || purchase.payment_method).toUpperCase();
+
+    let baseType: PaymentEventType = "payment_pending";
+    if (["PURCHASE_ORDER_CONFIRMED", "RECURRENT_PAYMENT", "PAYMENT_COMPLETED", "APPROVED", "PAID"].some((e) => eventName.includes(e))) {
+      baseType = "purchase_approved";
+    } else if (eventName.includes("REFUND")) {
+      baseType = "purchase_refunded";
+    } else if (eventName.includes("CHARGEBACK")) {
+      baseType = "chargeback_created";
+    } else if (eventName.includes("CANCEL") || eventName.includes("EXPIRED")) {
+      baseType = "purchase_canceled";
+    } else if (eventName.includes("CONFIRMED") || eventName.includes("WAITING") || eventName.includes("PENDING")) {
+      if (paymentMethod.includes("PIX")) {
+        baseType = "pix_created";
+      } else if (paymentMethod.includes("BOLETO") || paymentMethod.includes("SLIP")) {
+        baseType = "boleto_created";
+      } else {
+        baseType = "payment_pending";
+      }
+    }
+
+    const txId = str(purchase.TransactionId || purchase.Id || root.Id) || "lastlink_tx";
+    const grossTotal = num(purchase.Total || purchase.Value || root.total || root.amount);
+    const feeRate = DEFAULT_PLATFORM_FEES.lastlink.percent / 100;
+    const feeFixed = DEFAULT_PLATFORM_FEES.lastlink.fixed;
+
+    const tracking: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rawUtm)) {
+      const val = str(v);
+      if (!val) continue;
+      const lowerKey = k.toLowerCase();
+      if (lowerKey === "utmsource" || lowerKey === "source") tracking.utm_source = val;
+      else if (lowerKey === "utmmedium" || lowerKey === "medium") tracking.utm_medium = val;
+      else if (lowerKey === "utmcampaign" || lowerKey === "campaign") tracking.utm_campaign = val;
+      else if (lowerKey === "utmterm" || lowerKey === "term") tracking.utm_term = val;
+      else if (lowerKey === "utmcontent" || lowerKey === "content") tracking.utm_content = val;
+      else tracking[lowerKey] = val;
+    }
+    const attribution = extractAttribution(tracking);
+
+    const buyerName = str(buyerObj.Name || buyerObj.name) || null;
+    const buyerEmail = str(buyerObj.Email || buyerObj.email) || null;
+    const buyer = { name: buyerName, email: buyerEmail };
+    const occurredAt = parseDate(purchase.ApprovedAt || purchase.CreatedAt || root.CreatedAt, context.receivedAt);
+    const currency = cleanCurrency(purchase.Currency || root.currency, context.fallbackCurrency || "BRL");
+    const isTest = Boolean(root.IsTest || root.is_test);
+
+    const products = Array.isArray(data.Products) ? data.Products.map(record) : [];
+    const lines = products.length
+      ? products
+      : [record({ Id: offer.Id || "lastlink_prod", Name: offer.Name, Price: grossTotal, IsOrderBump: false })];
+
+    return lines.map((line, idx) => {
+      const isBump = Boolean(line.IsOrderBump || line.is_order_bump);
+      const productType = isBump ? "order_bump" : "main";
+      const lineGross = num(line.Price || line.price || line.Total || line.total);
+      const gross = lineGross !== null && lineGross !== undefined ? lineGross : (idx === 0 ? (grossTotal ?? 0) : 0);
+      const fee = gross > 0 ? Number((gross * feeRate + (idx === 0 ? feeFixed : 0)).toFixed(2)) : 0;
+      const net = Math.max(0, Number((gross - fee).toFixed(2)));
+      const type: PaymentEventType =
+        baseType === "purchase_approved" && isBump ? "order_bump_approved" : baseType;
+
+      return normalizedPaymentEventSchema.parse({
+        provider: "lastlink",
+        externalTransactionId: idx === 0 ? txId : `${txId}-bump-${idx}`,
+        externalEventId: str(root.Id) || null,
+        type,
+        productId: str(line.Id || line.id || offer.Id || "lastlink_prod"),
+        offerId: str(offer.Id || offer.id) || null,
+        productType,
+        parentProductId: idx > 0 ? str(lines[0]?.Id || lines[0]?.id || offer.Id) || null : null,
+        parentTransactionId: idx > 0 ? txId : null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country: cleanCountry(buyerObj.Country || buyerObj.country || "BR"),
+        buyer,
+        attribution,
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck || rawUtm.Src || rawUtm.Sck) || null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest,
+        rawPayload: redactPaymentPayload(payload),
+      });
+    });
+  },
+};
+
+// 17. ADAPTADOR HUBLA (https://hubla.app)
+// Hubla envia webhooks v2 no formato:
+// { type: "invoice.payment_succeeded", event: { invoice, product, products, user, paymentSession } }
+export const hublaAdapter: PaymentAdapter = {
+  provider: "hubla",
+  normalize(payload, context) {
+    const root = record(payload);
+    const eventObj = record(root.event || root.data || root);
+    const invoice = record(eventObj.invoice);
+    const product = record(eventObj.product);
+    const user = record(eventObj.user || eventObj.customer);
+    const payer = record(invoice.payer || user);
+    const paymentSession = record(invoice.paymentSession);
+    const cookies = record(paymentSession.cookies);
+    const rawUtm = record(paymentSession.utm || root.tracking || root.utm);
+    const params = record(paymentSession.params);
+
+    const rawType = str(root.type || root.event_type || root.event).toLowerCase();
+    const invoiceStatus = str(invoice.status).toLowerCase();
+    const paymentMethod = str(invoice.paymentMethod || invoice.payment_method).toLowerCase();
+
+    let type: PaymentEventType = "payment_pending";
+    if (
+      rawType === "invoice.payment_succeeded" ||
+      rawType === "invoice.paid" ||
+      (rawType === "invoice.status_updated" && invoiceStatus === "paid") ||
+      invoiceStatus === "paid"
+    ) {
+      type = "purchase_approved";
+    } else if (rawType === "invoice.refunded" || invoiceStatus === "refunded") {
+      type = "purchase_refunded";
+    } else if (
+      rawType.includes("chargeback") ||
+      rawType.includes("dispute") ||
+      invoiceStatus.includes("chargeback")
+    ) {
+      type = "chargeback_created";
+    } else if (
+      rawType === "invoice.expired" ||
+      rawType === "invoice.payment_failed" ||
+      rawType === "invoice.canceled" ||
+      invoiceStatus === "expired" ||
+      invoiceStatus === "canceled"
+    ) {
+      type = "purchase_canceled";
+    } else if (
+      rawType === "invoice.created" ||
+      (rawType === "invoice.status_updated" && invoiceStatus === "unpaid") ||
+      invoiceStatus === "unpaid"
+    ) {
+      if (paymentMethod.includes("pix")) {
+        type = "pix_created";
+      } else if (paymentMethod.includes("bank_slip") || paymentMethod.includes("boleto")) {
+        type = "boleto_created";
+      } else {
+        type = "payment_pending";
+      }
+    }
+
+    const txId = str(invoice.id || invoice.orderId || root.id) || "hubla_tx";
+
+    // Valores em centavos na Hubla v2 (invoice.amount.totalCents)
+    const amountObj = record(invoice.amount);
+    const totalCents = num(amountObj.totalCents);
+    let gross: number;
+    if (totalCents !== null && totalCents !== undefined) {
+      gross = Number((totalCents / 100).toFixed(2));
+    } else {
+      const rawGross = num(invoice.total_amount ?? invoice.amount ?? invoice.price ?? root.amount) ?? 0;
+      gross = Number.isInteger(rawGross) && rawGross >= 100 ? Number((rawGross / 100).toFixed(2)) : rawGross;
+    }
+
+    // Taxas da plataforma em receivers[role=platform]
+    const receivers = Array.isArray(invoice.receivers) ? invoice.receivers.map(record) : [];
+    const platformReceiver = receivers.find((r) => str(r.role).toLowerCase() === "platform");
+    const platformFeeCents = num(platformReceiver?.totalCents);
+    let fee: number;
+    if (platformFeeCents !== null && platformFeeCents !== undefined) {
+      fee = Number((platformFeeCents / 100).toFixed(2));
+    } else {
+      const feeRate = DEFAULT_PLATFORM_FEES.hubla.percent / 100;
+      const feeFixed = DEFAULT_PLATFORM_FEES.hubla.fixed;
+      fee = gross > 0 ? Number((gross * feeRate + feeFixed).toFixed(2)) : 0;
+    }
+    const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+    const tracking: Record<string, string> = {};
+    for (const [k, v] of Object.entries({ ...rawUtm, ...params })) {
+      const val = str(v);
+      if (!val) continue;
+      const lowerKey = k.toLowerCase();
+      if (lowerKey === "source") tracking.utm_source = val;
+      else if (lowerKey === "medium") tracking.utm_medium = val;
+      else if (lowerKey === "campaign") tracking.utm_campaign = val;
+      else if (lowerKey === "content") tracking.utm_content = val;
+      else if (lowerKey === "term") tracking.utm_term = val;
+      else tracking[lowerKey] = val;
+    }
+    const attribution = extractAttribution(tracking);
+
+    const firstName = str(payer.firstName || payer.first_name || user.firstName);
+    const lastName = str(payer.lastName || payer.last_name || user.lastName);
+    const fullName = [firstName, lastName].filter(Boolean).join(" ") || str(payer.name || user.name) || null;
+    const buyerEmail = str(payer.email || user.email) || null;
+    const buyer = { name: fullName, email: buyerEmail };
+
+    const billingAddress = record(invoice.billingAddress || invoice.address);
+    const country = cleanCountry(billingAddress.countryCode || billingAddress.country || "BR");
+    const currency = cleanCurrency(invoice.currency || root.currency, context.fallbackCurrency || "BRL");
+    const occurredAt = parseDate(invoice.saleDate || invoice.createdAt || root.createdAt, context.receivedAt);
+
+    const productId = str(product.id || "hubla_prod");
+    const clickId = str(cookies.fbclid || cookies.fbp || params.SCK || params.sck || params.src || tracking.src || tracking.sck) || null;
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "hubla",
+        externalTransactionId: txId,
+        externalEventId: str(root.id) || null,
+        type,
+        productId,
+        offerId: null,
+        productType: "main",
+        parentProductId: null,
+        parentTransactionId: null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country,
+        buyer,
+        attribution,
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: Boolean(root.is_test),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
 export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   hotmart: hotmartAdapter,
   kiwify: kiwifyAdapter,
@@ -1794,4 +2073,6 @@ export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   cartpanda: cartpandaAdapter,
   shopify: shopifyAdapter,
   ticto: tictoAdapter,
+  lastlink: lastlinkAdapter,
+  hubla: hublaAdapter,
 };

@@ -59,7 +59,22 @@ function extractWebhookToken(
   if (provider === "monetizze") {
     return (
       request.headers.get("x-monetizze-token") ||
-      String(p.chave_unica || p.token || p.secret || "")
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.chave_unica || p.token || p.secret || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "lastlink") {
+    return (
+      request.headers.get("x-lastlink-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.token || p.Token || p.secret || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "hubla") {
+    return (
+      request.headers.get("x-hubla-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.token || p.secret || url.searchParams.get("token") || "")
     );
   }
   if (provider === "wiapy") {
@@ -290,6 +305,32 @@ function extractPayloadProductName(provider: string, payload: unknown): string |
     const items = Array.isArray(p.items) ? (p.items as unknown[]) : [];
     const firstItem = (items[0] && typeof items[0] === "object" ? items[0] : {}) as Record<string, unknown>;
     const name = String(item.product_name || item.offer_name || firstItem.product_name || firstItem.title || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "monetizze") {
+    const prod = (p.produto && typeof p.produto === "object" ? p.produto : p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
+    const name = String(prod.nome || prod.name || prod.title || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "greenn") {
+    const prod = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
+    const name = String(prod.name || prod.title || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "lastlink") {
+    const data = (p.Data && typeof p.Data === "object" ? p.Data : p.data && typeof p.data === "object" ? p.data : p) as Record<string, unknown>;
+    const products = Array.isArray(data.Products) ? (data.Products as unknown[]) : [];
+    const firstProd = (products[0] && typeof products[0] === "object" ? products[0] : {}) as Record<string, unknown>;
+    const offer = (data.Offer && typeof data.Offer === "object" ? data.Offer : {}) as Record<string, unknown>;
+    const name = String(firstProd.Name || firstProd.name || offer.Name || offer.name || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "hubla") {
+    const eventObj = (p.event && typeof p.event === "object" ? p.event : p.data && typeof p.data === "object" ? p.data : p) as Record<string, unknown>;
+    const prod = (eventObj.product && typeof eventObj.product === "object" ? eventObj.product : {}) as Record<string, unknown>;
+    const products = Array.isArray(eventObj.products) ? (eventObj.products as unknown[]) : [];
+    const firstProd = (products[0] && typeof products[0] === "object" ? products[0] : {}) as Record<string, unknown>;
+    const name = String(prod.name || prod.title || firstProd.name || firstProd.title || p.product_name || "").trim();
     return name || null;
   }
   const generic = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;

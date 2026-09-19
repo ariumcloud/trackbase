@@ -800,4 +800,278 @@ test("Ticto: normaliza v2.0 com centavos, bumps e remove 'Não Informado'", () =
   assert.equal(event.country, "BR");
 });
 
+test("Greenn: normaliza webhook com saleMetas, currentSale, taxas padrão e UTMs", () => {
+  const payload = {
+    type: "sale",
+    event: "saleUpdated",
+    currentStatus: "paid",
+    currentSale: {
+      id: "grn_sale_9876",
+      amount: 297.0,
+      method: "credit_card",
+      created_at: "2026-09-19T14:00:00Z",
+    },
+    client: {
+      name: "Comprador Greenn",
+      email: "cliente@greenn.com.br",
+    },
+    product: {
+      id: "grn_prod_123",
+      name: "Formação Digital",
+    },
+    saleMetas: [
+      { meta_key: "utm_source", meta_value: "facebook" },
+      { meta_key: "utm_medium", meta_value: "cpc" },
+      { meta_key: "utm_campaign", meta_value: "campanha_escala" },
+      { meta_key: "fbclid", meta_value: "fb_click_123" },
+    ],
+  };
+
+  const [event] = paymentAdapters.greenn.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "greenn");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "grn_sale_9876");
+  assert.equal(event.productId, "grn_prod_123");
+  assert.equal(event.grossAmount, 297);
+  // Taxa padrão Greenn: 4.99% + R$ 1.00 => 297 * 0.0499 + 1.00 = 14.8203 + 1.00 = 15.82
+  assert.equal(event.fees, 15.82);
+  assert.equal(event.netAmount, 281.18);
+  assert.equal(event.buyer?.name, "Comprador Greenn");
+  assert.equal(event.buyer?.email, "cliente@greenn.com.br");
+  assert.equal(event.attribution.utm_source, "facebook");
+  assert.equal(event.attribution.utm_medium, "cpc");
+  assert.equal(event.attribution.utm_campaign, "campanha_escala");
+  assert.equal(event.clickId, "fb_click_123");
+});
+
+test("Monetizze: normaliza status 6 (completa) e postback com chave_unica e formaPagamento", () => {
+  const payload = {
+    chave_unica: "chave_monetizze_abc",
+    tipoPost: "6", // Completa
+    produto: {
+      codigo: "prod_mon_55",
+      nome: "Ebook Monetizze",
+    },
+    venda: {
+      codigo: "venda_9988",
+      valor: "97.00",
+      valorRecebido: "87.84",
+      dataFinalizada: "2026-09-19T14:30:00Z",
+      utm_source: "google",
+      utm_medium: "search",
+      utm_campaign: "fundo_de_funil",
+      src: "track_src_1",
+    },
+    comprador: {
+      nome: "Comprador Monetizze",
+      email: "aluno@monetizze.com.br",
+      pais: "BR",
+    },
+  };
+
+  const [event] = paymentAdapters.monetizze.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "monetizze");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "venda_9988");
+  assert.equal(event.externalEventId, "chave_monetizze_abc");
+  assert.equal(event.productId, "prod_mon_55");
+  assert.equal(event.grossAmount, 97);
+  assert.equal(event.netAmount, 87.84);
+  assert.equal(event.fees, 9.16);
+  assert.equal(event.buyer?.name, "Comprador Monetizze");
+  assert.equal(event.attribution.utm_source, "google");
+  assert.equal(event.attribution.utm_campaign, "fundo_de_funil");
+  assert.equal(event.clickId, "track_src_1");
+
+  // Testar status 1 com PIX
+  const [pixEvent] = paymentAdapters.monetizze.normalize(
+    {
+      ...payload,
+      tipoPost: "1",
+      venda: { ...payload.venda, formaPagamento: "PIX" },
+    },
+    { receivedAt },
+  );
+  assert.equal(pixEvent.type, "pix_created");
+});
+
+test("Lastlink: normaliza Purchase_Order_Confirmed com order bump, taxas e UTMs normalizadas", () => {
+  const payload = {
+    Id: "evt_lastlink_001",
+    IsTest: false,
+    Event: "Purchase_Order_Confirmed",
+    CreatedAt: "2026-09-19T17:00:00Z",
+    Data: {
+      Purchase: {
+        Id: "pur_lastlink_123",
+        TransactionId: "LL-TX-9999",
+        Total: 247.0,
+        PaymentMethod: "CREDIT_CARD",
+        ApprovedAt: "2026-09-19T17:01:00Z",
+      },
+      Buyer: {
+        Name: "Membro VIP",
+        Email: "membro@lastlink.com",
+        Country: "BR",
+      },
+      Offer: {
+        Id: "off_principal",
+        Name: "Comunidade Exclusiva",
+      },
+      Products: [
+        {
+          Id: "prod_main_01",
+          Name: "Acesso Comunidade Anual",
+          Price: 197.0,
+          IsOrderBump: false,
+        },
+        {
+          Id: "prod_bump_02",
+          Name: "Masterclass Bônus",
+          Price: 50.0,
+          IsOrderBump: true,
+        },
+      ],
+      Utm: {
+        UtmSource: "instagram",
+        UtmMedium: "stories",
+        UtmCampaign: "arrasta_cima",
+        UtmContent: "story_1",
+        Src: "ig_stories",
+      },
+    },
+  };
+
+  const events = paymentAdapters.lastlink.normalize(payload, { receivedAt });
+  assert.equal(events.length, 2);
+
+  const [main, bump] = events;
+  assert.equal(main.provider, "lastlink");
+  assert.equal(main.type, "purchase_approved");
+  assert.equal(main.externalTransactionId, "LL-TX-9999");
+  assert.equal(main.productId, "prod_main_01");
+  assert.equal(main.productType, "main");
+  assert.equal(main.grossAmount, 197);
+  // Taxa Lastlink item principal: 8.9% + R$ 1.50 => 197 * 0.089 + 1.50 = 17.533 + 1.50 = 19.03
+  assert.equal(main.fees, 19.03);
+  assert.equal(main.netAmount, 177.97);
+  assert.equal(main.buyer?.name, "Membro VIP");
+  assert.equal(main.buyer?.email, "membro@lastlink.com");
+  assert.equal(main.attribution.utm_source, "instagram");
+  assert.equal(main.attribution.utm_medium, "stories");
+  assert.equal(main.attribution.utm_campaign, "arrasta_cima");
+  assert.equal(main.attribution.utm_content, "story_1");
+  assert.equal(main.clickId, "ig_stories");
+
+  assert.equal(bump.provider, "lastlink");
+  assert.equal(bump.type, "order_bump_approved");
+  assert.equal(bump.externalTransactionId, "LL-TX-9999-bump-1");
+  assert.equal(bump.productId, "prod_bump_02");
+  assert.equal(bump.productType, "order_bump");
+  assert.equal(bump.grossAmount, 50);
+  // Taxa Lastlink bump: 8.9% => 50 * 0.089 = 4.45
+  assert.equal(bump.fees, 4.45);
+  assert.equal(bump.netAmount, 45.55);
+  assert.equal(bump.parentProductId, "prod_main_01");
+  assert.equal(bump.parentTransactionId, "LL-TX-9999");
+
+  // Reembolso
+  const [refundEvent] = paymentAdapters.lastlink.normalize(
+    { ...payload, Event: "Payment_Refund" },
+    { receivedAt },
+  );
+  assert.equal(refundEvent.type, "purchase_refunded");
+});
+
+test("Hubla: normaliza webhook v2 com invoice.payment_succeeded, totalCents, receivers e cookies UTM", () => {
+  const payload = {
+    type: "invoice.payment_succeeded",
+    version: "2.0.0",
+    event: {
+      product: {
+        id: "hubla_prd_777",
+        name: "Clube de Assinaturas",
+      },
+      invoice: {
+        id: "inv_hubla_888",
+        status: "paid",
+        paymentMethod: "credit_card",
+        currency: "BRL",
+        amount: {
+          totalCents: 9700, // R$ 97,00
+          subtotalCents: 9700,
+        },
+        receivers: [
+          {
+            role: "platform",
+            totalCents: 1112, // R$ 11,12 de taxa retida pela Hubla
+          },
+          {
+            role: "seller",
+            totalCents: 8588, // R$ 85,88 líquido do produtor
+          },
+        ],
+        payer: {
+          firstName: "João",
+          lastName: "Silva",
+          email: "joao.silva@hubla.com",
+        },
+        billingAddress: {
+          countryCode: "BR",
+        },
+        paymentSession: {
+          cookies: {
+            fbclid: "fb_hubla_click_999",
+            fbp: "fb.1.12345.67890",
+          },
+          utm: {
+            source: "meta_ads",
+            medium: "feed",
+            campaign: "black_november",
+            content: "video_criativo_3",
+            term: "publico_lookalike",
+          },
+          params: {
+            SCK: "sck_hubla_1",
+          },
+        },
+      },
+    },
+  };
+
+  const [event] = paymentAdapters.hubla.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "hubla");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "inv_hubla_888");
+  assert.equal(event.productId, "hubla_prd_777");
+  assert.equal(event.grossAmount, 97);
+  assert.equal(event.fees, 11.12);
+  assert.equal(event.netAmount, 85.88);
+  assert.equal(event.buyer?.name, "João Silva");
+  assert.equal(event.buyer?.email, "joao.silva@hubla.com");
+  assert.equal(event.attribution.utm_source, "meta_ads");
+  assert.equal(event.attribution.utm_medium, "feed");
+  assert.equal(event.attribution.utm_campaign, "black_november");
+  assert.equal(event.attribution.utm_content, "video_criativo_3");
+  assert.equal(event.attribution.utm_term, "publico_lookalike");
+  assert.equal(event.clickId, "fb_hubla_click_999");
+
+  // Fatura criada com PIX
+  const [pixEvent] = paymentAdapters.hubla.normalize(
+    {
+      type: "invoice.created",
+      event: {
+        ...payload.event,
+        invoice: {
+          ...payload.event.invoice,
+          status: "unpaid",
+          paymentMethod: "pix",
+        },
+      },
+    },
+    { receivedAt },
+  );
+  assert.equal(pixEvent.type, "pix_created");
+});
+
 
