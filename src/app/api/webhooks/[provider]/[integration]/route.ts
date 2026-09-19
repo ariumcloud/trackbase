@@ -45,7 +45,8 @@ function extractWebhookToken(
   if (provider === "kirvano") {
     return (
       request.headers.get("x-kirvano-token") ||
-      String(p.secret || p.token || "")
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.secret || p.token || url.searchParams.get("token") || "")
     );
   }
   if (provider === "eduzz") {
@@ -65,7 +66,37 @@ function extractWebhookToken(
     return (
       request.headers.get("x-wiapy-token") ||
       request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
-      String(p.secret || p.token || "")
+      String(p.secret || p.token || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "perfectpay") {
+    return (
+      String(p.token || request.headers.get("x-perfectpay-token") || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "cartpanda") {
+    return (
+      request.headers.get("x-cartpanda-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.token || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "shopify") {
+    return (
+      request.headers.get("x-shopify-hmac-sha256") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      String(p.token || url.searchParams.get("token") || "")
+    );
+  }
+  if (provider === "ticto") {
+    return (
+      String(
+        p.token ||
+        request.headers.get("x-ticto-token") ||
+        request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+        url.searchParams.get("token") ||
+        ""
+      )
     );
   }
   if (provider === "lowfy") {
@@ -172,6 +203,22 @@ function validYampiSignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function validShopifySignature(
+  request: Request,
+  raw: string,
+  secret: string,
+): boolean {
+  const signature = (
+    request.headers.get("x-shopify-hmac-sha256") ||
+    ""
+  ).trim();
+  if (!signature) return false;
+  const expected = createHmac("sha256", secret).update(raw, "utf8").digest("base64");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function extractPayloadProductName(provider: string, payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
@@ -204,6 +251,45 @@ function extractPayloadProductName(provider: string, payload: unknown): string |
     const sku = (firstItem.sku && typeof firstItem.sku === "object" ? firstItem.sku : {}) as Record<string, unknown>;
     const skuData = (sku.data && typeof sku.data === "object" ? sku.data : sku) as Record<string, unknown>;
     const name = String(skuData.title || firstItem.title || firstItem.name || firstItem.item_sku || "").trim();
+    return name || null;
+  }
+  if (provider === "wiapy") {
+    const checkout = (p.checkout && typeof p.checkout === "object" ? p.checkout : {}) as Record<string, unknown>;
+    const products = Array.isArray(p.products) ? (p.products as unknown[]) : [];
+    const firstProd = (products[0] && typeof products[0] === "object" ? products[0] : {}) as Record<string, unknown>;
+    const name = String(checkout.title || firstProd.title || firstProd.name || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "kirvano") {
+    const products = Array.isArray(p.products) ? (p.products as unknown[]) : [];
+    const firstProd = (products[0] && typeof products[0] === "object" ? products[0] : {}) as Record<string, unknown>;
+    const name = String(firstProd.name || firstProd.title || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "perfectpay") {
+    const prod = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
+    const plan = (p.plan && typeof p.plan === "object" ? p.plan : {}) as Record<string, unknown>;
+    const name = String(prod.name || prod.title || plan.name || plan.offer_name || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "cartpanda") {
+    const items = Array.isArray(p.line_items) ? (p.line_items as unknown[]) : [];
+    const firstItem = (items[0] && typeof items[0] === "object" ? items[0] : {}) as Record<string, unknown>;
+    const prod = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
+    const name = String(firstItem.title || firstItem.name || prod.name || prod.title || p.product_name || "").trim();
+    return name || null;
+  }
+  if (provider === "shopify") {
+    const items = Array.isArray(p.line_items) ? (p.line_items as unknown[]) : [];
+    const firstItem = (items[0] && typeof items[0] === "object" ? items[0] : {}) as Record<string, unknown>;
+    const name = String(firstItem.title || firstItem.name || p.title || p.name || "").trim();
+    return name || null;
+  }
+  if (provider === "ticto") {
+    const item = (p.item && typeof p.item === "object" ? p.item : {}) as Record<string, unknown>;
+    const items = Array.isArray(p.items) ? (p.items as unknown[]) : [];
+    const firstItem = (items[0] && typeof items[0] === "object" ? items[0] : {}) as Record<string, unknown>;
+    const name = String(item.product_name || item.offer_name || firstItem.product_name || firstItem.title || p.product_name || "").trim();
     return name || null;
   }
   const generic = (p.product && typeof p.product === "object" ? p.product : {}) as Record<string, unknown>;
@@ -251,7 +337,7 @@ export async function POST(
     let payload: unknown;
     let raw: string | undefined;
     try {
-      if (provider === "cakto" || provider === "yampi") {
+      if (provider === "cakto" || provider === "yampi" || provider === "shopify") {
         raw = await rawBody(request);
         payload = JSON.parse(raw);
       } else {
@@ -282,12 +368,22 @@ export async function POST(
         raw,
         decrypt(credentials.webhook_secret_ciphertext),
       );
+    const signedShopifyRequest =
+      provider === "shopify" &&
+      raw !== undefined &&
+      credentials?.webhook_secret_ciphertext &&
+      validShopifySignature(
+        request,
+        raw,
+        decrypt(credentials.webhook_secret_ciphertext),
+      );
     const token = extractWebhookToken(provider, request, payload);
     const legacyTokenMatches =
       !!credentials?.webhook_hash && matches(token, credentials.webhook_hash);
     const authenticated =
       (provider === "cakto" && credentials?.webhook_secret_ciphertext && signedCaktoRequest) ||
       (provider === "yampi" && credentials?.webhook_secret_ciphertext && signedYampiRequest) ||
+      (provider === "shopify" && credentials?.webhook_secret_ciphertext && signedShopifyRequest) ||
       legacyTokenMatches;
     if (!authenticated) {
       return NextResponse.json({ error: "Token inválido." }, { status: 401 });

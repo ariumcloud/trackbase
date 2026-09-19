@@ -3521,9 +3521,17 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                                       ? "Greenn"
                                                       : modal === "yampi"
                                                         ? "Yampi"
-                                                        : modal === "stripe"
-                                                          ? "Stripe"
-                                                          : modal
+                                                        : modal === "perfectpay"
+                                                          ? "Perfect Pay"
+                                                          : modal === "cartpanda"
+                                                            ? "Cartpanda"
+                                                            : modal === "shopify"
+                                                              ? "Shopify"
+                                                              : modal === "ticto"
+                                                                ? "Ticto"
+                                                                : modal === "stripe"
+                                                                  ? "Stripe"
+                                                                  : modal
                                   }`}
             </h2>
             {modal === "workspace" ? (
@@ -3586,6 +3594,10 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 "lowfy",
                 "greenn",
                 "yampi",
+                "perfectpay",
+                "cartpanda",
+                "shopify",
+                "ticto",
               ].includes(modal.replace("-add", "")) ? (
               <GatewayConnectForm
                 workspace={workspace}
@@ -3601,6 +3613,10 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     | "lowfy"
                     | "greenn"
                     | "yampi"
+                    | "perfectpay"
+                    | "cartpanda"
+                    | "shopify"
+                    | "ticto"
                 }
                 offers={p.offers.map((offer) => ({
                   id: offer.id,
@@ -3679,9 +3695,17 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                                     ? "Token de autenticação Greenn"
                                     : modal === "yampi"
                                       ? "Chave Secreta (Token HMAC) do Webhook Yampi"
-                                      : modal === "stripe"
-                                        ? "Signing Secret Stripe (whsec_...) ou Token"
-                                        : "Secret / Token do webhook"}
+                                      : modal === "perfectpay"
+                                        ? "Token de validação Perfect Pay (MD5)"
+                                        : modal === "cartpanda"
+                                          ? "Token da API / Chave Secreta Cartpanda"
+                                          : modal === "shopify"
+                                            ? "Chave Secreta Compartilhada da Shopify"
+                                            : modal === "ticto"
+                                              ? "Token de validação Ticto"
+                                              : modal === "stripe"
+                                                ? "Signing Secret Stripe (whsec_...) ou Token"
+                                                : "Secret / Token do webhook"}
                   <input
                     name="secret"
                     type="password"
@@ -3711,6 +3735,14 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                     "Na Greenn (Ferramentas > Webhooks), insira a URL da Trackbase e seu token de validação."}
                   {modal === "yampi" &&
                     "Na Yampi (Configurações > Webhooks), insira a URL da Trackbase e a Chave Secreta (Token HMAC)."}
+                  {modal === "perfectpay" &&
+                    "Na Perfect Pay (Ferramentas > Webhook - Vendas), insira a URL da Trackbase e copie o Token gerado."}
+                  {modal === "cartpanda" &&
+                    "Na Cartpanda (Configurações > Webhooks), cadastre a URL da Trackbase e copie o Token da API."}
+                  {modal === "shopify" &&
+                    "Na Shopify (Configurações > Notificações > Webhooks), cadastre a URL da Trackbase e copie a Chave Secreta compartilhada no rodapé."}
+                  {modal === "ticto" &&
+                    "Na Ticto (TicTools > Webhooks), cadastre a URL da Trackbase e copie o Token de validação."}
                   {modal === "stripe" &&
                     "No Stripe Dashboard (Developers > Webhooks), adicione a URL e copie o Signing Secret (whsec_...) ou token de segurança."}
                   O token será armazenado como hash seguro para autenticar cada
@@ -5085,6 +5117,10 @@ function IntegrationCard({
             "lowfy",
             "greenn",
             "yampi",
+            "perfectpay",
+            "cartpanda",
+            "shopify",
+            "ticto",
           ].includes(i.provider) &&
           i.status === "connected" &&
           !editingWebhookSecret ? (
@@ -5109,7 +5145,9 @@ function IntegrationCard({
                       ? "token"
                       : i.provider === "yampi"
                         ? "token HMAC"
-                        : "secret"}
+                        : i.provider === "shopify"
+                          ? "chave secreta"
+                          : "secret"}
                 </button>
                 <button
                   className="text-button danger"
@@ -5208,6 +5246,14 @@ function IntegrationCard({
               "Configure em Ferramentas > Webhooks na Greenn com seu token de autenticação."}
             {i.provider === "yampi" &&
               "Configure em Configurações > Webhooks na Yampi com sua Chave Secreta (Token HMAC)."}
+            {i.provider === "perfectpay" &&
+              "Configure em Ferramentas > Webhook - Vendas na Perfect Pay com seu Token gerado."}
+            {i.provider === "cartpanda" &&
+              "Configure em Configurações > Webhooks na Cartpanda com seu Token de API."}
+            {i.provider === "shopify" &&
+              "Configure em Configurações > Notificações > Webhooks na Shopify com sua Chave Secreta compartilhada."}
+            {i.provider === "ticto" &&
+              "Configure em TicTools > Webhooks na Ticto com seu Token de validação."}
             {i.provider === "stripe" &&
               "Configure em Developers > Webhooks no Stripe com o Signing Secret (whsec_...) ou token."}
           </small>
@@ -5222,6 +5268,10 @@ function IntegrationCard({
             "lowfy",
             "greenn",
             "yampi",
+            "perfectpay",
+            "cartpanda",
+            "shopify",
+            "ticto",
           ].includes(i.provider) &&
             (i.status !== "connected" || editingWebhookSecret) && (
               <form
@@ -5257,7 +5307,15 @@ function IntegrationCard({
                           ? "Hottok / token da Hotmart"
                           : i.provider === "yampi"
                             ? "Chave Secreta (Token HMAC) da Yampi"
-                            : "Token/secret do webhook"
+                            : i.provider === "perfectpay"
+                              ? "Token de validação da Perfect Pay"
+                              : i.provider === "cartpanda"
+                                ? "Token de API da Cartpanda"
+                                : i.provider === "shopify"
+                                  ? "Chave Secreta (Shared Secret) da Shopify"
+                                  : i.provider === "ticto"
+                                    ? "Token de validação da Ticto"
+                                    : "Token/secret do webhook"
                   }
                 />
                 <button className="button secondary" disabled={pending}>

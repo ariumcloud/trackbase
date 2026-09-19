@@ -417,7 +417,7 @@ export const kirvanoAdapter: PaymentAdapter = {
       baseType = "purchase_refunded";
     } else if (event.includes("CHARGEBACK")) {
       baseType = "chargeback_created";
-    } else if (event.includes("CANCEL") || event.includes("REFUSED")) {
+    } else if (event.includes("CANCEL") || event.includes("REFUSED") || event.includes("EXPIRED")) {
       baseType = "purchase_canceled";
     } else if (event.includes("PIX")) {
       baseType = "pix_created";
@@ -433,6 +433,9 @@ export const kirvanoAdapter: PaymentAdapter = {
     const buyer = { name: str(customer.name) || null, email: str(customer.email) || null };
     const country = cleanCountry(customer.country);
 
+    const feeRate = DEFAULT_PLATFORM_FEES.kirvano.percent / 100;
+    const feeFixed = DEFAULT_PLATFORM_FEES.kirvano.fixed;
+
     const lines = products.length
       ? products
       : [record({ id: "", price: root.total_price, is_order_bump: false })];
@@ -440,7 +443,12 @@ export const kirvanoAdapter: PaymentAdapter = {
     return lines.map((line, idx) => {
       const isBump = Boolean(line.is_order_bump);
       const productType = isBump ? "order_bump" : "main";
-      const gross = parseBRLAmount(line.price) ?? (idx === 0 ? parseBRLAmount(root.total_price) ?? 0 : 0);
+      const gross =
+        parseBRLAmount(line.price) ??
+        parseBRLAmount(line.total) ??
+        (idx === 0 ? parseBRLAmount(root.total_price ?? root.total ?? root.total_amount) ?? 0 : 0);
+      const fee = gross > 0 ? Number((gross * feeRate + (idx === 0 ? feeFixed : 0)).toFixed(2)) : 0;
+      const net = Math.max(0, Number((gross - fee).toFixed(2)));
       const type: PaymentEventType =
         baseType === "purchase_approved" && isBump ? "order_bump_approved" : baseType;
 
@@ -455,8 +463,8 @@ export const kirvanoAdapter: PaymentAdapter = {
         parentProductId: null,
         parentTransactionId: idx > 0 ? saleId : null,
         grossAmount: gross,
-        netAmount: gross,
-        fees: 0,
+        netAmount: net,
+        fees: fee,
         grossCurrency: currency,
         netCurrency: currency,
         country,
@@ -648,36 +656,45 @@ export const wiapyAdapter: PaymentAdapter = {
   provider: "wiapy",
   normalize(payload, context) {
     const root = record(payload);
-    const payment = record(root.payment);
-    const customer = record(root.customer);
-    const products = Array.isArray(root.products) ? root.products.map(record) : [];
-    const tracking = record(root.tracking);
+    const orderData = record(root.order || root.data);
+    const payment = record(root.payment || orderData.payment);
+    const customer = record(root.customer || orderData.customer);
+    const products = Array.isArray(root.products)
+      ? root.products.map(record)
+      : Array.isArray(orderData.products)
+        ? (orderData.products as unknown[]).map(record)
+        : [];
+    const tracking = record(root.tracking || orderData.tracking);
 
-    const status = str(payment.status).toLowerCase();
-    const paymentMethod = str(payment.payment_method).toLowerCase();
+    const status = str(payment.status || root.status || root.event || orderData.status || orderData.event).toLowerCase();
+    const paymentMethod = str(payment.payment_method || root.payment_method || orderData.payment_method).toLowerCase();
 
     let type: PaymentEventType = "payment_pending";
-    if (status === "paid") {
+    if (status === "paid" || status === "approved" || status.includes("approved") || status.includes("paid")) {
       type = "purchase_approved";
-    } else if (status === "refunded") {
+    } else if (status.includes("refund")) {
       type = "purchase_refunded";
-    } else if (status === "chargedback") {
+    } else if (status.includes("chargeback") || status.includes("chargedback")) {
       type = "chargeback_created";
-    } else if (status === "credit_card_declined") {
+    } else if (status.includes("declined") || status.includes("cancel") || status.includes("refused")) {
       type = "purchase_canceled";
-    } else if (status === "unpaid") {
+    } else if (status === "unpaid" || status.includes("pending")) {
       if (paymentMethod === "pix") type = "pix_created";
       else if (paymentMethod === "boleto") type = "boleto_created";
       else type = "payment_pending";
     }
 
-    const transaction = str(payment.id) || "wiapy_tx";
+    const transaction = str(payment.id || orderData.id || root.id) || "wiapy_tx";
     // Every amount is centavos: divide by 100 to get the currency's base unit.
-    const gross = (num(payment.amount) ?? 0) / 100;
-    const fee = (num(payment.fee) ?? 0) / 100;
+    const rawGross = num(payment.amount ?? payment.total ?? orderData.total ?? orderData.amount ?? root.amount);
+    const gross = (rawGross ?? 0) / 100;
+    const rawFee = num(payment.fee ?? orderData.fee ?? root.fee);
+    const fee = (rawFee ?? 0) / 100;
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
-    const productId = str(products[0]?.id) || "";
+    const checkout = record(root.checkout || orderData.checkout);
+    const productId = str(products[0]?.id || checkout.id || root.product_id || "wiapy_prod");
+    const offerId = str(checkout.id || products[0]?.id) || null;
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -686,7 +703,7 @@ export const wiapyAdapter: PaymentAdapter = {
         externalEventId: str(payment.id) || null,
         type,
         productId,
-        offerId: null,
+        offerId,
         productType: "main",
         parentProductId: null,
         parentTransactionId: null,
@@ -695,7 +712,7 @@ export const wiapyAdapter: PaymentAdapter = {
         fees: fee,
         grossCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
         netCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
-        country: cleanCountry(customer.country),
+        country: cleanCountry(customer.country || "BR"),
         buyer: {
           name: str(customer.name) || null,
           email: str(customer.email) || null,
@@ -705,7 +722,7 @@ export const wiapyAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
         occurredAt: parseDate(payment.dt_update || payment.dt_create, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: false,
@@ -1155,6 +1172,479 @@ export const yampiAdapter: PaymentAdapter = {
   },
 };
 
+// 12. ADAPTADOR PERFECTPAY
+export const perfectpayAdapter: PaymentAdapter = {
+  provider: "perfectpay",
+  normalize(payload, context) {
+    const root = record(payload);
+    const statusEnum = Number(root.sale_status_enum);
+    const statusKey = str(root.sale_status_enum_key || root.sale_status).toLowerCase();
+    const paymentTypeEnum = Number(root.payment_type_enum);
+    const paymentMethodKey = str(root.payment_method_enum_key || root.payment_type_enum_key).toLowerCase();
+
+    let type: PaymentEventType = "payment_pending";
+    if (
+      statusEnum === 2 ||
+      statusEnum === 8 ||
+      statusEnum === 10 ||
+      statusKey === "approved" ||
+      statusKey === "completed" ||
+      statusKey === "authorized"
+    ) {
+      type = "purchase_approved";
+    } else if (
+      statusEnum === 7 ||
+      statusEnum === 18 ||
+      statusEnum === 19 ||
+      statusEnum === 20 ||
+      statusKey === "refunded" ||
+      statusKey === "pre_refunded"
+    ) {
+      type = "purchase_refunded";
+    } else if (
+      statusEnum === 9 ||
+      statusEnum === 17 ||
+      statusKey === "charged_back" ||
+      statusKey === "chargeback" ||
+      statusKey === "pre_chargeback"
+    ) {
+      type = "chargeback_created";
+    } else if (
+      statusEnum === 5 ||
+      statusEnum === 6 ||
+      statusEnum === 11 ||
+      statusEnum === 13 ||
+      statusKey === "cancelled" ||
+      statusKey === "canceled" ||
+      statusKey === "rejected" ||
+      statusKey === "expired"
+    ) {
+      type = "purchase_canceled";
+    } else if (statusEnum === 1 || statusKey === "pending") {
+      if (paymentTypeEnum === 7 || paymentMethodKey === "pix") {
+        type = "pix_created";
+      } else if (
+        paymentTypeEnum === 2 ||
+        paymentMethodKey.includes("billet") ||
+        paymentMethodKey.includes("boleto")
+      ) {
+        type = "boleto_created";
+      } else {
+        type = "payment_pending";
+      }
+    }
+
+    const formatKey = str(root.payment_format_enum_key || root.checkout_type_enum).toLowerCase();
+    const isBump = formatKey === "orderbump" || formatKey === "order_bump" || Boolean(root.is_order_bump);
+    const isUpsell = formatKey === "upsell";
+    let productType: "main" | "order_bump" | "upsell" = "main";
+    if (isBump) productType = "order_bump";
+    else if (isUpsell) productType = "upsell";
+
+    const gross = num(root.sale_amount || root.value) ?? 0;
+    const feeRate = DEFAULT_PLATFORM_FEES.perfectpay.percent / 100;
+    const feeFixed = DEFAULT_PLATFORM_FEES.perfectpay.fixed;
+    const fee =
+      root.pay_abs !== undefined && root.pay_tax !== undefined
+        ? Number(((num(root.pay_abs) ?? 0) + (num(root.pay_tax) ?? 0)).toFixed(2))
+        : gross > 0
+          ? Number((gross * feeRate + feeFixed).toFixed(2))
+          : 0;
+    const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+    const product = record(root.product);
+    const plan = record(root.plan);
+    const productId = str(product.code || product.id || root.product_code || "perfectpay_product");
+    const offerId = str(plan.code || plan.offer_name || root.coupon_code) || null;
+
+    const rawCustomer = root.customer;
+    const customer = record(Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer);
+    const buyerName = str(customer.full_name || customer.name) || null;
+    const buyerEmail = str(customer.email) || null;
+
+    const metadata = record(root.metadata || root.tracking);
+    const attribution = extractAttribution(metadata);
+    const currency = cleanCurrency(root.currency_enum_key, context.fallbackCurrency || "BRL");
+    const country = cleanCountry(customer.country || "BR");
+    const occurredAt = parseDate(root.date_approved || root.date_created, context.receivedAt);
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "perfectpay",
+        externalTransactionId: str(root.code || root.transaction_token || "pp_tx"),
+        externalEventId: str(root.code || root.transaction_token) || null,
+        type,
+        productId,
+        offerId,
+        productType,
+        parentProductId: null,
+        parentTransactionId: null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country,
+        buyer: { name: buyerName, email: buyerEmail },
+        attribution,
+        campaignId: str(metadata.utm_campaign) || null,
+        adsetId: str(metadata.utm_term) || null,
+        adId: str(metadata.utm_content) || null,
+        creativeId: str(metadata.utm_creative) || null,
+        clickId: str(metadata.fbclid || metadata.src || metadata.sck) || null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: Boolean(root.is_test),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
+// 13. ADAPTADOR CARTPANDA
+export const cartpandaAdapter: PaymentAdapter = {
+  provider: "cartpanda",
+  normalize(payload, context) {
+    const root = record(payload);
+    const order = record(root.order || root.data || root);
+    const customer = record(order.customer || root.customer);
+    const items = Array.isArray(order.line_items)
+      ? order.line_items.map(record)
+      : Array.isArray(order.items)
+        ? order.items.map(record)
+        : Array.isArray(root.line_items)
+          ? root.line_items.map(record)
+          : [];
+    const firstItem = record(items[0]);
+
+    const event = str(root.event || root.type).toLowerCase();
+    const status = str(order.status || order.financial_status || root.status).toLowerCase();
+    const paymentMethod = str(order.payment_method || root.payment_method || order.gateway).toLowerCase();
+
+    let type: PaymentEventType = "payment_pending";
+    if (
+      event === "order.refunded" ||
+      event.includes("refund") ||
+      status === "refunded"
+    ) {
+      type = "purchase_refunded";
+    } else if (
+      event.includes("chargeback") ||
+      status === "chargedback" ||
+      status === "chargeback"
+    ) {
+      type = "chargeback_created";
+    } else if (
+      event === "order.cancelled" ||
+      event === "order.canceled" ||
+      event.includes("cancel") ||
+      status === "cancelled" ||
+      status === "canceled"
+    ) {
+      type = "purchase_canceled";
+    } else if (
+      event === "order.paid" ||
+      status === "paid" ||
+      status === "approved" ||
+      status === "completed"
+    ) {
+      type = "purchase_approved";
+    } else if (event === "order.created" || status === "pending" || status === "unpaid") {
+      if (paymentMethod === "pix") type = "pix_created";
+      else if (paymentMethod.includes("boleto") || paymentMethod.includes("billet")) type = "boleto_created";
+      else type = "payment_pending";
+    }
+
+    const gross =
+      num(order.total_price || order.total || root.total_price || root.total || firstItem.price) ?? 0;
+    const feeRate = DEFAULT_PLATFORM_FEES.cartpanda.percent / 100;
+    const fee = Number((gross * feeRate).toFixed(2));
+    const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+    const productId = str(firstItem.product_id || firstItem.id || order.id || "cartpanda_product");
+    const offerId = str(firstItem.sku || firstItem.variant_id) || null;
+
+    const buyerName =
+      str(customer.name) ||
+      `${str(customer.first_name)} ${str(customer.last_name)}`.trim() ||
+      null;
+    const buyerEmail = str(customer.email) || null;
+
+    const trackingData = {
+      ...record(root),
+      ...record(order),
+      ...record(root.tracking || root.utm),
+      ...record(order.tracking || order.utm),
+    };
+    const attribution = extractAttribution(trackingData);
+    const currency = cleanCurrency(order.currency || root.currency, context.fallbackCurrency || "BRL");
+    const country = cleanCountry(customer.country || "BR");
+    const occurredAt = parseDate(order.paid_at || order.created_at || root.created_at, context.receivedAt);
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "cartpanda",
+        externalTransactionId: str(order.order_number || order.id || root.order_number || root.id || "cp_tx"),
+        externalEventId: str(root.id || order.id) || null,
+        type,
+        productId,
+        offerId,
+        productType: "main",
+        parentProductId: null,
+        parentTransactionId: null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country,
+        buyer: { name: buyerName, email: buyerEmail },
+        attribution,
+        campaignId: str(trackingData.utm_campaign) || null,
+        adsetId: str(trackingData.utm_term) || null,
+        adId: str(trackingData.utm_content) || null,
+        creativeId: str(trackingData.utm_creative) || null,
+        clickId: str(trackingData.fbclid || trackingData.fbc || trackingData.src || trackingData.sck) || null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: Boolean(root.is_test || order.test),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
+// 14. ADAPTADOR SHOPIFY
+export const shopifyAdapter: PaymentAdapter = {
+  provider: "shopify",
+  normalize(payload, context) {
+    const root = record(payload);
+    const order = record(root.order || root);
+    const customer = record(order.customer || root.customer);
+    const items = Array.isArray(order.line_items) ? order.line_items.map(record) : [];
+    const firstItem = record(items[0]);
+
+    const financialStatus = str(order.financial_status).toLowerCase();
+    const cancelReason = str(order.cancel_reason);
+
+    let type: PaymentEventType = "payment_pending";
+    if (financialStatus === "paid") {
+      type = "purchase_approved";
+    } else if (financialStatus === "refunded" || financialStatus === "partially_refunded") {
+      type = "purchase_refunded";
+    } else if (financialStatus === "voided" || Boolean(cancelReason)) {
+      type = "purchase_canceled";
+    } else if (financialStatus === "pending") {
+      type = "payment_pending";
+    }
+
+    const gross = num(order.total_price || order.current_total_price || firstItem.price) ?? 0;
+    const feeRate = DEFAULT_PLATFORM_FEES.shopify.percent / 100;
+    const fee = Number((gross * feeRate).toFixed(2));
+    const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+    const productId = str(firstItem.product_id || firstItem.id || order.id || "shopify_product");
+    const offerId = str(firstItem.variant_id || firstItem.sku) || null;
+
+    const buyerName =
+      str(customer.name) ||
+      `${str(customer.first_name)} ${str(customer.last_name)}`.trim() ||
+      null;
+    const buyerEmail = str(customer.email) || null;
+
+    const tracking: Record<string, string> = {};
+    if (Array.isArray(order.note_attributes)) {
+      for (const attr of order.note_attributes) {
+        if (attr && typeof attr === "object" && "name" in attr && "value" in attr) {
+          tracking[str((attr as Record<string, unknown>).name)] = str((attr as Record<string, unknown>).value);
+        }
+      }
+    }
+    const landingSite = str(order.landing_site || order.referring_site);
+    if (landingSite) {
+      try {
+        const dummyUrl = new URL(landingSite, "https://dummy.com");
+        for (const [k, v] of dummyUrl.searchParams.entries()) {
+          if (!tracking[k]) tracking[k] = v;
+        }
+      } catch {}
+    }
+
+    const attribution = extractAttribution(tracking);
+    const currency = cleanCurrency(order.currency, context.fallbackCurrency || "USD");
+    const shippingAddress = record(order.shipping_address || order.billing_address);
+    const country = cleanCountry(shippingAddress.country_code || shippingAddress.country || customer.country || "BR");
+    const occurredAt = parseDate(order.processed_at || order.created_at, context.receivedAt);
+
+    return [
+      normalizedPaymentEventSchema.parse({
+        provider: "shopify",
+        externalTransactionId: str(order.id || order.order_number || order.name || "shopify_tx"),
+        externalEventId: str(order.id) || null,
+        type,
+        productId,
+        offerId,
+        productType: "main",
+        parentProductId: null,
+        parentTransactionId: null,
+        grossAmount: gross,
+        netAmount: net,
+        fees: fee,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country,
+        buyer: { name: buyerName, email: buyerEmail },
+        attribution,
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: Boolean(order.test),
+        rawPayload: redactPaymentPayload(payload),
+      }),
+    ];
+  },
+};
+
+// 15. ADAPTADOR TICTO
+export const tictoAdapter: PaymentAdapter = {
+  provider: "ticto",
+  normalize(payload, context) {
+    const root = record(payload);
+    const order = record(root.order);
+    const item = record(root.item);
+    const customer = record(root.customer);
+
+    const status = str(root.status).toLowerCase();
+    let baseType: PaymentEventType = "payment_pending";
+    if (status === "authorized" || status === "approved" || status === "paid") {
+      baseType = "purchase_approved";
+    } else if (status === "refunded") {
+      baseType = "purchase_refunded";
+    } else if (status === "chargeback") {
+      baseType = "chargeback_created";
+    } else if (
+      status === "refused" ||
+      status === "pix_expired" ||
+      status === "close" ||
+      status === "bank_slip_delayed" ||
+      status === "subscription_canceled"
+    ) {
+      baseType = "purchase_canceled";
+    } else if (status === "pix_created") {
+      baseType = "pix_created";
+    } else if (status === "bank_slip_created") {
+      baseType = "boleto_created";
+    } else if (status === "waiting_payment") {
+      baseType = "payment_pending";
+    }
+
+    const txId = str(
+      order.transaction_hash ||
+      order.hash ||
+      order.order_id ||
+      order.id ||
+      root.order_id ||
+      root.transaction_hash ||
+      root.id ||
+      "ticto_tx",
+    );
+    const gross = (num(order.paid_amount ?? root.paid_amount ?? item.amount ?? root.amount) ?? 0) / 100;
+    const feeRate = DEFAULT_PLATFORM_FEES.ticto.percent / 100;
+    const feeFixed = DEFAULT_PLATFORM_FEES.ticto.fixed;
+    const fee = gross > 0 ? Number((gross * feeRate + feeFixed).toFixed(2)) : 0;
+    const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+    const productId = str(item.product_id || item.product_name || "ticto_product");
+    const offerId = str(item.offer_code || item.offer_id || item.offer_name) || null;
+
+    const rawTracking = record(root.tracking);
+    const tracking: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rawTracking)) {
+      const val = str(v);
+      if (val && val.toLowerCase() !== "não informado" && val.toLowerCase() !== "nao informado") {
+        tracking[k] = val;
+      }
+    }
+    const attribution = extractAttribution(tracking);
+
+    const buyerName = str(customer.name) || null;
+    const buyerEmail = str(customer.email) || null;
+    const address = record(customer.address);
+    const country = cleanCountry(address.country || "BR");
+    const occurredAt = parseDate(order.order_date || root.status_date, context.receivedAt);
+
+    const mainEvent = normalizedPaymentEventSchema.parse({
+      provider: "ticto",
+      externalTransactionId: txId,
+      externalEventId: str(order.id) || null,
+      type: baseType,
+      productId,
+      offerId,
+      productType: "main",
+      parentProductId: null,
+      parentTransactionId: null,
+      grossAmount: gross,
+      netAmount: net,
+      fees: fee,
+      grossCurrency: cleanCurrency(root.currency, context.fallbackCurrency || "BRL"),
+      netCurrency: cleanCurrency(root.currency, context.fallbackCurrency || "BRL"),
+      country,
+      buyer: { name: buyerName, email: buyerEmail },
+      attribution,
+      campaignId: str(tracking.utm_campaign) || null,
+      adsetId: str(tracking.utm_term) || null,
+      adId: str(tracking.utm_content) || null,
+      creativeId: str(tracking.utm_creative) || null,
+      clickId: str(tracking.fbclid || tracking.sck || tracking.src) || null,
+      occurredAt,
+      receivedAt: context.receivedAt,
+      isTest: false,
+      rawPayload: redactPaymentPayload(payload),
+    });
+
+    const bumps = Array.isArray(root.bumps) ? root.bumps.map(record) : [];
+    const bumpEvents = bumps.map((b, idx) => {
+      const bumpGross = (num(b.offer_price) ?? 0) / 100;
+      const bumpFee = bumpGross > 0 ? Number((bumpGross * feeRate).toFixed(2)) : 0;
+      const bumpNet = Math.max(0, Number((bumpGross - bumpFee).toFixed(2)));
+      return normalizedPaymentEventSchema.parse({
+        provider: "ticto",
+        externalTransactionId: `${txId}-bump-${idx + 1}`,
+        externalEventId: str(b.offer_id) || null,
+        type: baseType === "purchase_approved" ? "order_bump_approved" : baseType,
+        productId: str(b.product_id || b.product_name || "ticto_bump"),
+        offerId: str(b.offer_code || b.offer_id) || null,
+        productType: "order_bump",
+        parentProductId: productId,
+        parentTransactionId: txId,
+        grossAmount: bumpGross,
+        netAmount: bumpNet,
+        fees: bumpFee,
+        grossCurrency: cleanCurrency(root.currency, context.fallbackCurrency || "BRL"),
+        netCurrency: cleanCurrency(root.currency, context.fallbackCurrency || "BRL"),
+        country,
+        buyer: { name: buyerName, email: buyerEmail },
+        attribution,
+        campaignId: str(tracking.utm_campaign) || null,
+        adsetId: str(tracking.utm_term) || null,
+        adId: str(tracking.utm_content) || null,
+        creativeId: str(tracking.utm_creative) || null,
+        clickId: str(tracking.fbclid || tracking.sck || tracking.src) || null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: false,
+        rawPayload: redactPaymentPayload(payload),
+      });
+    });
+
+    return [mainEvent, ...bumpEvents];
+  },
+};
+
 export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   hotmart: hotmartAdapter,
   kiwify: kiwifyAdapter,
@@ -1167,4 +1657,8 @@ export const paymentAdapters: Record<PaymentProvider, PaymentAdapter> = {
   greenn: greennAdapter,
   stripe: stripeAdapter,
   yampi: yampiAdapter,
+  perfectpay: perfectpayAdapter,
+  cartpanda: cartpandaAdapter,
+  shopify: shopifyAdapter,
+  ticto: tictoAdapter,
 };

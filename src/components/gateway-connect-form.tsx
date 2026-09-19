@@ -4,7 +4,21 @@ import { gatewayWebhookUrl } from "@/lib/webhook-url";
 import { useState, useTransition } from "react";
 import { connectGatewayHub, savePaymentIntegration } from "@/app/actions";
 
-type Provider = "hotmart" | "kiwify" | "cakto" | "kirvano" | "eduzz" | "monetizze" | "wiapy" | "lowfy" | "greenn" | "yampi";
+type Provider =
+  | "hotmart"
+  | "kiwify"
+  | "cakto"
+  | "kirvano"
+  | "eduzz"
+  | "monetizze"
+  | "wiapy"
+  | "lowfy"
+  | "greenn"
+  | "yampi"
+  | "perfectpay"
+  | "cartpanda"
+  | "shopify"
+  | "ticto";
 type CatalogProvider = "hotmart" | "kiwify" | "cakto";
 
 const providerNames: Record<Provider, string> = {
@@ -18,6 +32,10 @@ const providerNames: Record<Provider, string> = {
   lowfy: "Lowfy",
   greenn: "Greenn",
   yampi: "Yampi",
+  perfectpay: "Perfect Pay",
+  cartpanda: "Cartpanda",
+  shopify: "Shopify",
+  ticto: "Ticto",
 };
 
 type ManualProviderConfig = {
@@ -122,6 +140,46 @@ const manualProviders: Record<string, ManualProviderConfig> = {
     productPlaceholder: "Ex.: 5555 ou Meu Produto",
     credentialHelp: "Na Yampi, acesse Configurações > Webhooks, cadastre a URL do webhook e informe a Chave Secreta (Token HMAC).",
     directUrl: "https://app.yampi.com.br",
+  },
+  perfectpay: {
+    credential: "Token de validação (MD5)",
+    where: "Ferramentas > Webhook - Vendas",
+    events: "Venda aprovada, Reembolso, Chargeback e Cancelamento",
+    product: "Código do produto na Perfect Pay",
+    productHelp: "O código do produto na Perfect Pay.",
+    productPlaceholder: "Ex.: PPP12345",
+    credentialHelp: "Na Perfect Pay, vá em Ferramentas > Webhook - Vendas e copie o Token de verificação gerado.",
+    directUrl: "https://app.perfectpay.com.br",
+  },
+  cartpanda: {
+    credential: "Token da API / Chave Secreta",
+    where: "Configurações > Webhooks",
+    events: "order.paid, order.refunded, order.cancelled",
+    product: "ID ou Nome do produto na Cartpanda",
+    productHelp: "O identificador ou título do produto na Cartpanda.",
+    productPlaceholder: "Ex.: 123456",
+    credentialHelp: "Na Cartpanda, acesse Configurações > Webhooks e copie o Token de validação.",
+    directUrl: "https://accounts.cartpanda.com",
+  },
+  shopify: {
+    credential: "Chave Secreta de Assinatura do Webhook (Shared Secret)",
+    where: "Configurações > Notificações > Webhooks",
+    events: "Criação de pedido, Pedido pago (orders/paid), Cancelamento e Reembolso",
+    product: "ID ou Título do produto na Shopify",
+    productHelp: "O identificador ou título do produto na Shopify.",
+    productPlaceholder: "Ex.: Meu Produto",
+    credentialHelp: "Na Shopify, acesse Configurações > Notificações > Webhooks. Copie a Chave Secreta compartilhada exibida no rodapé da página.",
+    directUrl: "https://admin.shopify.com",
+  },
+  ticto: {
+    credential: "Token de validação do Webhook",
+    where: "TicTools > Webhooks",
+    events: "Pedido Aprovado, Reembolso, Chargeback e Cancelamento",
+    product: "ID do produto na Ticto",
+    productHelp: "O código do produto cadastrado na Ticto.",
+    productPlaceholder: "Ex.: 12345",
+    credentialHelp: "Na Ticto, vá em TicTools > Webhooks, crie o webhook e copie o Token de verificação gerado.",
+    directUrl: "https://dashboard.ticto.com.br",
   },
 };
 

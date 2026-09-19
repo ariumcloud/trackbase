@@ -456,3 +456,278 @@ test("Yampi: normaliza status de reembolso e recusa", () => {
   assert.equal(refusedEvent.type, "purchase_canceled");
 });
 
+test("Wiapy: normaliza compra aprovada, fallback de produto, tracking fbc e comprador", () => {
+  const payload = {
+    event: "order.approved",
+    order: {
+      id: "WIA-12345",
+      total: 9700,
+      payment: { amount: 9700, fee: 970 },
+      customer: {
+        name: "Cliente Wiapy",
+        email: "cliente@wiapy.com",
+        phone: "11999998888",
+        document: "12345678901",
+      },
+      tracking: {
+        utm_source: "google",
+        utm_campaign: "search_brand",
+        fbc: "fb.1.123456789.abcdef",
+      },
+    },
+    checkout: {
+      id: "chk_wiapy_999",
+      title: "Checkout Produto Wiapy",
+    },
+  };
+
+  const [event] = paymentAdapters.wiapy.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "wiapy");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "WIA-12345");
+  assert.equal(event.productId, "chk_wiapy_999");
+  assert.equal(event.grossAmount, 97);
+  assert.equal(event.fees, 9.7);
+  assert.equal(event.netAmount, 87.3);
+  assert.equal(event.country, "BR");
+  assert.equal(event.buyer?.email, "cliente@wiapy.com");
+  assert.equal(event.attribution.utm_source, "google");
+  assert.equal(event.attribution.utm_campaign, "search_brand");
+  assert.equal(event.clickId, "fb.1.123456789.abcdef");
+});
+
+test("Kirvano: normaliza eventos expirados como cancelados e calcula taxas da plataforma", () => {
+  const expiredPayload = {
+    event: "PIX_EXPIRED",
+    id: "evt_kirvano_exp",
+    sale_id: "KIRV-EXP-1",
+    total: 100,
+    products: [{ id: "prod_k1", name: "Curso Kirvano" }],
+  };
+  const [expiredEvent] = paymentAdapters.kirvano.normalize(expiredPayload, { receivedAt });
+  assert.equal(expiredEvent.type, "purchase_canceled");
+  assert.equal(expiredEvent.externalTransactionId, "KIRV-EXP-1");
+
+  const approvedPayload = {
+    event: "SALE_APPROVED",
+    id: "evt_kirvano_app",
+    sale_id: "KIRV-APP-1",
+    total: 100,
+    products: [{ id: "prod_k1", name: "Curso Kirvano" }],
+    customer: { name: "Cliente Kirvano", email: "kirvano@example.com" },
+  };
+  const [approvedEvent] = paymentAdapters.kirvano.normalize(approvedPayload, { receivedAt });
+  assert.equal(approvedEvent.type, "purchase_approved");
+  // Taxa Kirvano: 7.49% + R$ 2,00 => (100 * 0.0749) + 2.0 = 9.49
+  assert.equal(approvedEvent.fees, 9.49);
+  assert.equal(approvedEvent.netAmount, 90.51);
+});
+
+test("PerfectPay: normaliza compra aprovada, reembolso, bumps e UTMs", () => {
+  const payload = {
+    sale_status_enum: 2,
+    code: "PP-987654",
+    sale_amount: 197.0,
+    currency: "BRL",
+    date_approved: "2026-09-19 12:00:00",
+    customer: {
+      full_name: "Comprador PerfectPay",
+      email: "comprador@perfectpay.com.br",
+      phone_number: "11988887777",
+      identification_number: "12345678909",
+    },
+    product: {
+      code: "PROD_PP_1",
+      name: "Produto Digital PerfectPay",
+    },
+    plan: {
+      code: "PLAN_PP_1",
+      name: "Plano Anual",
+    },
+    metadata: {
+      utm_source: "facebook",
+      utm_medium: "cpc",
+      utm_campaign: "escala_ads",
+      utm_content: "video_1",
+      utm_term: "interesses",
+      src: "origem_campanha",
+    },
+  };
+
+  const [event] = paymentAdapters.perfectpay.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "perfectpay");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "PP-987654");
+  assert.equal(event.productId, "PROD_PP_1");
+  assert.equal(event.offerId, "PLAN_PP_1");
+  assert.equal(event.grossAmount, 197);
+  // Taxa PerfectPay: 5.9% + R$ 1.50 => 197 * 0.059 + 1.50 = 11.623 + 1.50 = 13.12
+  assert.equal(event.fees, 13.12);
+  assert.equal(event.netAmount, 183.88);
+  assert.equal(event.buyer?.name, "Comprador PerfectPay");
+  assert.equal(event.buyer?.email, "comprador@perfectpay.com.br");
+  assert.equal(event.attribution.utm_source, "facebook");
+  assert.equal(event.attribution.utm_campaign, "escala_ads");
+  assert.equal(event.attribution.src, "origem_campanha");
+  assert.equal(event.country, "BR");
+
+  // Reembolso
+  const [refundEvent] = paymentAdapters.perfectpay.normalize(
+    { ...payload, sale_status_enum: 7 },
+    { receivedAt },
+  );
+  assert.equal(refundEvent.type, "purchase_refunded");
+});
+
+test("Cartpanda: normaliza order.paid, order.refunded, line_items e UTMs", () => {
+  const payload = {
+    event: "order.paid",
+    order: {
+      id: 123456,
+      order_number: "CP-123456",
+      financial_status: "paid",
+      total_price: "249.90",
+      currency: "BRL",
+      created_at: "2026-09-19T14:30:00Z",
+      customer: {
+        first_name: "Cliente",
+        last_name: "Cartpanda",
+        email: "cliente@cartpanda.com",
+        phone: "21987654321",
+        document: "98765432100",
+      },
+      line_items: [
+        {
+          id: 789,
+          product_id: 456,
+          variant_id: 123,
+          title: "Camisa Cartpanda",
+          price: "249.90",
+          quantity: 1,
+        },
+      ],
+      utm_source: "tiktok",
+      utm_campaign: "viral_video",
+    },
+  };
+
+  const [event] = paymentAdapters.cartpanda.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "cartpanda");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "CP-123456");
+  assert.equal(event.productId, "456");
+  assert.equal(event.grossAmount, 249.9);
+  // Taxa Cartpanda: 2.5% => 249.9 * 0.025 = 6.25
+  assert.equal(event.fees, 6.25);
+  assert.equal(event.netAmount, 243.65);
+  assert.equal(event.buyer?.email, "cliente@cartpanda.com");
+  assert.equal(event.attribution.utm_source, "tiktok");
+  assert.equal(event.attribution.utm_campaign, "viral_video");
+
+  // Reembolso
+  const [refundEvent] = paymentAdapters.cartpanda.normalize(
+    { ...payload, event: "order.refunded" },
+    { receivedAt },
+  );
+  assert.equal(refundEvent.type, "purchase_refunded");
+});
+
+test("Shopify: normaliza orders/paid, note_attributes UTMs e landing_site", () => {
+  const payload = {
+    id: 9876543210,
+    name: "#1001",
+    financial_status: "paid",
+    total_price: "150.00",
+    currency: "BRL",
+    created_at: "2026-09-19T15:00:00Z",
+    landing_site: "https://minhaloja.com.br/?utm_source=instagram&utm_medium=bio&utm_campaign=lancamento&fbclid=fb_click_999",
+    customer: {
+      first_name: "Compradora",
+      last_name: "Shopify",
+      email: "compradora@shopify.com",
+      phone: "+5511999991111",
+      default_address: { country_code: "BR" },
+    },
+    line_items: [
+      {
+        id: 111,
+        product_id: 222,
+        variant_id: 333,
+        title: "Vestido Floral",
+        price: "150.00",
+        quantity: 1,
+      },
+    ],
+    note_attributes: [
+      { name: "utm_content", value: "carrossel_1" },
+    ],
+  };
+
+  const [event] = paymentAdapters.shopify.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "shopify");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "9876543210");
+  assert.equal(event.productId, "222");
+  assert.equal(event.offerId, "333");
+  assert.equal(event.grossAmount, 150);
+  // Taxa Shopify: 2.0% => 150 * 0.02 = 3.0
+  assert.equal(event.fees, 3.0);
+  assert.equal(event.netAmount, 147.0);
+  assert.equal(event.country, "BR");
+  assert.equal(event.buyer?.name, "Compradora Shopify");
+  assert.equal(event.buyer?.email, "compradora@shopify.com");
+  assert.equal(event.attribution.utm_source, "instagram");
+  assert.equal(event.attribution.utm_medium, "bio");
+  assert.equal(event.attribution.utm_campaign, "lancamento");
+  assert.equal(event.attribution.utm_content, "carrossel_1");
+  assert.equal(event.clickId, "fb_click_999");
+});
+
+test("Ticto: normaliza v2.0 com centavos, bumps e remove 'Não Informado'", () => {
+  const payload = {
+    status: "authorized",
+    order_id: "TICTO-888999",
+    paid_amount: 19700, // em centavos => R$ 197,00
+    created_at: "2026-09-19T16:00:00Z",
+    customer: {
+      name: "Aluno Ticto",
+      email: "aluno@ticto.com.br",
+      phone: "11977776666",
+      cpf: "11122233344",
+    },
+    item: {
+      product_id: 5001,
+      product_name: "Mentoria Ticto",
+      offer_id: 8001,
+      offer_name: "Oferta Black Friday",
+    },
+    tracking: {
+      utm_source: "google_ads",
+      utm_campaign: "Não Informado", // Deve ser filtrado!
+      utm_medium: "cpc",
+      utm_content: "Não informado", // Deve ser filtrado!
+      src: "funil_direto",
+    },
+  };
+
+  const [event] = paymentAdapters.ticto.normalize(payload, { receivedAt });
+  assert.equal(event.provider, "ticto");
+  assert.equal(event.type, "purchase_approved");
+  assert.equal(event.externalTransactionId, "TICTO-888999");
+  assert.equal(event.productId, "5001");
+  assert.equal(event.offerId, "8001");
+  assert.equal(event.grossAmount, 197);
+  // Taxa Ticto: 6.9% + R$ 2.49 => 197 * 0.069 + 2.49 = 13.593 + 2.49 = 16.08
+  assert.equal(event.fees, 16.08);
+  assert.equal(event.netAmount, 180.92);
+  assert.equal(event.buyer?.name, "Aluno Ticto");
+  assert.equal(event.buyer?.email, "aluno@ticto.com.br");
+  assert.equal(event.attribution.utm_source, "google_ads");
+  assert.equal(event.attribution.utm_medium, "cpc");
+  assert.equal(event.attribution.src, "funil_direto");
+  assert.equal(event.attribution.utm_campaign, undefined);
+  assert.equal(event.attribution.utm_content, undefined);
+  assert.equal(event.country, "BR");
+});
+
+

@@ -9,7 +9,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createApiKey as createKeyRecord, listApiKeys as listKeyRecords, revokeApiKey as revokeKeyRecord } from "@/lib/api-keys";
-import { DEFAULT_PLATFORM_FEES, type PaymentProvider } from "@/lib/payment-contract";
+import { DEFAULT_PLATFORM_FEES, paymentProviders, type PaymentProvider } from "@/lib/payment-contract";
 export type ActionResult = {
   ok?: boolean;
   error?: string;
@@ -714,18 +714,7 @@ export async function savePaymentIntegration(
     const { client } = await requireFeature(workspace, "integrations");
     const value = z
       .object({
-        provider: z.enum([
-          "hotmart",
-          "kiwify",
-          "cakto",
-          "kirvano",
-          "eduzz",
-          "monetizze",
-          "wiapy",
-          "lowfy",
-          "greenn",
-          "stripe",
-        ]),
+        provider: z.enum(paymentProviders),
         offer_id: z.string().optional(),
         product_name: z.string().trim().max(120).optional().or(z.literal("")),
         external_product_id: z.string().trim().max(200).optional().or(z.literal("")),

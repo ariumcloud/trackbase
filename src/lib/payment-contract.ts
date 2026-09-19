@@ -11,6 +11,10 @@ export const paymentProviders = [
   "greenn",
   "stripe",
   "yampi",
+  "perfectpay",
+  "cartpanda",
+  "shopify",
+  "ticto",
 ] as const;
 export type PaymentProvider = (typeof paymentProviders)[number];
 
@@ -72,6 +76,26 @@ export const DEFAULT_PLATFORM_FEES: Record<
     percent: 2.5,
     fixed: 0,
     note: "Yampi: 2,5%",
+  },
+  perfectpay: {
+    percent: 5.9,
+    fixed: 1.5,
+    note: "PerfectPay: 5,90% + R$ 1,50",
+  },
+  cartpanda: {
+    percent: 2.5,
+    fixed: 0,
+    note: "Cartpanda: 2,5%",
+  },
+  shopify: {
+    percent: 2.0,
+    fixed: 0,
+    note: "Shopify: 2,0%",
+  },
+  ticto: {
+    percent: 6.9,
+    fixed: 2.49,
+    note: "Ticto: 6,90% + R$ 2,49",
   },
 };
 export const paymentEventTypes = [
