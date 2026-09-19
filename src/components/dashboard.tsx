@@ -1309,6 +1309,12 @@ export function Dashboard(p: Props) {
               account={p.account}
               usage={accountUsage}
             />
+          ) : tab === "shield" ? (
+            <div className="page-heading">
+              <div>
+                <h1>Será implementada futuramente</h1>
+              </div>
+            </div>
           ) : (
           <>
           <div className={`page-heading${tab === "visao" ? " page-heading-compact" : ""}`}>
