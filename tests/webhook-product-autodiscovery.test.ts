@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resolveProductTarget, type Hub } from "../src/lib/gateway-offers";
 import { admin } from "../src/lib/supabase/server";
 
-test("webhook product auto-discovery resolves known products and only creates new ones from real approved sales on catalog providers", async (t) => {
+test("webhook product auto-discovery resolves known products and only creates new ones from real approved sales, for any provider", async (t) => {
   const originalFetch = global.fetch;
   const originalWebSocket = (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
   const envKeys = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const;
@@ -113,14 +113,62 @@ test("webhook product auto-discovery resolves known products and only creates ne
       assert.equal((credentialInserted as Record<string, unknown>).api_credentials_ciphertext, "hub-credential-ciphertext");
     });
 
-    await t.test("the exact same new-product scenario on a non-catalog provider never attempts to create anything", async () => {
+    await t.test("the exact same new-product scenario on a non-catalog provider (e.g. Yampi/Kirvano) also auto-creates a satellite", async () => {
       createdOfferInsert = null;
       createdIntegrationInsert = null;
       const kirvanoHub: Hub = { ...hub, id: "20000000-0000-4000-8000-00000000000k" };
       const target = await resolveProductTarget(service, kirvanoHub, "kirvano", "brand-new-product", null, true, "Novo Produto Real", "BRL");
-      assert.equal(target, null);
-      assert.equal(createdOfferInsert, null);
-      assert.equal(createdIntegrationInsert, null);
+      assert.deepEqual(target, {
+        id: "20000000-0000-4000-8000-000000000099",
+        offer_id: "30000000-0000-4000-8000-000000000099",
+        name: "Novo Produto Real",
+      });
+      assert.equal((createdOfferInsert as Record<string, unknown> | null)?.external_product_id, "brand-new-product");
+      assert.equal((createdIntegrationInsert as Record<string, unknown> | null)?.status, "connected");
+    });
+
+    await t.test("a bare hub with no product bound yet (connected without typing a product name/ID) self-binds on its first approved sale, instead of spawning a satellite", async () => {
+      createdOfferInsert = null;
+      createdIntegrationInsert = null;
+      let boundHubUpdate: Record<string, unknown> | null = null;
+      const originalFetchInner = global.fetch;
+      global.fetch = async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        const method = init?.method || "GET";
+        if (url.pathname.endsWith("/utm_integrations") && method === "GET") return respond([]);
+        if (url.pathname.endsWith("/utm_offers") && method === "POST") {
+          createdOfferInsert = JSON.parse(String(init?.body));
+          return respond({ id: "30000000-0000-4000-8000-000000000098", name: createdOfferInsert?.name });
+        }
+        if (url.pathname.endsWith("/utm_integrations") && method === "PATCH") {
+          boundHubUpdate = JSON.parse(String(init?.body));
+          return respond([]);
+        }
+        throw new Error(`Unexpected test request: ${method} ${url.pathname}${url.search}`);
+      };
+      try {
+        const bareHub: Hub = {
+          id: "20000000-0000-4000-8000-00000000000y",
+          workspace_id: workspace,
+          offer_id: null,
+          name: "YAMPI · Conexão",
+          external_product_id: null,
+          external_offer_id: null,
+          currency: "BRL",
+        };
+        const target = await resolveProductTarget(service, bareHub, "yampi", "sku-123", null, true, "Curso Completo", "BRL");
+        assert.deepEqual(target, {
+          id: bareHub.id,
+          offer_id: "30000000-0000-4000-8000-000000000098",
+          name: "Curso Completo",
+        });
+        assert.equal((createdOfferInsert as Record<string, unknown> | null)?.external_product_id, "sku-123");
+        assert.equal((boundHubUpdate as Record<string, unknown> | null)?.offer_id, "30000000-0000-4000-8000-000000000098");
+        assert.equal((boundHubUpdate as Record<string, unknown> | null)?.external_product_id, "sku-123");
+        assert.equal(createdIntegrationInsert, null);
+      } finally {
+        global.fetch = originalFetchInner;
+      }
     });
   } finally {
     global.fetch = originalFetch;

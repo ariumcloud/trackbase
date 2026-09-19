@@ -161,9 +161,7 @@ export function GatewayConnectForm({
         <span className="gateway-next-step-kicker">INTEGRAÇÃO CONFIGURADA</span>
         <h3 style={{ margin: "0.25rem 0 0.5rem" }}>Tudo pronto! Ative o Webhook na {providerNames[provider]}.</h3>
         <p style={{ color: "var(--muted, #64748B)", fontSize: "0.85rem", marginBottom: "1rem" }}>
-          {isCatalog
-            ? `Copie a URL abaixo e cadastre na ${providerNames[provider]}. Você pode usar esta mesma URL para quantos produtos quiser desta conta — cada um aparece sozinho no Trackbase assim que a primeira venda aprovada chegar.`
-            : `Copie a URL abaixo e cadastre na ${providerNames[provider]}. Ela é exclusiva desta integração e produto; adicionar outro produto gera outro endereço.`}
+          {`Copie a URL abaixo e cadastre na ${providerNames[provider]}. Você pode usar esta mesma URL para quantos produtos quiser desta conta — cada um aparece sozinho no Trackbase assim que a primeira venda aprovada chegar.`}
         </p>
 
         <div className="gateway-webhook-url">
@@ -183,9 +181,7 @@ export function GatewayConnectForm({
             <li><strong>Eventos a marcar:</strong> {manualConfig?.events || "Compra aprovada, Reembolso e Chargeback"}.</li>
             <li>
               <strong>Produtos:</strong>{" "}
-              {isCatalog
-                ? "Selecione todos os produtos de uma vez, ou crie um webhook por produto — em ambos os casos, cole esta mesma URL."
-                : "Selecione o seu produto."}
+              Selecione todos os produtos de uma vez, ou crie um webhook por produto — em ambos os casos, cole esta mesma URL.
             </li>
           </ul>
         </div>
@@ -212,7 +208,7 @@ export function GatewayConnectForm({
     );
   }
 
-  if (isCatalog && existingIntegrationId) {
+  if (existingIntegrationId) {
     return (
       <div className="gateway-next-step">
         <span className="gateway-next-step-kicker">CONEXÃO JÁ ATIVA</span>
@@ -374,109 +370,11 @@ export function GatewayConnectForm({
             )}
           </select>
           <small className="form-help" style={{ display: "block", marginTop: "2px", color: "var(--muted, #64748B)", fontSize: "0.75rem" }}>
-            Cria uma nova oferta no Trackbase com este produto ou vincula a uma que você já configurou.
+            {selectedOfferId === "new"
+              ? "Não precisa informar nome ou ID do produto: assim que a primeira venda aprovada chegar pelo webhook, o Trackbase cria a oferta sozinho com os dados que já vêm no pagamento."
+              : "As vendas desta conexão serão contabilizadas na oferta selecionada."}
           </small>
         </label>
-
-        {selectedOfferId === "new" && (
-          <div style={{ marginTop: "0.85rem" }}>
-            <label
-              htmlFor="gateway-product-name"
-              style={{
-                display: "block",
-                marginBottom: "4px",
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                color: "var(--ink, #0F172A)",
-                cursor: "pointer",
-              }}
-            >
-              Nome do produto / oferta
-            </label>
-            <input
-              id="gateway-product-name"
-              name="product_name"
-              type="text"
-              placeholder="Ex.: Treinamento Viver de Anúncios, Mentoria VIP..."
-              required
-              disabled={loading}
-              maxLength={120}
-              autoFocus
-              style={{
-                width: "100%",
-                height: "44px",
-                padding: "0 12px",
-                fontSize: "0.9rem",
-                borderRadius: "8px",
-                border: "1px solid var(--line, #CBD5E1)",
-                background: "var(--surface, #FFFFFF)",
-                color: "var(--ink, #0F172A)",
-                boxSizing: "border-box",
-                cursor: "text",
-                pointerEvents: "auto",
-              }}
-            />
-            <small
-              className="form-help"
-              style={{
-                display: "block",
-                marginTop: "3px",
-                color: "var(--muted, #64748B)",
-                fontSize: "0.75rem",
-              }}
-            >
-              O nome legível que aparecerá nos relatórios, cards de ofertas e notificações de vendas.
-            </small>
-          </div>
-        )}
-
-        <div style={{ marginTop: "0.85rem" }}>
-          <label
-            htmlFor="gateway-external-product-id"
-            style={{
-              display: "block",
-              marginBottom: "4px",
-              fontWeight: 600,
-              fontSize: "0.85rem",
-              color: "var(--ink, #0F172A)",
-              cursor: "pointer",
-            }}
-          >
-            {manual.product}
-          </label>
-          <input
-            id="gateway-external-product-id"
-            name="external_product_id"
-            type="text"
-            placeholder={manual.productPlaceholder || "Ex.: 8456025 ou ID do produto"}
-            required
-            disabled={loading}
-            style={{
-              width: "100%",
-              height: "44px",
-              padding: "0 12px",
-              fontSize: "0.9rem",
-              borderRadius: "8px",
-              border: "1px solid var(--line, #CBD5E1)",
-              background: "var(--surface, #FFFFFF)",
-              color: "var(--ink, #0F172A)",
-              boxSizing: "border-box",
-              cursor: "text",
-              pointerEvents: "auto",
-            }}
-          />
-          <small
-            className="form-help"
-            style={{
-              display: "block",
-              marginTop: "3px",
-              color: "var(--muted, #64748B)",
-              fontSize: "0.75rem",
-            }}
-          >
-            {manual.productHelp}
-          </small>
-        </div>
         <input type="hidden" name="external_offer_id" value="" />
 
         <label>

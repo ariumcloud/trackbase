@@ -727,8 +727,8 @@ export async function savePaymentIntegration(
           "stripe",
         ]),
         offer_id: z.string().optional(),
-        product_name: z.string().trim().max(120).optional(),
-        external_product_id: z.string().trim().min(1).max(200),
+        product_name: z.string().trim().max(120).optional().or(z.literal("")),
+        external_product_id: z.string().trim().max(200).optional().or(z.literal("")),
         external_offer_id: z.string().trim().max(200).optional(),
         currency: z.string().regex(/^[A-Z]{3}$/),
         secret: z.string().min(4).max(500).optional().or(z.literal("")),
@@ -736,30 +736,45 @@ export async function savePaymentIntegration(
       .parse(Object.fromEntries(form));
 
     const service = admin();
-    let finalOfferId = value.offer_id;
+    let finalOfferId: string | null | undefined = value.offer_id;
     let finalOfferName = "";
+    let finalExternalProductId: string | null = value.external_product_id || null;
 
     if (finalOfferId && finalOfferId !== "new" && z.string().uuid().safeParse(finalOfferId).success) {
       const { data: existingOffer } = await client
         .from("utm_offers")
-        .select("id,name")
+        .select("id,name,external_product_id")
         .eq("workspace_id", workspace)
         .eq("id", finalOfferId)
         .single();
       if (existingOffer) {
         finalOfferId = existingOffer.id;
         finalOfferName = existingOffer.name;
+        // Vincular a uma oferta existente exige um external_product_id não
+        // nulo (a constraint do banco exige offer_id e external_product_id
+        // juntos): reaproveita o da oferta, ou o digitado, ou o próprio id
+        // da oferta como um identificador estável.
+        finalExternalProductId = existingOffer.external_product_id || finalExternalProductId || existingOffer.id;
       }
+    } else if (!finalExternalProductId) {
+      // Sem produto informado e sem oferta existente selecionada: cria a
+      // integração como um hub "vazio" (sem oferta), igual ao fluxo do
+      // Hotmart/Kiwify/Cakto por API. O primeiro webhook de venda aprovada
+      // descobre o produto sozinho e vincula a oferta automaticamente
+      // (ver resolveProductTarget em gateway-offers.ts).
+      finalOfferId = null;
     }
 
-    if (!finalOfferName) {
+    if (finalOfferId === undefined) finalOfferId = null;
+
+    if (finalOfferId && !finalOfferName) {
       const defaultLandingUrl: Record<string, string> = {
         hotmart: "https://hotmart.com",
         kiwify: "https://kiwify.com.br",
         cakto: "https://cakto.com.br",
       };
       const landingUrl = defaultLandingUrl[value.provider] || "https://trackbase.com.br";
-      const offerName = value.product_name || value.external_product_id;
+      const offerName = value.product_name || finalExternalProductId || `${value.provider.toUpperCase()} · Conexão`;
       const defaultFees = DEFAULT_PLATFORM_FEES[value.provider as PaymentProvider];
 
       const { data: createdOffer, error: offerError } = await service
@@ -770,7 +785,7 @@ export async function savePaymentIntegration(
           landing_url: landingUrl,
           currency: value.currency,
           platform: value.provider,
-          external_product_id: value.external_product_id,
+          external_product_id: finalExternalProductId,
           percent_fee: defaultFees?.percent ?? 0,
           fixed_fee: defaultFees?.fixed ?? 0,
         })
@@ -788,9 +803,11 @@ export async function savePaymentIntegration(
         workspace_id: workspace,
         offer_id: finalOfferId,
         provider: value.provider,
-        name: `${value.provider.toUpperCase()} · ${finalOfferName}`,
-        external_product_id: value.external_product_id,
-        external_offer_id: value.external_offer_id || null,
+        name: finalOfferId
+          ? `${value.provider.toUpperCase()} · ${finalOfferName}`
+          : `${value.provider.toUpperCase()} · Conexão`,
+        external_product_id: finalOfferId ? finalExternalProductId : null,
+        external_offer_id: finalOfferId ? value.external_offer_id || null : null,
         currency: value.currency,
         status: "connected",
       })
