@@ -666,7 +666,9 @@ test("Shopify: normaliza orders/paid, note_attributes UTMs e landing_site", () =
   const [event] = paymentAdapters.shopify.normalize(payload, { receivedAt });
   assert.equal(event.provider, "shopify");
   assert.equal(event.type, "purchase_approved");
-  assert.equal(event.externalTransactionId, "9876543210");
+  // Sufixado pelo item (order:line_item) para não colidir com outros
+  // produtos do mesmo pedido -- ver teste de pedido com múltiplos itens.
+  assert.equal(event.externalTransactionId, "9876543210:111");
   assert.equal(event.productId, "222");
   assert.equal(event.offerId, "333");
   assert.equal(event.grossAmount, 150);
@@ -714,11 +716,41 @@ test("Shopify: refunds/create manda um recurso Refund distinto do Order, e preci
   const [event] = paymentAdapters.shopify.normalize(refundPayload, { receivedAt });
   assert.equal(event.provider, "shopify");
   assert.equal(event.type, "purchase_refunded");
-  // Mesmo external_transaction_id do pedido original (order.id lá == order_id aqui),
-  // para o UPSERT em utm_sales atualizar a mesma linha em vez de criar outra.
-  assert.equal(event.externalTransactionId, "9876543210");
+  // Mesmo external_transaction_id (order:line_item) da venda original,
+  // para o UPSERT em utm_sales atualizar aquela linha em vez de criar outra.
+  assert.equal(event.externalTransactionId, "9876543210:111");
   assert.equal(event.productId, "222");
   assert.equal(event.grossAmount, 150);
+});
+
+test("Shopify: pedido com 2 produtos diferentes vira 2 vendas, cada uma com seu produto e sua fatia do total", () => {
+  const payload = {
+    id: 555000111,
+    financial_status: "paid",
+    total_price: "300.00",
+    currency: "BRL",
+    created_at: "2026-09-19T15:00:00Z",
+    customer: { first_name: "Compradora", last_name: "Multi", email: "multi@shopify.com" },
+    line_items: [
+      { id: 11, product_id: 100, variant_id: 1000, title: "Camiseta", price: "100.00", quantity: 1 },
+      { id: 12, product_id: 200, variant_id: 2000, title: "Boné", price: "100.00", quantity: 2 },
+    ],
+  };
+
+  const events = paymentAdapters.shopify.normalize(payload, { receivedAt });
+  assert.equal(events.length, 2);
+
+  const [shirt, cap] = events;
+  assert.equal(shirt.externalTransactionId, "555000111:11");
+  assert.equal(shirt.productId, "100");
+  assert.equal(shirt.grossAmount, 100);
+
+  assert.equal(cap.externalTransactionId, "555000111:12");
+  assert.equal(cap.productId, "200");
+  assert.equal(cap.grossAmount, 200);
+
+  // As duas fatias somam o total do pedido, nenhuma receita perdida nem duplicada.
+  assert.equal(shirt.grossAmount + cap.grossAmount, 300);
 });
 
 test("Ticto: normaliza v2.0 com centavos, bumps e remove 'Não Informado'", () => {

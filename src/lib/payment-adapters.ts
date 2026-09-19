@@ -1425,44 +1425,90 @@ export const cartpandaAdapter: PaymentAdapter = {
 // resolveProductTarget silently dropped it and the original sale stayed
 // marked "approved" forever. A Refund resource is identified by having
 // order_id but no financial_status (an Order never has order_id; it has id).
-function normalizeShopifyRefund(root: Record<string, unknown>, context: { receivedAt: string; fallbackCurrency?: string }) {
-  const lineItems = Array.isArray(root.refund_line_items) ? root.refund_line_items.map(record) : [];
-  const firstLineItem = record(lineItems[0]);
-  const originalLineItem = record(firstLineItem.line_item);
+// Shopify carts routinely hold several distinct products in one order,
+// unlike the single-product checkouts every other gateway here models. The
+// old version only ever read line_items[0] for productId while billing the
+// *whole* order total to it — a 2-product order silently gave 100% of the
+// revenue to product A and 0% to product B, which never appears at all.
+// Each line item now becomes its own normalized event, sharing the order's
+// buyer/attribution/currency but carrying its own product and its own slice
+// of the total. To keep each line's row distinct in utm_sales (unique on
+// integration_id + external_transaction_id + product_type, and every line
+// here is productType "main"), the transaction id is suffixed per line
+// item — shared with the refund path below so a later refund of one line
+// updates that same row instead of colliding with, or missing, the others.
+function shopifyLineTransactionId(orderId: string, lineItemId: string): string {
+  return lineItemId ? `${orderId}:${lineItemId}` : orderId;
+}
 
+function normalizeShopifyRefund(root: Record<string, unknown>, context: { receivedAt: string; fallbackCurrency?: string }) {
+  const orderId = str(root.order_id) || "shopify_tx";
+  const refundLines = Array.isArray(root.refund_line_items) ? root.refund_line_items.map(record) : [];
   const transactions = Array.isArray(root.transactions) ? root.transactions.map(record) : [];
   const refundTransactions = transactions.filter((t) => str(t.kind) === "refund" && str(t.status) !== "failure");
   const transactionsTotal = refundTransactions.reduce((sum, t) => sum + (num(t.amount) ?? 0), 0);
-  const lineItemsTotal = lineItems.reduce(
-    (sum, li) => sum + (num(li.subtotal) ?? 0) + (num(li.total_tax) ?? 0),
-    0,
-  );
-  const gross = transactionsTotal > 0 ? transactionsTotal : lineItemsTotal;
-
-  const productId = str(originalLineItem.product_id || originalLineItem.id || root.order_id || "shopify_product");
-  const offerId = str(originalLineItem.variant_id || originalLineItem.sku) || null;
-  const currency = cleanCurrency(
-    refundTransactions[0]?.currency || root.currency,
-    context.fallbackCurrency || "USD",
-  );
+  const currency = cleanCurrency(refundTransactions[0]?.currency || root.currency, context.fallbackCurrency || "USD");
   const occurredAt = parseDate(root.processed_at || root.created_at, context.receivedAt);
+  const refundEventId = str(root.id);
 
+  // Shopify itemizes refund_line_items whenever the refund targets specific
+  // products (the normal case), so refund each of those lines against the
+  // exact same transaction id its original sale was recorded under.
+  if (refundLines.length > 0) {
+    const linesTotal = refundLines.reduce((sum, li) => sum + (num(li.subtotal) ?? 0) + (num(li.total_tax) ?? 0), 0);
+    return refundLines.map((line, idx) => {
+      const originalLineItem = record(line.line_item);
+      const lineGross = (num(line.subtotal) ?? 0) + (num(line.total_tax) ?? 0);
+      // Distribute the actual refunded money (transactions) proportionally
+      // across lines when it disagrees with the line subtotal (partial /
+      // duty-adjusted refunds); falls back to the line subtotal itself.
+      const gross = transactionsTotal > 0 && linesTotal > 0 ? Number(((lineGross / linesTotal) * transactionsTotal).toFixed(2)) : lineGross;
+      return normalizedPaymentEventSchema.parse({
+        provider: "shopify",
+        externalTransactionId: shopifyLineTransactionId(orderId, str(originalLineItem.id || line.line_item_id)),
+        externalEventId: refundEventId ? `refund_${refundEventId}_${idx}` : null,
+        type: "purchase_refunded" as PaymentEventType,
+        productId: str(originalLineItem.product_id || originalLineItem.id || orderId),
+        offerId: str(originalLineItem.variant_id || originalLineItem.sku) || null,
+        productType: "main",
+        parentProductId: null,
+        parentTransactionId: null,
+        grossAmount: gross,
+        netAmount: gross,
+        fees: 0,
+        grossCurrency: currency,
+        netCurrency: currency,
+        country: null,
+        buyer: { name: null, email: null },
+        attribution: extractAttribution({}),
+        campaignId: null,
+        adsetId: null,
+        adId: null,
+        creativeId: null,
+        clickId: null,
+        occurredAt,
+        receivedAt: context.receivedAt,
+        isTest: false,
+        rawPayload: redactPaymentPayload(root),
+      });
+    });
+  }
+
+  // No line breakdown (e.g. a duties-only adjustment): fall back to the
+  // bare order id, which only ever matches a single-line order's own sale.
   return [
     normalizedPaymentEventSchema.parse({
       provider: "shopify",
-      // Matches the same external_transaction_id the original orders/paid
-      // event was recorded under (order.id there == order_id here), so this
-      // updates that sale row to refunded instead of inserting a new one.
-      externalTransactionId: str(root.order_id || "shopify_tx"),
-      externalEventId: str(root.id) ? `refund_${str(root.id)}` : null,
+      externalTransactionId: shopifyLineTransactionId(orderId, ""),
+      externalEventId: refundEventId ? `refund_${refundEventId}` : null,
       type: "purchase_refunded" as PaymentEventType,
-      productId,
-      offerId,
+      productId: orderId,
+      offerId: null,
       productType: "main",
       parentProductId: null,
       parentTransactionId: null,
-      grossAmount: gross,
-      netAmount: gross,
+      grossAmount: transactionsTotal,
+      netAmount: transactionsTotal,
       fees: 0,
       grossCurrency: currency,
       netCurrency: currency,
@@ -1491,9 +1537,9 @@ export const shopifyAdapter: PaymentAdapter = {
     if (isRefundResource) return normalizeShopifyRefund(root, context);
 
     const order = record(root.order || root);
+    const orderId = str(order.id || order.order_number || order.name || "shopify_tx");
     const customer = record(order.customer || root.customer);
     const items = Array.isArray(order.line_items) ? order.line_items.map(record) : [];
-    const firstItem = record(items[0]);
 
     const financialStatus = str(order.financial_status).toLowerCase();
     const cancelReason = str(order.cancel_reason);
@@ -1509,13 +1555,7 @@ export const shopifyAdapter: PaymentAdapter = {
       type = "payment_pending";
     }
 
-    const gross = num(order.total_price || order.current_total_price || firstItem.price) ?? 0;
     const feeRate = DEFAULT_PLATFORM_FEES.shopify.percent / 100;
-    const fee = Number((gross * feeRate).toFixed(2));
-    const net = Math.max(0, Number((gross - fee).toFixed(2)));
-
-    const productId = str(firstItem.product_id || firstItem.id || order.id || "shopify_product");
-    const offerId = str(firstItem.variant_id || firstItem.sku) || null;
 
     const buyerName =
       str(customer.name) ||
@@ -1546,15 +1586,37 @@ export const shopifyAdapter: PaymentAdapter = {
     const shippingAddress = record(order.shipping_address || order.billing_address);
     const country = cleanCountry(shippingAddress.country_code || shippingAddress.country || customer.country || "BR");
     const occurredAt = parseDate(order.processed_at || order.created_at, context.receivedAt);
+    const buyer = { name: buyerName, email: buyerEmail };
+    const orderTotal = num(order.total_price || order.current_total_price);
 
-    return [
-      normalizedPaymentEventSchema.parse({
+    // No line items at all (shouldn't happen for a real Order, but keeps
+    // this from silently producing zero events): fall back to one event
+    // for the whole order, same as before.
+    const lines = items.length
+      ? items
+      : [record({ id: "", product_id: order.id, price: orderTotal, quantity: 1 })];
+    const linesGrossTotal = lines.reduce((sum, item) => sum + (num(item.price) ?? 0) * (num(item.quantity) ?? 1), 0);
+
+    return lines.map((item) => {
+      const itemGross = (num(item.price) ?? 0) * (num(item.quantity) ?? 1);
+      // Prefer the order's own total (includes shipping/tax adjustments not
+      // on individual lines) distributed proportionally across items; falls
+      // back to the line's own price when the order total is unavailable or
+      // doesn't add up (e.g. a synthetic single-line fallback above).
+      const gross =
+        orderTotal !== null && orderTotal !== undefined && linesGrossTotal > 0
+          ? Number(((itemGross / linesGrossTotal) * orderTotal).toFixed(2))
+          : itemGross;
+      const fee = Number((gross * feeRate).toFixed(2));
+      const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+      return normalizedPaymentEventSchema.parse({
         provider: "shopify",
-        externalTransactionId: str(order.id || order.order_number || order.name || "shopify_tx"),
-        externalEventId: str(order.id) || null,
+        externalTransactionId: shopifyLineTransactionId(orderId, str(item.id)),
+        externalEventId: null,
         type,
-        productId,
-        offerId,
+        productId: str(item.product_id || item.id || orderId),
+        offerId: str(item.variant_id || item.sku) || null,
         productType: "main",
         parentProductId: null,
         parentTransactionId: null,
@@ -1564,7 +1626,7 @@ export const shopifyAdapter: PaymentAdapter = {
         grossCurrency: currency,
         netCurrency: currency,
         country,
-        buyer: { name: buyerName, email: buyerEmail },
+        buyer,
         attribution,
         campaignId: str(tracking.utm_campaign) || null,
         adsetId: str(tracking.utm_term) || null,
@@ -1575,8 +1637,8 @@ export const shopifyAdapter: PaymentAdapter = {
         receivedAt: context.receivedAt,
         isTest: Boolean(order.test),
         rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
+      });
+    });
   },
 };
 
