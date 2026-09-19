@@ -234,6 +234,49 @@ function validShopifySignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function validStripeSignature(
+  request: Request,
+  raw: string,
+  secret: string,
+): boolean {
+  const header = (request.headers.get("stripe-signature") || "").trim();
+  if (!header) return false;
+
+  let timestamp = "";
+  const signatures: string[] = [];
+
+  for (const part of header.split(",")) {
+    const [k, v] = part.split("=").map((s) => s?.trim());
+    if (k === "t") timestamp = v || "";
+    if (k === "v1" && v) signatures.push(v);
+  }
+
+  if (!timestamp || signatures.length === 0 || !/^\d{10,13}$/.test(timestamp)) {
+    return false;
+  }
+
+  const timestampMs = Number(timestamp.length === 10 ? `${timestamp}000` : timestamp);
+  if (!Number.isSafeInteger(timestampMs) || Math.abs(Date.now() - timestampMs) > 300_000) {
+    return false;
+  }
+
+  const payloadToSign = `${timestamp}.${raw}`;
+  const expected = createHmac("sha256", secret).update(payloadToSign, "utf8").digest("hex");
+  const expectedBuf = Buffer.from(expected, "hex");
+
+  for (const sig of signatures) {
+    if (/^[a-f0-9]{64}$/i.test(sig)) {
+      const sigBuf = Buffer.from(sig, "hex");
+      if (sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+
 function extractPayloadProductName(provider: string, payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
@@ -378,7 +421,7 @@ export async function POST(
     let payload: unknown;
     let raw: string | undefined;
     try {
-      if (provider === "cakto" || provider === "yampi" || provider === "shopify") {
+      if (provider === "cakto" || provider === "yampi" || provider === "shopify" || provider === "stripe") {
         raw = await rawBody(request);
         payload = JSON.parse(raw);
       } else {
@@ -418,6 +461,15 @@ export async function POST(
         raw,
         decrypt(credentials.webhook_secret_ciphertext),
       );
+    const signedStripeRequest =
+      provider === "stripe" &&
+      raw !== undefined &&
+      credentials?.webhook_secret_ciphertext &&
+      validStripeSignature(
+        request,
+        raw,
+        decrypt(credentials.webhook_secret_ciphertext),
+      );
     const token = extractWebhookToken(provider, request, payload);
     const legacyTokenMatches =
       !!credentials?.webhook_hash && matches(token, credentials.webhook_hash);
@@ -425,6 +477,7 @@ export async function POST(
       (provider === "cakto" && credentials?.webhook_secret_ciphertext && signedCaktoRequest) ||
       (provider === "yampi" && credentials?.webhook_secret_ciphertext && signedYampiRequest) ||
       (provider === "shopify" && credentials?.webhook_secret_ciphertext && signedShopifyRequest) ||
+      (provider === "stripe" && credentials?.webhook_secret_ciphertext && signedStripeRequest) ||
       legacyTokenMatches;
     if (!authenticated) {
       return NextResponse.json({ error: "Token inválido." }, { status: 401 });

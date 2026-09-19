@@ -130,7 +130,17 @@ export const hotmartAdapter: PaymentAdapter = {
     };
 
     const event = str(root.event).toUpperCase();
-    const isOrderBump = Boolean(purchase.order_bump);
+    const orderBumpObj = record(purchase.order_bump);
+    const isOrderBump =
+      typeof purchase.order_bump === "boolean"
+        ? purchase.order_bump
+        : typeof purchase.order_bump === "string"
+          ? purchase.order_bump.toLowerCase() === "true"
+          : Boolean(orderBumpObj.is_order_bump);
+    const parentTransactionId =
+      str(orderBumpObj.parent_purchase_transaction) ||
+      str(purchase.parent_purchase_transaction) ||
+      null;
     const isUpsell = str(purchase.type).toLowerCase() === "upsell";
     const isDownsell = str(purchase.type).toLowerCase() === "downsell";
 
@@ -174,7 +184,7 @@ export const hotmartAdapter: PaymentAdapter = {
         offerId: str(purchase.offer_code) || str(data.offer_code) || null,
         productType,
         parentProductId: null,
-        parentTransactionId: str(purchase.parent_purchase_transaction) || null,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -247,7 +257,7 @@ export const kiwifyAdapter: PaymentAdapter = {
       type = "purchase_refunded";
     } else if (status === "chargedback" || status === "chargeback") {
       type = "chargeback_created";
-    } else if (status === "canceled" || status === "cancelled") {
+    } else if (status === "canceled" || status === "cancelled" || status === "refused") {
       type = "purchase_canceled";
     } else if (status === "expired") {
       type = "purchase_expired";
@@ -291,7 +301,7 @@ export const kiwifyAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.src || tracking.sck || tracking.fbc) || null,
         occurredAt: parseDate(root.paid_at || root.created_at || order.created_at, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test || order.is_test),
@@ -317,23 +327,31 @@ export const caktoAdapter: PaymentAdapter = {
     // and any UTMs only ever show up appended to the checkout URL.
     const tracking = { ...trackingFromUrl(data.checkoutUrl), ...record(data.tracking) };
 
-    const event = str(root.event).toLowerCase();
+    const event = str(root.event || data.event || root.status || data.status).toLowerCase();
+    const dataStatus = str(data.status).toLowerCase();
     const offerType = str(data.offer_type).toLowerCase();
     const isBump = offerType.includes("bump");
     const isUpsell = offerType.includes("upsell");
     const isDownsell = offerType.includes("downsell");
 
     let type: PaymentEventType = "payment_pending";
-    if (["purchase_approved", "purchase_complete", "paid"].includes(event)) {
+    if (["purchase_approved", "purchase_complete", "paid", "approved"].includes(event) || dataStatus === "paid" || dataStatus === "approved") {
       if (isBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";
       else if (isDownsell) type = "downsell_approved";
       else type = "purchase_approved";
-    } else if (event.includes("refund")) {
+    } else if (event.includes("refund") || dataStatus === "refunded") {
       type = "purchase_refunded";
-    } else if (event.includes("chargeback")) {
+    } else if (event.includes("chargeback") || dataStatus === "chargeback") {
       type = "chargeback_created";
-    } else if (event.includes("cancel")) {
+    } else if (
+      event.includes("cancel") ||
+      event.includes("refused") ||
+      event.includes("recusad") ||
+      dataStatus === "canceled" ||
+      dataStatus === "cancelled" ||
+      dataStatus === "refused"
+    ) {
       type = "purchase_canceled";
     } else if (event.includes("pix")) {
       type = "pix_created";
@@ -350,6 +368,7 @@ export const caktoAdapter: PaymentAdapter = {
 
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
     const productId = str(product.id || data.product_id || root.product_id) || "";
+    const parentProductId = str(data.parent_product || data.parent_product_id || data.parentProductId) || null;
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -360,7 +379,7 @@ export const caktoAdapter: PaymentAdapter = {
         productId,
         offerId: str(offer.id || data.offer_id) || null,
         productType,
-        parentProductId: null,
+        parentProductId,
         parentTransactionId: str(data.parent_order || data.parent_id || data.parent_transaction_id) || null,
         grossAmount: gross,
         netAmount: net,
@@ -377,7 +396,7 @@ export const caktoAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.src || tracking.sck || tracking.fbc || tracking.gclid) || null,
         occurredAt: parseDate(data.updatedAt || data.paidAt || data.createdAt, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(data.is_test || root.is_test),
@@ -400,6 +419,12 @@ export const caktoAdapter: PaymentAdapter = {
 // entirely, per resolveProductTarget's productId check), and, on the rare
 // path that didn't get dropped, collided every sale onto one fallback
 // transaction id ("kirvano_tx"), overwriting each previous sale's row.
+function kirvanoLineTransactionId(saleId: string, lineId: string, idx: number, isBump: boolean): string {
+  if (idx === 0 && !isBump) return saleId;
+  const suffix = lineId || (isBump ? `bump-${idx}` : String(idx));
+  return `${saleId}:${suffix}`;
+}
+
 export const kirvanoAdapter: PaymentAdapter = {
   provider: "kirvano",
   normalize(payload, context) {
@@ -440,6 +465,9 @@ export const kirvanoAdapter: PaymentAdapter = {
       ? products
       : [record({ id: "", price: root.total_price, is_order_bump: false })];
 
+    const mainProduct = lines.find((l) => !l.is_order_bump) || lines[0];
+    const mainProductId = str(mainProduct?.id || "");
+
     return lines.map((line, idx) => {
       const isBump = Boolean(line.is_order_bump);
       const productType = isBump ? "order_bump" : "main";
@@ -452,16 +480,20 @@ export const kirvanoAdapter: PaymentAdapter = {
       const type: PaymentEventType =
         baseType === "purchase_approved" && isBump ? "order_bump_approved" : baseType;
 
+      const externalTransactionId = kirvanoLineTransactionId(saleId, str(line.id), idx, isBump);
+      const parentTransactionId = isBump || idx > 0 ? saleId : null;
+      const parentProductId = isBump || idx > 0 ? (mainProductId || null) : null;
+
       return normalizedPaymentEventSchema.parse({
         provider: "kirvano",
-        externalTransactionId: saleId,
+        externalTransactionId,
         externalEventId: str(root.event_id) || null,
         type,
         productId: str(line.id) || "",
         offerId: str(line.offer_id) || null,
         productType,
-        parentProductId: null,
-        parentTransactionId: idx > 0 ? saleId : null,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -474,7 +506,7 @@ export const kirvanoAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.src || tracking.sck) || null,
         occurredAt,
         receivedAt: context.receivedAt,
         isTest,
@@ -489,6 +521,17 @@ export const eduzzAdapter: PaymentAdapter = {
   provider: "eduzz",
   normalize(payload, context) {
     const root = record(payload);
+    const dataObj = record(root.data);
+    const paymentObj = record(dataObj.payment || root.payment);
+    const rawPaymentMethod = str(
+      root.trans_paymentmethod ||
+        root.trans_payment_method ||
+        root.payment_method ||
+        root.paymentMethod ||
+        paymentObj.method ||
+        root.trans_forma_pagamento,
+    ).toLowerCase();
+
     // Eduzz's own webhook fields are flat, "tracker_"-prefixed keys at the
     // root (tracker_utm_source, tracker_utm_campaign, ...), not a nested
     // "tracker"/"tracking" object -- so the general attribution record (used
@@ -502,34 +545,99 @@ export const eduzzAdapter: PaymentAdapter = {
       utm_campaign: nestedTracking.utm_campaign ?? root.tracker_utm_campaign,
       utm_content: nestedTracking.utm_content ?? root.tracker_utm_content,
       utm_term: nestedTracking.utm_term ?? root.tracker_utm_term,
+      src: nestedTracking.src ?? root.tracker_src,
+      sck: nestedTracking.sck ?? root.tracker_sck,
       fbclid: nestedTracking.fbclid ?? root.tracker_fbclid,
     };
 
-    // Mapeamento de status numérico da Eduzz:
-    // 3 = Paga, 4 = Cancelada, 6 = Aguardando, 7 = Reembolsada, 9 = Chargeback
-    const status = Number(root.trans_status || root.status);
-    const isBump = Boolean(root.trans_order_bump || root.order_bump);
+    // Mapeamento de status da Eduzz:
+    // 1 = Aberta, 3 = Paga, 4 = Cancelada, 6 = Aguardando, 7 = Reembolsada, 9 = Chargeback
+    const rawStatus = root.trans_status ?? root.status ?? dataObj.status;
+    const statusNum = Number(rawStatus);
+    const statusStr = str(rawStatus).toLowerCase();
+    const eventName = str(root.event).toLowerCase();
+    const isBump = Boolean(root.trans_order_bump || root.order_bump || dataObj.is_order_bump);
 
     let type: PaymentEventType = "payment_pending";
-    if (status === 3) {
+    if (
+      statusNum === 3 ||
+      statusStr === "paid" ||
+      statusStr === "pago" ||
+      eventName.includes("paid")
+    ) {
       type = isBump ? "order_bump_approved" : "purchase_approved";
-    } else if (status === 7) {
+    } else if (
+      statusNum === 7 ||
+      statusStr === "refunded" ||
+      statusStr === "reembolsado" ||
+      eventName.includes("refund")
+    ) {
       type = "purchase_refunded";
-    } else if (status === 9) {
+    } else if (
+      statusNum === 9 ||
+      statusStr === "chargeback" ||
+      eventName.includes("chargeback")
+    ) {
       type = "chargeback_created";
-    } else if (status === 4) {
+    } else if (
+      statusNum === 4 ||
+      statusStr === "canceled" ||
+      statusStr === "cancelled" ||
+      statusStr === "cancelado" ||
+      statusStr === "refused" ||
+      statusStr === "expired" ||
+      eventName.includes("canceled") ||
+      eventName.includes("expired")
+    ) {
       type = "purchase_canceled";
-    } else if (status === 6) {
-      type = "payment_pending";
+    } else if (
+      statusNum === 1 ||
+      statusNum === 6 ||
+      statusStr === "open" ||
+      statusStr === "aberto" ||
+      statusStr === "waitingpayment" ||
+      statusStr === "aguardando_pagamento" ||
+      eventName.includes("waiting_payment") ||
+      eventName.includes("created")
+    ) {
+      if (rawPaymentMethod === "7" || rawPaymentMethod.includes("pix")) {
+        type = "pix_created";
+      } else if (
+        rawPaymentMethod === "1" ||
+        rawPaymentMethod.includes("boleto") ||
+        rawPaymentMethod.includes("bankslip") ||
+        rawPaymentMethod.includes("slip")
+      ) {
+        type = "boleto_created";
+      } else {
+        type = "payment_pending";
+      }
+    } else {
+      if (rawPaymentMethod === "7" || rawPaymentMethod.includes("pix")) {
+        type = "pix_created";
+      } else if (
+        rawPaymentMethod === "1" ||
+        rawPaymentMethod.includes("boleto") ||
+        rawPaymentMethod.includes("bankslip") ||
+        rawPaymentMethod.includes("slip")
+      ) {
+        type = "boleto_created";
+      } else {
+        type = "payment_pending";
+      }
     }
 
-    const transaction = str(root.trans_cod || root.id || root.trans_key) || "eduzz_tx";
-    const gross = num(root.trans_value) ?? num(root.amount) ?? 0;
+    const transaction = str(root.trans_cod || root.id || root.trans_key || dataObj.id) || "eduzz_tx";
+    const gross = num(root.trans_value) ?? num(root.amount) ?? num(dataObj.amount) ?? 0;
     const fee = num(root.trans_taxa_total) ?? num(root.trans_taxa_eduzz) ?? 0;
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const productType = isBump ? "order_bump" : "main";
-    const productId = str(root.pro_cod || root.product_id) || "";
+    const productId = str(root.pro_cod || root.product_id || dataObj.product_id || dataObj.productId) || "";
+
+    const customer = record(dataObj.customer || root.customer || dataObj.buyer);
+    const buyerName = str(root.cus_name || customer.name) || null;
+    const buyerEmail = str(root.cus_email || customer.email) || null;
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -547,18 +655,18 @@ export const eduzzAdapter: PaymentAdapter = {
         fees: fee,
         grossCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
         netCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
-        country: cleanCountry(root.cus_country),
+        country: cleanCountry(root.cus_country || customer.country),
         buyer: {
-          name: str(root.cus_name) || null,
-          email: str(root.cus_email) || null,
+          name: buyerName,
+          email: buyerEmail,
         },
         attribution: extractAttribution(tracking),
         campaignId: str(tracking.utm_campaign || root.tracker_utm_campaign) || null,
         adsetId: str(tracking.utm_term || root.tracker_utm_term) || null,
         adId: str(tracking.utm_content || root.tracker_utm_content) || null,
         creativeId: str(tracking.utm_creative || root.tracker_utm_creative) || null,
-        clickId: str(tracking.fbclid || root.tracker_fbclid) || null,
-        occurredAt: parseDate(root.trans_paid || root.trans_created, context.receivedAt),
+        clickId: str(tracking.fbclid || root.tracker_fbclid || tracking.src || root.tracker_src || tracking.sck || root.tracker_sck) || null,
+        occurredAt: parseDate(root.trans_paid || root.trans_createdate || root.trans_created || dataObj.created_at, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test),
         rawPayload: redactPaymentPayload(payload),
@@ -606,13 +714,28 @@ export const monetizzeAdapter: PaymentAdapter = {
 
     const transaction = str(root.codigoVenda || venda.codigo || root.id) || "monetizze_tx";
     const gross = num(root.valor) ?? num(venda.valor) ?? num(root.amount) ?? 0;
-    // Monetizze's callback reports the seller's take-home directly as
-    // "valorRecebido" -- no separate fee field exists to subtract from gross.
-    const net = num(venda.valorRecebido) ?? gross;
-    const fee = Math.max(0, Math.round((gross - net) * 100) / 100);
+
+    const explicitNet = num(venda.valorRecebido || root.valorRecebido);
+    const explicitFee = num(venda.taxas || root.taxas || root.taxa || root.fee);
+
+    let fee: number;
+    let net: number;
+    if (explicitNet !== null && explicitNet !== undefined) {
+      net = explicitNet;
+      fee = Math.max(0, Math.round((gross - net) * 100) / 100);
+    } else if (explicitFee !== null && explicitFee !== undefined) {
+      fee = explicitFee;
+      net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+    } else {
+      const feeRate = DEFAULT_PLATFORM_FEES.monetizze.percent / 100;
+      const feeFixed = DEFAULT_PLATFORM_FEES.monetizze.fixed;
+      fee = gross > 0 ? Number((gross * feeRate + feeFixed).toFixed(2)) : 0;
+      net = Math.max(0, Math.round((gross - fee) * 100) / 100);
+    }
 
     const productType = isBump ? "order_bump" : "main";
     const productId = str(produto.codigo || root.codigo_produto) || "";
+    const parentProductId = str(root.parent_produto || root.parent_produto_codigo || venda.parent_produto || venda.parent_codigo_produto) || null;
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -623,7 +746,7 @@ export const monetizzeAdapter: PaymentAdapter = {
         productId,
         offerId: null,
         productType,
-        parentProductId: null,
+        parentProductId,
         parentTransactionId: str(root.parent_codigo) || null,
         grossAmount: gross,
         netAmount: net,
@@ -632,15 +755,15 @@ export const monetizzeAdapter: PaymentAdapter = {
         netCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
         country: cleanCountry(comprador.pais),
         buyer: {
-          name: str(comprador.nome) || null,
-          email: str(comprador.email) || null,
+          name: str(comprador.nome || root.nome || comprador.name || root.name) || null,
+          email: str(comprador.email || root.email) || null,
         },
         attribution: extractAttribution(tracking),
         campaignId: str(tracking.utm_campaign) || null,
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
+        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck || root.src || root.sck || venda.src || venda.sck) || null,
         occurredAt: parseDate(venda.dataFinalizada || venda.dataInicio || root.data, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test),
@@ -650,15 +773,16 @@ export const monetizzeAdapter: PaymentAdapter = {
   },
 };
 
+function wiapyLineTransactionId(transactionId: string, itemId: string): string {
+  return itemId ? `${transactionId}:${itemId}` : transactionId;
+}
+
 // 7. ADAPTADOR WIAPY
 // Wiapy's own docs (ajuda.wiapy.com/wiapy/produtor/integracoes/webhook) put
 // everything the previous version read off the payload root inside nested
 // objects instead: status/amount/fee/payment_method/id live under "payment",
 // not the root, and every monetary field is in CENTAVOS (their own example:
-// "R$ 17,70 -> 1770"). The old code read root.status/root.amount directly
-// (always undefined -> status "", amount 0) and never divided by 100 on top
-// of that, so a Wiapy sale could never even reach "approved", let alone with
-// a correct value.
+// "R$ 17,70 -> 1770").
 export const wiapyAdapter: PaymentAdapter = {
   provider: "wiapy",
   normalize(payload, context) {
@@ -697,26 +821,52 @@ export const wiapyAdapter: PaymentAdapter = {
     const gross = (rawGross ?? 0) / 100;
     const rawFee = num(payment.fee ?? orderData.fee ?? root.fee);
     const fee = (rawFee ?? 0) / 100;
-    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
     const checkout = record(root.checkout || orderData.checkout);
-    const productId = str(products[0]?.id || checkout.id || root.product_id || "wiapy_prod");
-    const offerId = str(checkout.id || products[0]?.id) || null;
+    const lines = products.length
+      ? products
+      : [record({ id: "", price: rawGross, is_order_bump: false })];
 
-    return [
-      normalizedPaymentEventSchema.parse({
+    const linesGrossTotal = lines.reduce(
+      (sum, item) => sum + ((num(item.price ?? item.amount ?? item.total) ?? 0) / 100),
+      0,
+    );
+
+    const mainLineId = str(lines[0]?.id || checkout.id || root.product_id || "wiapy_prod");
+
+    return lines.map((item, idx) => {
+      const isBump = Boolean(item.is_order_bump || item.order_bump);
+      const productType = isBump ? "order_bump" : "main";
+      const itemRawPrice = num(item.price ?? item.amount ?? item.total);
+      const itemGross = itemRawPrice !== null ? itemRawPrice / 100 : (idx === 0 ? gross : 0);
+      const lineGross =
+        gross > 0 && linesGrossTotal > 0
+          ? Number(((itemGross / linesGrossTotal) * gross).toFixed(2))
+          : itemGross;
+      const lineFee =
+        gross > 0
+          ? Number(((lineGross / gross) * fee).toFixed(2))
+          : fee;
+      const net = Math.max(0, Number((lineGross - lineFee).toFixed(2)));
+
+      const productId = str(item.id || checkout.id || root.product_id || "wiapy_prod");
+      const offerId = str(checkout.id || item.offer_id || item.id) || null;
+      const itemType: PaymentEventType =
+        type === "purchase_approved" && isBump ? "order_bump_approved" : type;
+
+      return normalizedPaymentEventSchema.parse({
         provider: "wiapy",
-        externalTransactionId: transaction,
+        externalTransactionId: wiapyLineTransactionId(transaction, str(item.id)),
         externalEventId: str(payment.id) || null,
-        type,
+        type: itemType,
         productId,
         offerId,
-        productType: "main",
-        parentProductId: null,
-        parentTransactionId: null,
-        grossAmount: gross,
+        productType,
+        parentProductId: isBump ? mainLineId : null,
+        parentTransactionId: isBump ? transaction : null,
+        grossAmount: lineGross,
         netAmount: net,
-        fees: fee,
+        fees: lineFee,
         grossCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
         netCurrency: cleanCurrency(root.currency, context.fallbackCurrency),
         country: cleanCountry(customer.country || "BR"),
@@ -734,10 +884,14 @@ export const wiapyAdapter: PaymentAdapter = {
         receivedAt: context.receivedAt,
         isTest: false,
         rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
+      });
+    });
   },
 };
+
+function lowfyLineTransactionId(transactionId: string, itemId: string): string {
+  return itemId ? `${transactionId}:${itemId}` : transactionId;
+}
 
 // 8. ADAPTADOR LOWFY
 export const lowfyAdapter: PaymentAdapter = {
@@ -746,12 +900,6 @@ export const lowfyAdapter: PaymentAdapter = {
     const root = record(payload);
     const data = record(root.data || root.order || root.transaction || root);
     const customer = record(data.customer || data.buyer || data.client || root.customer || root.buyer);
-    const product = record(
-      data.product ||
-      (Array.isArray(data.items) ? data.items[0] : undefined) ||
-      (Array.isArray(root.items) ? root.items[0] : undefined) ||
-      root.product
-    );
     const tracking = record(data.tracking || data.utm || data.utms || data.metadata || root.tracking || root.utm || root.utms || root.metadata);
 
     const event = str(root.event || root.type || root.status || data.event || data.type || data.status).toLowerCase();
@@ -794,24 +942,142 @@ export const lowfyAdapter: PaymentAdapter = {
     }
 
     const transaction = str(data.transaction_id || data.id || data.order_id || data.code || root.transaction_id || root.id || root.order_id) || "lowfy_tx";
-    const gross = num(data.amount) ?? num(data.total) ?? num(data.total_amount) ?? num(data.price) ?? num(data.value) ?? num(root.amount) ?? num(root.total) ?? 0;
-    const fee = num(data.fee) ?? num(data.fees) ?? num(data.tax) ?? num(root.fee) ?? num(root.fees) ?? 0;
-    const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
-    const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
-    const productId = str(product.id || data.product_id || root.product_id || data.external_id || product.name) || "";
+    const rawItems = Array.isArray(data.items)
+      ? data.items
+      : Array.isArray(root.items)
+        ? root.items
+        : Array.isArray(data.products)
+          ? data.products
+          : Array.isArray(root.products)
+            ? root.products
+            : [];
+    const items = rawItems.map(record);
 
-    return [
-      normalizedPaymentEventSchema.parse({
+    const mainItem =
+      items.find(
+        (it) =>
+          !it.is_order_bump &&
+          !it.order_bump &&
+          !str(it.type).toLowerCase().includes("bump") &&
+          !str(it.type).toLowerCase().includes("upsell") &&
+          !str(it.type).toLowerCase().includes("downsell"),
+      ) || items[0];
+
+    const mainProductId = str(
+      mainItem?.product_id ||
+        mainItem?.id ||
+        data.product_id ||
+        root.product_id ||
+        data.external_id ||
+        record(data.product).id ||
+        record(root.product).id ||
+        mainItem?.name ||
+        "lowfy_product",
+    );
+
+    const orderTotal = num(
+      data.amount ??
+        data.total ??
+        data.total_amount ??
+        data.price ??
+        data.value ??
+        root.amount ??
+        root.total,
+    );
+
+    const lines = items.length
+      ? items
+      : [
+          record({
+            id: "",
+            product_id: mainProductId,
+            price: orderTotal,
+            quantity: 1,
+          }),
+        ];
+
+    const linesGrossTotal = lines.reduce(
+      (sum, item) => sum + (num(item.price || item.total) ?? 0) * (num(item.quantity) ?? 1),
+      0,
+    );
+
+    const orderFee = num(data.fee ?? data.fees ?? data.tax ?? root.fee ?? root.fees);
+    const feeRate = DEFAULT_PLATFORM_FEES.lowfy.percent / 100;
+    const feeFixed = DEFAULT_PLATFORM_FEES.lowfy.fixed;
+
+    return lines.map((item, idx) => {
+      const rawItemType = str(item.product_type || item.type || data.product_type || data.type || root.type).toLowerCase();
+      const isItemBump =
+        Boolean(item.is_order_bump || item.order_bump || data.order_bump || root.order_bump) ||
+        rawItemType.includes("bump");
+      const isItemUpsell = rawItemType.includes("upsell");
+      const isItemDownsell = rawItemType.includes("downsell");
+
+      let itemProductType: "main" | "order_bump" | "upsell" | "downsell" = "main";
+      if (isItemBump) itemProductType = "order_bump";
+      else if (isItemUpsell) itemProductType = "upsell";
+      else if (isItemDownsell) itemProductType = "downsell";
+
+      let itemType: PaymentEventType = type;
+      if (type === "purchase_approved") {
+        if (isItemBump) itemType = "order_bump_approved";
+        else if (isItemUpsell) itemType = "upsell_approved";
+        else if (isItemDownsell) itemType = "downsell_approved";
+      }
+
+      const itemRawPrice = num(item.price || item.total) ?? 0;
+      const itemQty = num(item.quantity) ?? 1;
+      const itemGross = itemRawPrice * itemQty;
+      const gross =
+        orderTotal !== null && orderTotal !== undefined && linesGrossTotal > 0
+          ? Number(((itemGross / linesGrossTotal) * orderTotal).toFixed(2))
+          : (orderTotal ?? itemGross);
+
+      const fee =
+        orderFee !== null && orderFee !== undefined && orderTotal !== null && orderTotal > 0
+          ? Number(((gross / orderTotal) * orderFee).toFixed(2))
+          : gross > 0
+            ? Number((gross * feeRate + (idx === 0 ? feeFixed : 0)).toFixed(2))
+            : 0;
+      const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+      const lineItemId = str(item.id || item.item_id || (items.length > 1 ? item.product_id : ""));
+      const externalTxId = lowfyLineTransactionId(transaction, lineItemId);
+
+      const productId = str(
+        item.product_id ||
+          item.id ||
+          data.product_id ||
+          root.product_id ||
+          data.external_id ||
+          item.name ||
+          record(data.product).id ||
+          record(root.product).id ||
+          "lowfy_product",
+      );
+
+      const offerId = str(item.offer_id || data.offer_id || root.offer_id || record(data.product).offer_id) || null;
+
+      const parentTransactionId =
+        isItemBump || isItemUpsell || isItemDownsell || idx > 0
+          ? (str(data.parent_id || data.parent_transaction_id || root.parent_id) || transaction)
+          : null;
+      const parentProductId =
+        isItemBump || isItemUpsell || isItemDownsell || idx > 0
+          ? (str(data.parent_product_id || root.parent_product_id) || mainProductId)
+          : null;
+
+      return normalizedPaymentEventSchema.parse({
         provider: "lowfy",
-        externalTransactionId: transaction,
+        externalTransactionId: externalTxId,
         externalEventId: str(root.event_id || root.id || data.event_id) || null,
-        type,
+        type: itemType,
         productId,
-        offerId: str(data.offer_id || root.offer_id || product.offer_id) || null,
-        productType,
-        parentProductId: null,
-        parentTransactionId: str(data.parent_id || data.parent_transaction_id || root.parent_id) || null,
+        offerId,
+        productType: itemProductType,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -827,13 +1093,13 @@ export const lowfyAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid) || null,
+        clickId: str(tracking.fbclid || tracking.src || tracking.sck || tracking.fbc) || null,
         occurredAt: parseDate(data.paid_at || data.created_at || root.created_at || root.paid_at, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(data.is_test || root.is_test),
         rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
+      });
+    });
   },
 };
 
@@ -903,6 +1169,39 @@ export const greennAdapter: PaymentAdapter = {
 
     const productId = str(product.id) || "";
 
+    const isBump =
+      sale.is_order_bump === true ||
+      sale.order_bump === true ||
+      root.is_order_bump === true ||
+      root.order_bump === true ||
+      str(sale.type).toLowerCase() === "order_bump" ||
+      str(sale.type).toLowerCase() === "bump" ||
+      str(product.type).toLowerCase() === "order_bump";
+
+    const isUpsell =
+      sale.is_upsell === true ||
+      root.is_upsell === true ||
+      str(sale.type).toLowerCase() === "upsell" ||
+      str(product.type).toLowerCase() === "upsell";
+
+    const productType: "main" | "order_bump" | "upsell" = isBump
+      ? "order_bump"
+      : isUpsell
+        ? "upsell"
+        : "main";
+
+    const parentTransactionId =
+      str(
+        sale.parent_sale_id ||
+          sale.parent_id ||
+          root.parent_sale_id ||
+          sale.parent_transaction_id ||
+          root.parent_transaction_id,
+      ) || null;
+
+    const parentProductId =
+      str(sale.parent_product_id || root.parent_product_id || product.parent_id) || null;
+
     return [
       normalizedPaymentEventSchema.parse({
         provider: "greenn",
@@ -911,9 +1210,9 @@ export const greennAdapter: PaymentAdapter = {
         type,
         productId,
         offerId: null,
-        productType: "main",
-        parentProductId: null,
-        parentTransactionId: null,
+        productType,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -929,7 +1228,15 @@ export const greennAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
+        clickId:
+          str(
+            tracking.fbclid ||
+              tracking.fbc ||
+              tracking.gclid ||
+              tracking.ttclid ||
+              tracking.src ||
+              tracking.sck,
+          ) || null,
         occurredAt: parseDate(sale.updated_at || sale.created_at, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: false,
@@ -979,13 +1286,25 @@ export const stripeAdapter: PaymentAdapter = {
     }
 
     // No Stripe os valores vêm em centavos (ex: 10000 = $100.00 / R$ 100,00)
-    const rawCents = num(dataObj.amount_total) ?? num(dataObj.amount) ?? num(dataObj.amount_paid) ?? 0;
+    const rawCents =
+      (type === "purchase_refunded" ? num(dataObj.amount_refunded) : null) ??
+      num(dataObj.amount_total) ??
+      num(dataObj.amount) ??
+      num(dataObj.amount_paid) ??
+      0;
     const gross = Math.round(rawCents) / 100;
     const feeCents = num(dataObj.application_fee_amount) ?? num(dataObj.fee) ?? 0;
     const fee = Math.round(feeCents) / 100;
     const net = Math.max(0, Math.round((gross - fee) * 100) / 100);
 
-    const transaction = str(dataObj.id || dataObj.payment_intent || dataObj.charge || root.id) || "stripe_tx";
+    const paymentIntentId =
+      typeof dataObj.payment_intent === "object" && dataObj.payment_intent !== null
+        ? str((dataObj.payment_intent as Record<string, unknown>).id)
+        : str(dataObj.payment_intent);
+    const transaction =
+      paymentIntentId ||
+      str(dataObj.id || dataObj.charge || root.id) ||
+      "stripe_tx";
     const productId = str(metadata.product_id || metadata.productId || dataObj.product || dataObj.client_reference_id) || "";
     const productType = isBump ? "order_bump" : isUpsell ? "upsell" : isDownsell ? "downsell" : "main";
 
@@ -1029,6 +1348,10 @@ export const stripeAdapter: PaymentAdapter = {
     ];
   },
 };
+
+function yampiLineTransactionId(orderId: string, lineItemId: string): string {
+  return lineItemId ? `${orderId}:${lineItemId}` : orderId;
+}
 
 // 11. ADAPTADOR YAMPI
 export const yampiAdapter: PaymentAdapter = {
@@ -1077,46 +1400,57 @@ export const yampiAdapter: PaymentAdapter = {
       }
     }
 
-    const itemsData = Array.isArray(resource.items)
+    const orderId = str(resource.number || resource.id || root.id || "yampi_tx");
+
+    const rawItems = Array.isArray(resource.items)
       ? resource.items
       : Array.isArray((resource.items as Record<string, unknown>)?.data)
         ? ((resource.items as Record<string, unknown>).data as unknown[])
-        : [];
-    const spreadsheetData = Array.isArray((resource.spreadsheet as Record<string, unknown>)?.data)
-      ? ((resource.spreadsheet as Record<string, unknown>).data as unknown[])
-      : [];
+        : Array.isArray((resource.spreadsheet as Record<string, unknown>)?.data)
+          ? ((resource.spreadsheet as Record<string, unknown>).data as unknown[])
+          : Array.isArray(resource.spreadsheet)
+            ? resource.spreadsheet
+            : [];
+    const items = rawItems.map(record);
 
-    const firstItem = record(itemsData[0] || spreadsheetData[0]);
-    const firstSku = record(record(firstItem.sku).data || firstItem.sku);
-
-    const productId = str(
-      firstItem.product_id ||
-        firstSku.product_id ||
-        firstItem.sku_id ||
-        firstSku.id ||
-        firstItem.item_sku ||
+    const mainItem =
+      items.find((it) => !it.is_order_bump && !it.is_bump && !it.is_upsell) || items[0];
+    const mainSku = record(record(mainItem?.sku).data || mainItem?.sku);
+    const mainProductId = str(
+      mainItem?.product_id ||
+        mainSku.product_id ||
+        mainItem?.sku_id ||
+        mainSku.id ||
+        mainItem?.item_sku ||
         resource.number ||
         resource.id ||
         "yampi_product",
     );
-    const offerId = str(firstSku.token || firstItem.sku || firstItem.item_sku || resource.cart_token) || null;
 
-    const isUpsell = Boolean(resource.is_upsell || resource.has_upsell || firstItem.is_upsell);
-    const isBump = Boolean(resource.has_order_bump || firstItem.is_order_bump);
-    let productType: "main" | "upsell" | "order_bump" = "main";
-    if (isBump) productType = "order_bump";
-    else if (isUpsell) productType = "upsell";
-
-    const gross = num(
+    const orderTotal = num(
       resource.value_total ||
         resource.buyer_value_total ||
-        resource.value_products ||
-        firstItem.price ||
-        firstItem.price_sale,
-    ) || 0;
+        resource.value_products,
+    );
+
+    const lines = items.length
+      ? items
+      : [
+          record({
+            id: "",
+            product_id: resource.number || resource.id,
+            price: orderTotal,
+            quantity: 1,
+          }),
+        ];
+
+    const linesGrossTotal = lines.reduce(
+      (sum, item) => sum + (num(item.price || item.price_sale) ?? 0) * (num(item.quantity) ?? 1),
+      0,
+    );
+
     const feeRate = DEFAULT_PLATFORM_FEES.yampi.percent / 100;
-    const fee = num(resource.value_tax) ?? Number((gross * feeRate).toFixed(2));
-    const net = num(resource.net_amount) ?? Number((gross - fee).toFixed(2));
+    const orderTax = num(resource.value_tax);
 
     const tracking: Record<string, string> = {};
     if (resource.utm_source) tracking.utm_source = str(resource.utm_source);
@@ -1161,17 +1495,68 @@ export const yampiAdapter: PaymentAdapter = {
 
     const currency = cleanCurrency(resource.currency, context.fallbackCurrency || "BRL");
 
-    return [
-      normalizedPaymentEventSchema.parse({
+    return lines.map((item) => {
+      const skuObj = record(record(item.sku).data || item.sku);
+      const isBump = Boolean(item.is_order_bump || item.is_bump || resource.has_order_bump);
+      const isUpsell = Boolean(item.is_upsell || resource.is_upsell || resource.has_upsell);
+      let productType: "main" | "upsell" | "order_bump" = "main";
+      if (isBump) productType = "order_bump";
+      else if (isUpsell) productType = "upsell";
+
+      const itemType: PaymentEventType =
+        type === "purchase_approved" && isBump
+          ? "order_bump_approved"
+          : type;
+
+      const itemRawPrice = num(item.price || item.price_sale) ?? 0;
+      const itemQty = num(item.quantity) ?? 1;
+      const itemGross = itemRawPrice * itemQty;
+      const gross =
+        orderTotal !== null && orderTotal !== undefined && linesGrossTotal > 0
+          ? Number(((itemGross / linesGrossTotal) * orderTotal).toFixed(2))
+          : (orderTotal ?? itemGross);
+
+      const fee =
+        orderTax !== null && orderTax !== undefined && orderTotal !== null && orderTotal > 0
+          ? Number(((gross / orderTotal) * orderTax).toFixed(2))
+          : Number((gross * feeRate).toFixed(2));
+      const net = Math.max(0, Number((gross - fee).toFixed(2)));
+
+      const lineItemId = str(
+        item.sku_id ||
+          item.product_id ||
+          item.id ||
+          skuObj.id ||
+          skuObj.product_id ||
+          item.item_sku,
+      );
+      const externalTxId = yampiLineTransactionId(orderId, lineItemId);
+
+      const productId = str(
+        item.product_id ||
+          skuObj.product_id ||
+          item.sku_id ||
+          skuObj.id ||
+          item.item_sku ||
+          resource.number ||
+          resource.id ||
+          "yampi_product",
+      );
+      const offerId = str(skuObj.token || item.sku || item.item_sku || resource.cart_token) || null;
+
+      const parentTransactionId = isBump ? orderId : null;
+      const parentProductId = isBump ? mainProductId : null;
+
+      return normalizedPaymentEventSchema.parse({
         provider: "yampi",
-        externalTransactionId: str(resource.number || resource.id || root.id || "yampi_tx"),
+        externalTransactionId: externalTxId,
         externalEventId: str(root.event_id || root.id) || null,
-        type,
+        type: itemType,
         productId,
         offerId,
         productType,
-        parentProductId: null,
-        parentTransactionId: null,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -1192,8 +1577,8 @@ export const yampiAdapter: PaymentAdapter = {
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test || resource.is_test || root.test),
         rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
+      });
+    });
   },
 };
 
@@ -1287,11 +1672,51 @@ export const perfectpayAdapter: PaymentAdapter = {
     const buyerName = str(customer.full_name || customer.name) || null;
     const buyerEmail = str(customer.email) || null;
 
-    const metadata = record(root.metadata || root.tracking);
+    const flatTracking: Record<string, unknown> = {};
+    for (const key of [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_content",
+      "utm_term",
+      "src",
+      "sck",
+      "fbclid",
+      "gclid",
+      "fbc",
+      "fbp",
+      "ttclid",
+    ]) {
+      if (root[key] !== undefined && root[key] !== null) {
+        flatTracking[key] = root[key];
+      }
+    }
+
+    const metadata = {
+      ...flatTracking,
+      ...record(root.metadata || root.tracking),
+    };
     const attribution = extractAttribution(metadata);
     const currency = cleanCurrency(root.currency_enum_key, context.fallbackCurrency || "BRL");
     const country = cleanCountry(customer.country || "BR");
     const occurredAt = parseDate(root.date_approved || root.date_created, context.receivedAt);
+
+    const parentTransactionId =
+      str(
+        root.parent_sale_code ||
+          root.parent_code ||
+          root.parent_sale ||
+          root.parent_transaction_token ||
+          root.parent_transaction_id,
+      ) || null;
+
+    const parentProductId =
+      str(
+        root.parent_product_code ||
+          root.parent_product_id ||
+          product.parent_code ||
+          product.parent_product_code,
+      ) || null;
 
     return [
       normalizedPaymentEventSchema.parse({
@@ -1302,8 +1727,8 @@ export const perfectpayAdapter: PaymentAdapter = {
         productId,
         offerId,
         productType,
-        parentProductId: null,
-        parentTransactionId: null,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -1316,7 +1741,21 @@ export const perfectpayAdapter: PaymentAdapter = {
         adsetId: str(metadata.utm_term) || null,
         adId: str(metadata.utm_content) || null,
         creativeId: str(metadata.utm_creative) || null,
-        clickId: str(metadata.fbclid || metadata.src || metadata.sck) || null,
+        clickId:
+          str(
+            metadata.fbclid ||
+              metadata.fbc ||
+              metadata.gclid ||
+              metadata.ttclid ||
+              metadata.src ||
+              metadata.sck ||
+              root.fbclid ||
+              root.fbc ||
+              root.gclid ||
+              root.ttclid ||
+              root.src ||
+              root.sck,
+          ) || null,
         occurredAt,
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test),
@@ -1326,12 +1765,17 @@ export const perfectpayAdapter: PaymentAdapter = {
   },
 };
 
+function cartpandaLineTransactionId(orderId: string, lineItemId: string): string {
+  return lineItemId ? `${orderId}:${lineItemId}` : orderId;
+}
+
 // 13. ADAPTADOR CARTPANDA
 export const cartpandaAdapter: PaymentAdapter = {
   provider: "cartpanda",
   normalize(payload, context) {
     const root = record(payload);
     const order = record(root.order || root.data || root);
+    const orderId = str(order.order_number || order.id || root.order_number || root.id || "cp_tx");
     const customer = record(order.customer || root.customer);
     const items = Array.isArray(order.line_items)
       ? order.line_items.map(record)
@@ -1340,7 +1784,6 @@ export const cartpandaAdapter: PaymentAdapter = {
         : Array.isArray(root.line_items)
           ? root.line_items.map(record)
           : [];
-    const firstItem = record(items[0]);
 
     const event = str(root.event || root.type).toLowerCase();
     const status = str(order.status || order.financial_status || root.status).toLowerCase();
@@ -1380,20 +1823,15 @@ export const cartpandaAdapter: PaymentAdapter = {
       else type = "payment_pending";
     }
 
-    const gross =
-      num(order.total_price || order.total || root.total_price || root.total || firstItem.price) ?? 0;
     const feeRate = DEFAULT_PLATFORM_FEES.cartpanda.percent / 100;
-    const fee = Number((gross * feeRate).toFixed(2));
-    const net = Math.max(0, Number((gross - fee).toFixed(2)));
-
-    const productId = str(firstItem.product_id || firstItem.id || order.id || "cartpanda_product");
-    const offerId = str(firstItem.sku || firstItem.variant_id) || null;
+    const orderTotal = num(order.total_price || order.total || root.total_price || root.total);
 
     const buyerName =
       str(customer.name) ||
       `${str(customer.first_name)} ${str(customer.last_name)}`.trim() ||
       null;
     const buyerEmail = str(customer.email) || null;
+    const buyer = { name: buyerName, email: buyerEmail };
 
     const trackingData = {
       ...record(root),
@@ -1406,10 +1844,28 @@ export const cartpandaAdapter: PaymentAdapter = {
     const country = cleanCountry(customer.country || "BR");
     const occurredAt = parseDate(order.paid_at || order.created_at || root.created_at, context.receivedAt);
 
-    return [
-      normalizedPaymentEventSchema.parse({
+    const lines = items.length
+      ? items
+      : [record({ id: "", product_id: order.id, price: orderTotal, quantity: 1 })];
+    const linesGrossTotal = lines.reduce(
+      (sum, item) => sum + (num(item.price) ?? 0) * (num(item.quantity) ?? 1),
+      0,
+    );
+
+    return lines.map((item) => {
+      const itemGross = (num(item.price) ?? 0) * (num(item.quantity) ?? 1);
+      const gross =
+        orderTotal !== null && orderTotal !== undefined && linesGrossTotal > 0
+          ? Number(((itemGross / linesGrossTotal) * orderTotal).toFixed(2))
+          : itemGross;
+      const fee = Number((gross * feeRate).toFixed(2));
+      const net = Math.max(0, Number((gross - fee).toFixed(2)));
+      const productId = str(item.product_id || item.id || order.id || "cartpanda_product");
+      const offerId = str(item.sku || item.variant_id) || null;
+
+      return normalizedPaymentEventSchema.parse({
         provider: "cartpanda",
-        externalTransactionId: str(order.order_number || order.id || root.order_number || root.id || "cp_tx"),
+        externalTransactionId: cartpandaLineTransactionId(orderId, str(item.id)),
         externalEventId: str(root.id || order.id) || null,
         type,
         productId,
@@ -1423,7 +1879,7 @@ export const cartpandaAdapter: PaymentAdapter = {
         grossCurrency: currency,
         netCurrency: currency,
         country,
-        buyer: { name: buyerName, email: buyerEmail },
+        buyer,
         attribution,
         campaignId: str(trackingData.utm_campaign) || null,
         adsetId: str(trackingData.utm_term) || null,
@@ -1434,8 +1890,8 @@ export const cartpandaAdapter: PaymentAdapter = {
         receivedAt: context.receivedAt,
         isTest: Boolean(root.is_test || order.test),
         rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
+      });
+    });
   },
 };
 
@@ -1592,7 +2048,14 @@ export const shopifyAdapter: PaymentAdapter = {
     if (Array.isArray(order.note_attributes)) {
       for (const attr of order.note_attributes) {
         if (attr && typeof attr === "object" && "name" in attr && "value" in attr) {
-          tracking[str((attr as Record<string, unknown>).name)] = str((attr as Record<string, unknown>).value);
+          const key = str((attr as Record<string, unknown>).name);
+          const val = str((attr as Record<string, unknown>).value);
+          if (key && val) {
+            tracking[key] = val;
+            if (key === "_fbc" && !tracking.fbc) tracking.fbc = val;
+            if (key === "_fbp" && !tracking.fbp) tracking.fbp = val;
+            if (key === "_gclid" && !tracking.gclid) tracking.gclid = val;
+          }
         }
       }
     }
@@ -1622,7 +2085,7 @@ export const shopifyAdapter: PaymentAdapter = {
       : [record({ id: "", product_id: order.id, price: orderTotal, quantity: 1 })];
     const linesGrossTotal = lines.reduce((sum, item) => sum + (num(item.price) ?? 0) * (num(item.quantity) ?? 1), 0);
 
-    return lines.map((item) => {
+    return lines.map((item, idx) => {
       const itemGross = (num(item.price) ?? 0) * (num(item.quantity) ?? 1);
       // Prefer the order's own total (includes shipping/tax adjustments not
       // on individual lines) distributed proportionally across items; falls
@@ -1635,6 +2098,40 @@ export const shopifyAdapter: PaymentAdapter = {
       const fee = Number((gross * feeRate).toFixed(2));
       const net = Math.max(0, Number((gross - fee).toFixed(2)));
 
+      const itemProps: Record<string, string> = {};
+      if (Array.isArray(item.properties)) {
+        for (const prop of item.properties) {
+          if (prop && typeof prop === "object" && "name" in prop && "value" in prop) {
+            itemProps[str((prop as Record<string, unknown>).name).toLowerCase()] = str(
+              (prop as Record<string, unknown>).value,
+            );
+          }
+        }
+      }
+
+      const isBump =
+        Boolean(item.is_order_bump) ||
+        Boolean(item.is_bump) ||
+        itemProps._is_bump === "true" ||
+        itemProps.is_bump === "true" ||
+        itemProps._order_bump === "true" ||
+        itemProps.order_bump === "true";
+
+      const productType: "main" | "order_bump" | "upsell" = isBump
+        ? "order_bump"
+        : "main";
+
+      const parentProductId = isBump
+        ? itemProps._parent_product_id ||
+          itemProps.parent_product_id ||
+          str(lines[0]?.product_id || lines[0]?.id) ||
+          null
+        : null;
+
+      const parentTransactionId = isBump && idx > 0
+        ? shopifyLineTransactionId(orderId, str(lines[0]?.id))
+        : null;
+
       return normalizedPaymentEventSchema.parse({
         provider: "shopify",
         externalTransactionId: shopifyLineTransactionId(orderId, str(item.id)),
@@ -1642,9 +2139,9 @@ export const shopifyAdapter: PaymentAdapter = {
         type,
         productId: str(item.product_id || item.id || orderId),
         offerId: str(item.variant_id || item.sku) || null,
-        productType: "main",
-        parentProductId: null,
-        parentTransactionId: null,
+        productType,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -1657,7 +2154,17 @@ export const shopifyAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck) || null,
+        clickId:
+          str(
+            tracking.gclid ||
+              tracking.fbclid ||
+              tracking.fbc ||
+              tracking._fbc ||
+              tracking.ttclid ||
+              tracking._gclid ||
+              tracking.src ||
+              tracking.sck,
+          ) || null,
         occurredAt,
         receivedAt: context.receivedAt,
         isTest: Boolean(order.test),
@@ -1676,7 +2183,7 @@ export const tictoAdapter: PaymentAdapter = {
     const item = record(root.item);
     const customer = record(root.customer);
 
-    const status = str(root.status).toLowerCase();
+    const status = str(root.status || order.status || order.order_status).toLowerCase();
     let baseType: PaymentEventType = "payment_pending";
     if (status === "authorized" || status === "approved" || status === "paid") {
       baseType = "purchase_approved";
@@ -1710,7 +2217,22 @@ export const tictoAdapter: PaymentAdapter = {
       root.id ||
       "ticto_tx",
     );
-    const gross = (num(order.paid_amount ?? root.paid_amount ?? item.amount ?? root.amount) ?? 0) / 100;
+
+    const bumps = Array.isArray(root.bumps)
+      ? root.bumps.map(record)
+      : Array.isArray(order.bumps)
+        ? (order.bumps as unknown[]).map(record)
+        : [];
+    const bumpsTotalCents = bumps.reduce((sum, b) => sum + (num(b.offer_price ?? b.price) ?? 0), 0);
+    const totalOrderPaidCents = num(order.paid_amount ?? root.paid_amount ?? order.total_amount ?? root.total_amount);
+    const itemAmountCents = num(item.amount ?? item.price ?? item.paid_amount);
+
+    const gross = itemAmountCents !== null
+      ? itemAmountCents / 100
+      : totalOrderPaidCents !== null
+        ? Math.max(0, (totalOrderPaidCents - bumpsTotalCents) / 100)
+        : 0;
+
     const feeRate = DEFAULT_PLATFORM_FEES.ticto.percent / 100;
     const feeFixed = DEFAULT_PLATFORM_FEES.ticto.fixed;
     const fee = gross > 0 ? Number((gross * feeRate + feeFixed).toFixed(2)) : 0;
@@ -1764,9 +2286,8 @@ export const tictoAdapter: PaymentAdapter = {
       rawPayload: redactPaymentPayload(payload),
     });
 
-    const bumps = Array.isArray(root.bumps) ? root.bumps.map(record) : [];
     const bumpEvents = bumps.map((b, idx) => {
-      const bumpGross = (num(b.offer_price) ?? 0) / 100;
+      const bumpGross = (num(b.offer_price ?? b.price) ?? 0) / 100;
       const bumpFee = bumpGross > 0 ? Number((bumpGross * feeRate).toFixed(2)) : 0;
       const bumpNet = Math.max(0, Number((bumpGross - bumpFee).toFixed(2)));
       return normalizedPaymentEventSchema.parse({
@@ -1827,7 +2348,12 @@ export const lastlinkAdapter: PaymentAdapter = {
       baseType = "chargeback_created";
     } else if (eventName.includes("CANCEL") || eventName.includes("EXPIRED")) {
       baseType = "purchase_canceled";
-    } else if (eventName.includes("CONFIRMED") || eventName.includes("WAITING") || eventName.includes("PENDING")) {
+    } else if (
+      eventName.includes("CONFIRMED") ||
+      eventName.includes("WAITING") ||
+      eventName.includes("PENDING") ||
+      eventName.includes("GENERATED")
+    ) {
       if (paymentMethod.includes("PIX")) {
         baseType = "pix_created";
       } else if (paymentMethod.includes("BOLETO") || paymentMethod.includes("SLIP")) {
@@ -1878,6 +2404,30 @@ export const lastlinkAdapter: PaymentAdapter = {
       const type: PaymentEventType =
         baseType === "purchase_approved" && isBump ? "order_bump_approved" : baseType;
 
+      const parentTransactionId =
+        idx > 0
+          ? txId
+          : str(
+              purchase.ParentTransactionId ||
+                purchase.parent_transaction_id ||
+                data.ParentTransactionId ||
+                data.parent_transaction_id ||
+                root.ParentTransactionId ||
+                root.parent_transaction_id,
+            ) || null;
+
+      const parentProductId =
+        idx > 0
+          ? str(lines[0]?.Id || lines[0]?.id || offer.Id) || null
+          : str(
+              purchase.ParentProductId ||
+                purchase.parent_product_id ||
+                data.ParentProductId ||
+                data.parent_product_id ||
+                line.ParentProductId ||
+                line.parent_product_id,
+            ) || null;
+
       return normalizedPaymentEventSchema.parse({
         provider: "lastlink",
         externalTransactionId: idx === 0 ? txId : `${txId}-bump-${idx}`,
@@ -1886,8 +2436,8 @@ export const lastlinkAdapter: PaymentAdapter = {
         productId: str(line.Id || line.id || offer.Id || "lastlink_prod"),
         offerId: str(offer.Id || offer.id) || null,
         productType,
-        parentProductId: idx > 0 ? str(lines[0]?.Id || lines[0]?.id || offer.Id) || null : null,
-        parentTransactionId: idx > 0 ? txId : null,
+        parentProductId,
+        parentTransactionId,
         grossAmount: gross,
         netAmount: net,
         fees: fee,
@@ -1900,7 +2450,20 @@ export const lastlinkAdapter: PaymentAdapter = {
         adsetId: str(tracking.utm_term) || null,
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
-        clickId: str(tracking.fbclid || tracking.fbc || tracking.src || tracking.sck || rawUtm.Src || rawUtm.Sck) || null,
+        clickId:
+          str(
+            tracking.fbclid ||
+              tracking.fbc ||
+              tracking.gclid ||
+              tracking.ttclid ||
+              tracking.src ||
+              tracking.sck ||
+              rawUtm.Fbclid ||
+              rawUtm.Gclid ||
+              rawUtm.Ttclid ||
+              rawUtm.Src ||
+              rawUtm.Sck,
+          ) || null,
         occurredAt,
         receivedAt: context.receivedAt,
         isTest,
@@ -1911,7 +2474,7 @@ export const lastlinkAdapter: PaymentAdapter = {
 };
 
 // 17. ADAPTADOR HUBLA (https://hubla.app)
-// Hubla envia webhooks v2 no formato:
+// Hubla v2 envia requisições HTTP POST em JSON com o formato:
 // { type: "invoice.payment_succeeded", event: { invoice, product, products, user, paymentSession } }
 export const hublaAdapter: PaymentAdapter = {
   provider: "hubla",
@@ -1919,6 +2482,7 @@ export const hublaAdapter: PaymentAdapter = {
     const root = record(payload);
     const eventObj = record(root.event || root.data || root);
     const invoice = record(eventObj.invoice);
+    const subscription = record(eventObj.subscription || root.subscription);
     const product = record(eventObj.product);
     const user = record(eventObj.user || eventObj.customer);
     const payer = record(invoice.payer || user);
@@ -1929,6 +2493,7 @@ export const hublaAdapter: PaymentAdapter = {
 
     const rawType = str(root.type || root.event_type || root.event).toLowerCase();
     const invoiceStatus = str(invoice.status).toLowerCase();
+    const subStatus = str(subscription.status).toLowerCase();
     const paymentMethod = str(invoice.paymentMethod || invoice.payment_method).toLowerCase();
 
     let type: PaymentEventType = "payment_pending";
@@ -1951,8 +2516,14 @@ export const hublaAdapter: PaymentAdapter = {
       rawType === "invoice.expired" ||
       rawType === "invoice.payment_failed" ||
       rawType === "invoice.canceled" ||
+      rawType === "subscription.canceled" ||
+      rawType === "subscription.cancelled" ||
+      rawType.includes("canceled") ||
+      rawType.includes("cancelled") ||
       invoiceStatus === "expired" ||
-      invoiceStatus === "canceled"
+      invoiceStatus === "canceled" ||
+      subStatus === "canceled" ||
+      subStatus === "cancelled"
     ) {
       type = "purchase_canceled";
     } else if (
@@ -1969,7 +2540,7 @@ export const hublaAdapter: PaymentAdapter = {
       }
     }
 
-    const txId = str(invoice.id || invoice.orderId || root.id) || "hubla_tx";
+    const txId = str(invoice.id || invoice.orderId || subscription.id || root.id) || "hubla_tx";
 
     // Valores em centavos na Hubla v2 (invoice.amount.totalCents)
     const amountObj = record(invoice.amount);
@@ -2019,9 +2590,12 @@ export const hublaAdapter: PaymentAdapter = {
     const billingAddress = record(invoice.billingAddress || invoice.address);
     const country = cleanCountry(billingAddress.countryCode || billingAddress.country || "BR");
     const currency = cleanCurrency(invoice.currency || root.currency, context.fallbackCurrency || "BRL");
-    const occurredAt = parseDate(invoice.saleDate || invoice.createdAt || root.createdAt, context.receivedAt);
+    const occurredAt = parseDate(
+      invoice.saleDate || invoice.createdAt || subscription.canceledAt || subscription.createdAt || root.createdAt,
+      context.receivedAt,
+    );
 
-    const productId = str(product.id || "hubla_prod");
+    const productId = str(product.id || subscription.productId || subscription.product_id || "hubla_prod");
     const clickId = str(cookies.fbclid || cookies.fbp || params.SCK || params.sck || params.src || tracking.src || tracking.sck) || null;
 
     return [
