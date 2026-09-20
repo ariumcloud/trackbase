@@ -333,8 +333,8 @@ export function GatewayConnectForm({
             marginBottom: "1rem",
           }}
         >
-          <strong>Onde encontrar suas credenciais</strong>
-          <ol style={{ margin: "0.55rem 0 0 1.15rem", padding: 0, color: "var(--muted, #64748B)", fontSize: "0.82rem", lineHeight: 1.55 }}>
+          <strong style={{ color: "#1E1B4B" }}>Onde encontrar suas credenciais</strong>
+          <ol style={{ margin: "0.55rem 0 0 1.15rem", padding: 0, color: "#4C1D95", fontSize: "0.82rem", lineHeight: 1.55 }}>
             {provider === "hotmart" && (
               <>
                 <li>Client ID e Client Secret: <b>Ferramentas &gt; Credenciais de API</b>.</li>
@@ -348,7 +348,7 @@ export function GatewayConnectForm({
             href={providerDocs[provider as CatalogProvider]}
             target="_blank"
             rel="noreferrer"
-            style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem" }}
+            style={{ display: "inline-block", marginTop: "0.55rem", fontSize: "0.8rem", color: "var(--brand-primary, #6366F1)", fontWeight: 600 }}
           >
             Abrir documentação oficial →
           </a>
