@@ -2790,7 +2790,7 @@ export function Dashboard(p: Props) {
                           color: "var(--brand, #4F46E5)",
                         }}
                       >
-                        <Sparkles size={14} /> Como funciona o rastreamento (Padrão UTMify)
+                        <Sparkles size={14} /> Como funciona o rastreamento (Padrão Trackbase)
                       </div>
                       <p style={{ margin: 0, color: "var(--muted, #64748B)", fontSize: "0.78rem" }}>
                         Conecte seu Pixel aqui para que o Trackbase envie as compras confirmadas via API de Conversões (CAPI). Na sua página de vendas, cole o código do <strong>Meta Pixel</strong> (com PageView) e o <strong>Script do Trackbase</strong> na tag <code>&lt;head&gt;</code>. Você pode copiar ambos prontos nos Pixels Ativos ao lado!
@@ -4403,7 +4403,7 @@ function LinkForm({
               }
             }}
           >
-            <option value="">Nenhuma oferta (Auto-discovery por venda / Utmify)</option>
+            <option value="">Nenhuma oferta (Auto-discovery por venda)</option>
             {offers.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
