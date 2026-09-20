@@ -17,22 +17,30 @@ type PublicOffer = { id: string; workspace_id: string; public_key: string; check
 const offerFields = "id,workspace_id,public_key,checkout_url,landing_url";
 
 // A public key stays bound to its offer. Only a workspace UUID can resolve across offers.
+// Offerless links resolve active workspace offers for rules, but remain unbound.
 async function trackingContext(key: string) {
   const service = admin();
   const { data: link, error: linkError } = await service.from("utm_links")
     .select("offer_id,workspace_id").eq("public_key", key).eq("active", true).maybeSingle();
   if (linkError) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
   if (link) {
-    const { data, error } = await service.from("utm_offers").select(offerFields)
-      .eq("id", link.offer_id).eq("workspace_id", link.workspace_id).eq("active", true).maybeSingle();
-    if (error) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
-    return { offers: data ? [data as PublicOffer] : [], bound: true };
+    if (link.offer_id) {
+      const { data, error } = await service.from("utm_offers").select(offerFields)
+        .eq("id", link.offer_id).eq("workspace_id", link.workspace_id).eq("active", true).maybeSingle();
+      if (error) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
+      return { offers: data ? [data as PublicOffer] : [], bound: true, isOfferlessLink: false };
+    }
+    // Offerless link: fetch active offers of the workspace to populate checkout rules
+    const { data: workspaceOffers, error: offersError } = await service.from("utm_offers").select(offerFields)
+      .eq("workspace_id", link.workspace_id).eq("active", true).order("id");
+    if (offersError) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
+    return { offers: (workspaceOffers || []) as PublicOffer[], bound: false, isOfferlessLink: true };
   }
   const { data: offer, error } = await service.from("utm_offers").select(offerFields)
     .eq("public_key", key).eq("active", true).maybeSingle();
   if (error) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
-  if (offer) return { offers: [offer as PublicOffer], bound: true };
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) return { offers: [], bound: false };
+  if (offer) return { offers: [offer as PublicOffer], bound: true, isOfferlessLink: false };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) return { offers: [], bound: false, isOfferlessLink: false };
   // Read all pages: a truncated list must not turn ambiguous destinations into unique ones.
   const offers: PublicOffer[] = [];
   for (let offset = 0; ; offset += 500) {
@@ -42,7 +50,7 @@ async function trackingContext(key: string) {
     offers.push(...(data || []) as PublicOffer[]);
     if (!data || data.length < 500) break;
   }
-  return { offers, bound: false };
+  return { offers, bound: false, isOfferlessLink: false };
 }
 
 export async function GET(request: Request) {
@@ -53,7 +61,7 @@ export async function GET(request: Request) {
     if (key.length < 8 || key.length > 100) return NextResponse.json({ error: "Chave inválida." }, { status: 400, headers });
     if (!checkInMemoryLimit(keyMap, `config:${key}`, 600)) return NextResponse.json({ error: "Limite excedido." }, { status: 429, headers });
     const context = await trackingContext(key);
-    if (!context.offers.length) return NextResponse.json({ error: "Chave inativa ou inválida." }, { status: 404, headers });
+    if (!context.offers.length && !context.isOfferlessLink) return NextResponse.json({ error: "Chave inativa ou inválida." }, { status: 404, headers });
     // Only public checkout patterns, never offer keys, IDs, credentials or workspace details.
     const rules = context.offers.map(offer => offer.checkout_url).filter((value): value is string => Boolean(value));
     if (url.searchParams.get("format") !== "js") return NextResponse.json({ rules }, { headers });
@@ -160,19 +168,22 @@ export async function POST(request: Request) {
 
     const service = admin();
     const context = await trackingContext(key);
-    if (!context.offers.length) return NextResponse.json({ error: "Chave inativa ou inválida." }, { status: 404, headers: corsHeaders });
-    const candidates = eventData.event_type === "checkout"
-      ? matchingCheckoutOffers(eventData.url, context.offers)
-      : context.bound || context.offers.length === 1
-        ? context.offers
-        : context.offers.filter(offer => matchesCheckoutUrl(eventData.url, offer.landing_url));
-    if (candidates.length !== 1) {
-      return NextResponse.json({
-        error: candidates.length > 1 ? "Destino ambíguo entre ofertas." : "Destino não configurado para esta oferta.",
-        code: candidates.length > 1 ? "AMBIGUOUS_OFFER" : "UNCONFIGURED_DESTINATION",
-      }, { status: 422, headers: corsHeaders });
+    if (!context.offers.length && !context.isOfferlessLink) return NextResponse.json({ error: "Chave inativa ou inválida." }, { status: 404, headers: corsHeaders });
+    let resolvedKey = key;
+    if (!context.isOfferlessLink) {
+      const candidates = eventData.event_type === "checkout"
+        ? matchingCheckoutOffers(eventData.url, context.offers)
+        : context.bound || context.offers.length === 1
+          ? context.offers
+          : context.offers.filter(offer => matchesCheckoutUrl(eventData.url, offer.landing_url));
+      if (candidates.length !== 1) {
+        return NextResponse.json({
+          error: candidates.length > 1 ? "Destino ambíguo entre ofertas." : "Destino não configurado para esta oferta.",
+          code: candidates.length > 1 ? "AMBIGUOUS_OFFER" : "UNCONFIGURED_DESTINATION",
+        }, { status: 422, headers: corsHeaders });
+      }
+      resolvedKey = context.bound ? key : candidates[0].public_key;
     }
-    const resolvedKey = context.bound ? key : candidates[0].public_key;
     let capiPayloadCiphertext: string | undefined;
     if (
       (dbEventType === "pageview" || dbEventType === "checkout") &&

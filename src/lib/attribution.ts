@@ -120,7 +120,7 @@ export function sessionAttributionMap(
 ): Map<string, AttributionMap> {
   const result = new Map<string, AttributionMap>();
   for (const event of events) {
-    if (offerId && event.offer_id !== offerId) continue;
+    if (offerId && event.offer_id && event.offer_id !== offerId) continue;
     const sessionId = String(event.session_id || "").trim();
     if (!sessionId) continue;
     const current = result.get(sessionId) || {};
@@ -183,7 +183,7 @@ export function resolveSaleAttributionEvidence(
   }
   // A reused session carrying different creatives is ambiguous, even with one session ID.
   for (const key of ["utm_content", "utm_term", "utm_campaign"]) {
-    const values = new Set(eligible.filter((e) => e.session_id === candidates[0][0] && (!offerId || e.offer_id === offerId)).flatMap((e) => [mergeAttribution(urlAttribution(e.url), e.attribution)[key]]).filter(Boolean));
+    const values = new Set(eligible.filter((e) => e.session_id === candidates[0][0] && (!offerId || !e.offer_id || e.offer_id === offerId)).flatMap((e) => [mergeAttribution(urlAttribution(e.url), e.attribution)[key]]).filter(Boolean));
     if (values.size > 1 || (direct[key] && candidates[0][1][key] && direct[key] !== candidates[0][1][key])) return { attribution: {}, source: "none", confidence: "none", reason: "ambiguous_session_creative" };
   }
   const candidateSessionId = candidates[0][0];

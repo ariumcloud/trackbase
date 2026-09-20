@@ -3700,6 +3700,14 @@ textarea {
 .main-shell { margin-left: 242px; width: calc(100% - 242px); min-width: 0; }
 .topbar { height: 68px; padding: 0 36px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-bottom: 1px solid var(--line); }
 .breadcrumb, .topbar-right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+.revenue-milestone-badge { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; max-width: 260px; height: 40px; padding: 5px 9px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-subtle); color: var(--ink); box-sizing: border-box; overflow: hidden; }
+.revenue-milestone-icon { flex: 0 0 auto; color: var(--brand-text); }
+.revenue-milestone-copy { display: grid; min-width: 0; gap: 1px; line-height: 1.1; }
+.revenue-milestone-label { color: var(--ink); font-size: 11px; }
+.revenue-milestone-values { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.revenue-milestone-info { display: inline-flex; flex: 0 0 auto; color: var(--muted); cursor: help; }
+.revenue-milestone-track { position: absolute; right: 9px; bottom: 4px; left: 9px; height: 2px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.revenue-milestone-progress { display: block; height: 100%; border-radius: inherit; background: var(--brand); transition: width 240ms ease; }
 .breadcrumb span { color: var(--line-strong); margin: 0 4px; }.breadcrumb strong { color: var(--ink); }
 .top-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-text); font-weight: 700; margin-left: 8px; font-size: 13px; }
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }.mobile-toggle { display: none; }
@@ -3882,6 +3890,7 @@ textarea {
 @media (max-width: 960px) {
   .sidebar { position: fixed; width: 242px; border-right: 1px solid var(--line); border-bottom: 0; }
   .app-shell { flex-direction: row; }
+  .revenue-milestone-badge { max-width: 200px; }
 }
 
 @media (max-width: 768px) {
@@ -7828,6 +7837,23 @@ table.utmify-daily-table tbody tr:last-child td {
     min-width: 30px;
     margin-left: 0;
   }
+
+  .revenue-milestone-badge {
+    max-width: 175px;
+    height: 36px;
+    padding: 4px 7px 7px;
+    gap: 5px;
+  }
+
+  .revenue-milestone-values {
+    font-size: 9px;
+  }
+
+  .revenue-milestone-track {
+    right: 7px;
+    bottom: 3px;
+    left: 7px;
+  }
 }
 
 @media (max-width: 430px) {
@@ -7846,6 +7872,24 @@ table.utmify-daily-table tbody tr:last-child td {
 
   .topbar-right .notifier-btn {
     min-width: 38px;
+  }
+
+  .revenue-milestone-badge {
+    width: 34px;
+    max-width: 34px;
+    padding-right: 5px;
+    padding-left: 5px;
+    gap: 0;
+  }
+
+  .revenue-milestone-copy,
+  .revenue-milestone-info {
+    display: none;
+  }
+
+  .revenue-milestone-track {
+    right: 5px;
+    left: 5px;
   }
 
   .topbar-right .top-avatar {
@@ -8174,5 +8218,3 @@ table.utmify-daily-table tbody tr:last-child td {
   margin-top: 10px;
   flex-wrap: wrap;
 }
-
-

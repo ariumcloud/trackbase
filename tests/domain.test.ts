@@ -244,6 +244,54 @@ test("aliases SCK da Hotmart podem ligar o webhook ao checkout", () => {
   assert.equal(evidence.source, "session_id");
 });
 
+test("atribui venda com sucesso a clique criado sem oferta (offer_id nulo)", () => {
+  const events = [
+    {
+      offer_id: null,
+      session_id: "sess-utmify-1",
+      url: "https://site.test/?utm_campaign=camp-utmify&utm_content=ad-utmify&sck=sess-utmify-1",
+      attribution: {},
+    },
+  ];
+
+  const evidence = resolveSaleAttributionEvidence(
+    { sck: "sess-utmify-1" },
+    events,
+    "offer-discovered-99",
+  );
+  assert.equal(evidence.confidence, "high");
+  assert.equal(evidence.source, "session_id");
+  assert.equal(evidence.attribution.utm_campaign, "camp-utmify");
+  assert.equal(evidence.attribution.utm_content, "ad-utmify");
+  assert.equal(evidence.attribution.session_id, "sess-utmify-1");
+});
+
+test("dois cliques sem oferta na mesma sessão com criativos diferentes geram ambiguous_session_creative", () => {
+  const events = [
+    {
+      offer_id: null,
+      session_id: "sess-reused",
+      url: "https://site.test/?utm_campaign=camp-a&utm_content=ad-a&sck=sess-reused",
+      attribution: {},
+    },
+    {
+      offer_id: null,
+      session_id: "sess-reused",
+      url: "https://site.test/?utm_campaign=camp-b&utm_content=ad-b&sck=sess-reused",
+      attribution: {},
+    },
+  ];
+
+  const evidence = resolveSaleAttributionEvidence(
+    { sck: "sess-reused" },
+    events,
+    "offer-1",
+  );
+  assert.equal(evidence.confidence, "none");
+  assert.equal(evidence.reason, "ambiguous_session_creative");
+  assert.deepEqual(evidence.attribution, {});
+});
+
 test("normalização de pagamentos extrai order bump, taxas e parent_transaction", () => {
   // Hotmart com order bump e taxas
   const hotmartBump = {

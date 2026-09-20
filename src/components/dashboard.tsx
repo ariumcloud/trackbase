@@ -104,6 +104,7 @@ import type {
   Entity,
   WebhookLog,
   DashboardSummary,
+  LifetimeRevenueByCurrency,
   PixelRow,
   PixelRuleRow,
   DemographicRow,
@@ -141,6 +142,7 @@ const MiningView = dynamic(
   { ssr: false },
 );
 import { SalesNotifier } from "./sales-notifier";
+import { RevenueMilestoneBadge } from "./revenue-milestone-badge";
 import {
   exportSalesCsv,
   exportCampaignsCsv,
@@ -165,6 +167,7 @@ type Props = {
   diagnostics?: DiagnosticRow[];
   alerts: AlertItem[];
   summary?: DashboardSummary | null;
+  lifetimeRevenueByCurrency?: LifetimeRevenueByCurrency[];
   initialTab?: string;
   initialPeriod?: string;
   initialCurrency?: string;
@@ -1286,6 +1289,13 @@ export function Dashboard(p: Props) {
                 <span className="admin-btn-label">Admin</span>
               </Link>
             )}
+            {p.workspace && (
+              <RevenueMilestoneBadge
+                defaultCurrency={p.workspace.default_currency}
+                revenueByCurrency={p.lifetimeRevenueByCurrency ?? []}
+                exchangeRates={exchangeRates}
+              />
+            )}
             <button
               type="button"
               className="theme-toggle-btn"
@@ -2251,9 +2261,13 @@ export function Dashboard(p: Props) {
                                   {l.active ? "Ativo" : "Inativo"}
                                 </span>
                               </div>
-                              {offerName && (
+                              {offerName ? (
                                 <span className="offer-tag">
                                   <Package size={13} /> Oferta: <strong>{offerName}</strong>
+                                </span>
+                              ) : (
+                                <span className="offer-tag" style={{ opacity: 0.85 }}>
+                                  <Sparkles size={13} /> Oferta: <strong>Auto-discovery</strong>
                                 </span>
                               )}
                             </div>
@@ -3567,26 +3581,11 @@ src="https://www.facebook.com/tr?id=${px.pixel_id}&ev=PageView&noscript=1"
                 ) : null;
               })()
             ) : modal === "link" ? (
-              p.offers.length ? (
-                <LinkForm
-                  offers={p.offers}
-                  workspace={workspace}
-                  done={() => setModal(null)}
-                />
-              ) : (
-                <Empty
-                  title="Comece por uma oferta"
-                  description="Todo link precisa estar vinculado a uma oferta."
-                  action={
-                    <button
-                      className="button primary"
-                      onClick={() => setModal("offer")}
-                    >
-                      Cadastrar oferta
-                    </button>
-                  }
-                />
-              )
+              <LinkForm
+                offers={p.offers}
+                workspace={workspace}
+                done={() => setModal(null)}
+              />
             ) : [
                 "hotmart",
                 "kiwify",
@@ -4301,7 +4300,7 @@ function LinkForm({
 }) {
   const [selectedChannel, setSelectedChannel] = useState("meta");
   const [offer, setOffer] = useState(offers[0]?.id || "");
-  const selectedOffer = offers.find((o) => o.id === offer) || offers[0];
+  const selectedOffer = offers.find((o) => o.id === offer);
   const [url, setUrl] = useState(selectedOffer?.landing_url || "");
   const [name, setName] = useState(
     selectedOffer ? `Meta Ads - ${selectedOffer.name}` : "Meta Ads",
@@ -4316,6 +4315,8 @@ function LinkForm({
     setParams({ ...preset.params });
     if (selectedOffer) {
       setName(`${preset.name} - ${selectedOffer.name}`);
+    } else {
+      setName(preset.name);
     }
   }
 
@@ -4341,7 +4342,7 @@ function LinkForm({
       action={(f) =>
         saveLink(workspace, {
           name: f.get("name") || name,
-          offer_id: offer,
+          offer_id: offer || null,
           url,
           params,
         })
@@ -4384,22 +4385,25 @@ function LinkForm({
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <label>
-          Oferta de destino
+          Oferta de destino (Opcional)
           <select
             value={offer}
             onChange={(e) => {
               const newId = e.target.value;
               setOffer(newId);
               const found = offers.find((o) => o.id === newId);
+              const currentPreset = UTM_CHANNEL_PRESETS.find(
+                (p) => p.id === selectedChannel,
+              );
               if (found) {
                 setUrl(found.landing_url);
-                const currentPreset = UTM_CHANNEL_PRESETS.find(
-                  (p) => p.id === selectedChannel,
-                );
                 setName(`${currentPreset?.name || "Link"} - ${found.name}`);
+              } else {
+                setName(currentPreset?.name || "Link");
               }
             }}
           >
+            <option value="">Nenhuma oferta (Auto-discovery por venda / Utmify)</option>
             {offers.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}

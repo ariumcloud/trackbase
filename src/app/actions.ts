@@ -648,7 +648,11 @@ export async function saveLink(
     const parsed = linkSchema.parse(value);
     const { error } = await client
       .from("utm_links")
-      .insert({ ...parsed, workspace_id: workspace });
+      .insert({
+        ...parsed,
+        offer_id: parsed.offer_id ?? null,
+        workspace_id: workspace,
+      });
     if (error) {
       if (error.message?.includes("Limite de links")) {
         return { error: "Limite de links atingido para o plano deste workspace." };
@@ -663,7 +667,7 @@ export async function saveLink(
       return { error: "Limite de links atingido para o plano deste workspace." };
     }
     return {
-      error: "Não foi possível salvar o link. Confira a oferta e os campos.",
+      error: "Não foi possível salvar o link. Confira os campos preenchidos.",
     };
   }
 }
@@ -672,7 +676,14 @@ export async function updateLink(workspace: string, id: string, value: unknown):
     const { client } = await authorize(workspace, true);
     z.string().uuid().parse(id);
     const parsed = linkSchema.parse(value);
-    const { error } = await client.from("utm_links").update(parsed).eq("workspace_id", workspace).eq("id", id);
+    const { error } = await client
+      .from("utm_links")
+      .update({
+        ...parsed,
+        offer_id: parsed.offer_id ?? null,
+      })
+      .eq("workspace_id", workspace)
+      .eq("id", id);
     if (error) throw error;
     revalidatePath("/painel"); return { ok: true };
   } catch { return { error: "Não foi possível atualizar o link. Confira os campos." }; }

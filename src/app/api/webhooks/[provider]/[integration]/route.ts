@@ -653,7 +653,7 @@ export async function POST(
         .from("utm_events")
         .select("id,workspace_id,offer_id,link_id,event_type,session_id,url,attribution,created_at")
         .eq("workspace_id", i.workspace_id)
-        .eq("offer_id", target.offer_id)
+        .or(`offer_id.eq.${target.offer_id},offer_id.is.null`)
         .order("created_at", { ascending: false })
         .limit(5000);
       const evidence = resolveSaleAttributionEvidence(event.attribution, trackingEvents || [], target.offer_id, event.occurredAt);
@@ -754,6 +754,15 @@ export async function POST(
           attribution_session_id: evidence.attribution.session_id || null,
         }).eq("integration_id", target.id).eq("transaction_id", event.externalTransactionId).eq("product_type", event.productType).eq("is_test", event.isTest);
         if (attributionError) throw new Error("ATTRIBUTION_PERSISTENCE_FAILED");
+
+        if (evidence.attribution.session_id && evidence.confidence === "high") {
+          await service
+            .from("utm_events")
+            .update({ offer_id: target.offer_id })
+            .eq("workspace_id", i.workspace_id)
+            .eq("session_id", evidence.attribution.session_id)
+            .is("offer_id", null);
+        }
       }
     }
 

@@ -53,6 +53,10 @@ export type DashboardSummary = {
   by_product_type: Record<string, { count: number; revenue: number }>;
   by_country: Record<string, { count: number; revenue: number }>;
 };
+export type LifetimeRevenueByCurrency = {
+  currency: string;
+  gross_revenue: number;
+};
 export type PixelRow = {
   id: string;
   pixel_id: string;

@@ -15,6 +15,7 @@ import type {
   Entity,
   WebhookLog,
   DashboardSummary,
+  LifetimeRevenueByCurrency,
   PixelRow,
   PixelRuleRow,
   DemographicRow,
@@ -199,6 +200,7 @@ export default async function Page({
     demographics,
     dashboardLayoutRes,
     summaryRes,
+    lifetimeRevenueRes,
     alerts,
     diagnosticsRes,
     shields,
@@ -311,6 +313,9 @@ export default async function Page({
               p_offer_id: offerFilter,
             })
           : Promise.resolve({ data: null, error: null }),
+        client.rpc("utm_lifetime_revenue", {
+          p_workspace: w.id,
+        }),
         needsAlerts
           ? evaluateAlerts(w.id).catch(() => [] as AlertItem[])
           : Promise.resolve([] as AlertItem[]),
@@ -363,6 +368,7 @@ export default async function Page({
         { data: [], error: null },
         { data: null, error: null },
         { data: null, error: null },
+        { data: [], error: null },
         [] as AlertItem[],
         { data: [], error: null },
         { data: [], error: null },
@@ -383,6 +389,7 @@ export default async function Page({
     { name: "pixelRules", error: pixelRules.error },
     { name: "demographics", error: demographics.error },
     { name: "dashboardLayout", error: dashboardLayoutRes.error },
+    { name: "lifetimeRevenue", error: lifetimeRevenueRes.error },
     { name: "events", error: events.error },
   ];
 
@@ -434,6 +441,7 @@ export default async function Page({
       shieldLogs={(shieldLogs.data ?? []) as ShieldLogRow[]}
       alerts={alerts}
       summary={(summaryRes.data ?? null) as DashboardSummary | null}
+      lifetimeRevenueByCurrency={(lifetimeRevenueRes.data ?? []) as LifetimeRevenueByCurrency[]}
       initialTab={p.tab}
       initialCurrency={currency}
       initialProvider={p.provider}

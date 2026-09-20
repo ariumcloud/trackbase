@@ -13,7 +13,12 @@ export const webUrl = z
 export const linkSchema = z.object({
   name: z.string().trim().min(2).max(120),
   url: webUrl,
-  offer_id: z.string().uuid(),
+  offer_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
   params: z
     .record(
       z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,49}$/),

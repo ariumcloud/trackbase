@@ -42,6 +42,12 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260910170000_allow_webhook_replays.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260920120000_lifetime_revenue.sql", "utf8"),
+  );
+  await db.exec(
+    readFileSync("supabase/migrations/20260920140000_allow_links_and_events_without_offer.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -108,7 +114,47 @@ async function main() {
       [wb, offer],
     ),
   );
+  // Link sem oferta (modelo Utmify / auto-discovery) deve ser permitido:
+  const offerlessLink = (
+    await db.query<{ id: string; public_key: string }>(
+      "insert into public.utm_links(workspace_id,offer_id,name,url) values($1,null,'Link Sem Oferta','https://example.com/utmify') returning id, public_key",
+      [wb],
+    )
+  ).rows[0];
+  assert.ok(offerlessLink.id);
+
   await db.exec("reset role;set role service_role");
+
+  // Rastreamento público para link sem oferta grava evento com offer_id = null
+  const trackResult = (
+    await db.query<{ status: string }>(
+      "select public.utm_track_event($1, $2) as status",
+      [
+        offerlessLink.public_key,
+        JSON.stringify({
+          event_type: "pageview",
+          event_id: "evt_offerless_1",
+          session_id: "sess_offerless_1",
+          url: "https://example.com/utmify?utm_source=meta",
+        }),
+      ],
+    )
+  ).rows[0].status;
+  assert.equal(trackResult, "recorded");
+
+  const recordedEvents = (
+    await db.query<{ offer_id: string | null; link_id: string }>(
+      "select offer_id, link_id from public.utm_events where session_id = 'sess_offerless_1'",
+    )
+  ).rows;
+  assert.equal(recordedEvents.length, 1);
+  assert.equal(recordedEvents[0].offer_id, null);
+  assert.equal(recordedEvents[0].link_id, offerlessLink.id);
+
+  // Limpa o link e evento de teste para manter o estado original dos testes seguintes
+  await db.query("delete from public.utm_events where link_id = $1", [offerlessLink.id]);
+  await db.query("delete from public.utm_links where id = $1", [offerlessLink.id]);
+
   const integration = (
     await db.query<{ id: string }>(
       "insert into public.utm_integrations(workspace_id,offer_id,provider,name,external_product_id) values($1,$2,'cakto','Cakto','prod') returning id",
@@ -412,6 +458,66 @@ async function main() {
   assert.equal(s2.net_revenue, 117);
   assert.equal(s2.by_product_type.main?.count, 1);
   assert.equal(s2.by_product_type.order_bump?.count, 1);
+
+  // Lifetime revenue is aggregated in the database by source currency. It
+  // must use gross values from approved sales, ignore tests/refunds and keep
+  // workspaces isolated.
+  await db.exec("reset role; set role service_role");
+  const otherOffer = (
+    await db.query<{ id: string }>(
+      "insert into public.utm_offers(workspace_id,name,landing_url,currency) values($1,'Oferta B','https://example.com','BRL') returning id",
+      [wb],
+    )
+  ).rows[0].id;
+  const otherIntegration = (
+    await db.query<{ id: string }>(
+      "insert into public.utm_integrations(workspace_id,offer_id,provider,name,external_product_id) values($1,$2,'cakto','Cakto B','prod-b') returning id",
+      [wb, otherOffer],
+    )
+  ).rows[0].id;
+  await db.query(
+    `insert into public.utm_sales(
+       workspace_id, integration_id, offer_id, transaction_id, provider,
+       status, amount, gross_amount, currency, occurred_at, is_test, product_type
+     ) values
+       ($1, $2, $3, 'lifetime-brl', 'cakto', 'approved', 999, 111, 'BRL', now(), false, 'main'),
+       ($1, $2, $3, 'lifetime-usd', 'cakto', ' Paid ', 200, 200, 'USD', now(), false, 'main'),
+       ($1, $2, $3, 'lifetime-eur', 'cakto', 'COMPLETED', 300, 0, 'EUR', now(), false, 'main'),
+       ($1, $2, $3, 'lifetime-pending', 'cakto', 'pending', 1000, 1000, 'BRL', now(), false, 'main'),
+       ($1, $2, $3, 'lifetime-refunded', 'cakto', 'refunded', 1000, 1000, 'BRL', now(), false, 'main'),
+       ($1, $2, $3, 'lifetime-test', 'cakto', 'approved', 500, 500, 'BRL', now(), true, 'main'),
+       ($4, $5, $6, 'lifetime-other-workspace', 'cakto', 'approved', 777, 777, 'BRL', now(), false, 'main')`,
+    [wa, integration, offer, wb, otherIntegration, otherOffer],
+  );
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
+  await db.exec("set role authenticated");
+  const lifetimeRows = (
+    await db.query<{ currency: string; gross_revenue: number }>(
+      "select currency, gross_revenue from public.utm_lifetime_revenue($1)",
+      [wa],
+    )
+  ).rows;
+  assert.deepEqual(
+    lifetimeRows.map((row) => [row.currency, Number(row.gross_revenue)]),
+    [
+      ["BRL", 241],
+      ["EUR", 300],
+      ["USD", 200],
+    ],
+  );
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [b]);
+  await assert.rejects(() =>
+    db.query("select * from public.utm_lifetime_revenue($1)", [wa]),
+  );
+  assert.equal(
+    (
+      await db.query<{ indexname: string }>(
+        "select indexname from pg_indexes where indexname='utm_sales_lifetime_revenue_idx'",
+      )
+    ).rows.length,
+    1,
+  );
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
 
   // 5. RLS de Pixels e Alertas: Usuário B não vê os registros do Usuário A
   assert.equal(
