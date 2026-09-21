@@ -48,6 +48,9 @@ async function main() {
   await db.exec(
     readFileSync("supabase/migrations/20260920140000_allow_links_and_events_without_offer.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260921100000_fix_offerless_event_dedup_and_capi_backfill.sql", "utf8"),
+  );
   const a = "00000000-0000-4000-8000-000000000001",
     b = "00000000-0000-4000-8000-000000000002";
   await db.query("insert into auth.users values ($1),($2)", [a, b]);
@@ -150,6 +153,26 @@ async function main() {
   assert.equal(recordedEvents.length, 1);
   assert.equal(recordedEvents[0].offer_id, null);
   assert.equal(recordedEvents[0].link_id, offerlessLink.id);
+
+  // Retentativa do mesmo evento (mesmo event_id) num link sem oferta não deve
+  // duplicar a linha em utm_events -- a reescrita de utm_track_event para
+  // suportar link sem oferta chegou a derrubar esse dedup (offer_id NULL
+  // sumia do INSERT e do ON CONFLICT); isso confirma que voltou.
+  await db.query("select public.utm_track_event($1, $2) as status", [
+    offerlessLink.public_key,
+    JSON.stringify({
+      event_type: "pageview",
+      event_id: "evt_offerless_1",
+      session_id: "sess_offerless_1",
+      url: "https://example.com/utmify?utm_source=meta",
+    }),
+  ]);
+  const recordedEventsAfterRetry = (
+    await db.query<{ offer_id: string | null }>(
+      "select offer_id from public.utm_events where session_id = 'sess_offerless_1'",
+    )
+  ).rows;
+  assert.equal(recordedEventsAfterRetry.length, 1, "retentativa com o mesmo event_id duplicou a linha");
 
   // Limpa o link e evento de teste para manter o estado original dos testes seguintes
   await db.query("delete from public.utm_events where link_id = $1", [offerlessLink.id]);
@@ -328,7 +351,13 @@ async function main() {
     [wa, since, until],
   );
   const summary = summaryRes.rows[0].summary;
-  assert.equal(summary.pageviews, 3);
+  // 2, not 3: the capiTrackEvent pageview above is sent twice on purpose to
+  // prove CAPI-outbox dedup, and now that utm_track_event persists event_id
+  // and dedupes on it again (see 20260921100000_fix_offerless_event_dedup_and_capi_backfill.sql),
+  // the retry correctly stops at one utm_events row instead of two. The
+  // previous "3" was this same duplicate row being counted -- a symptom of
+  // the regression that migration fixes, not the correct baseline.
+  assert.equal(summary.pageviews, 2);
   assert.equal(summary.checkouts, 1);
   assert.equal(summary.refunded_count, 1);
 
@@ -336,9 +365,11 @@ async function main() {
   await db.exec("reset role");
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [a]);
   await db.exec("set role authenticated");
+  // 3, not 4, for the same reason as summary.pageviews above: the retried
+  // capiTrackEvent call now correctly dedupes to one row instead of two.
   assert.equal(
     (await db.query("select * from public.utm_events")).rows.length,
-    4,
+    3,
   );
 
   await db.exec("reset role");

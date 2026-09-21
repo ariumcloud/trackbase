@@ -756,12 +756,47 @@ export async function POST(
         if (attributionError) throw new Error("ATTRIBUTION_PERSISTENCE_FAILED");
 
         if (evidence.attribution.session_id && evidence.confidence === "high") {
-          await service
+          // Offerless clicks never queue a CAPI PageView/InitiateCheckout
+          // live (utm_track_event has no offer to attach a pixel config to
+          // yet) -- now that this sale revealed the offer, queue those same
+          // events retroactively for the rows being backfilled, using
+          // whatever was captured on the click itself (fbp/fbc via
+          // attribution; no client IP/UA, since those were never persisted
+          // on utm_events). Best-effort: a failure here must not affect the
+          // sale that was already recorded above.
+          const { data: backfilled } = await service
             .from("utm_events")
             .update({ offer_id: target.offer_id })
             .eq("workspace_id", i.workspace_id)
             .eq("session_id", evidence.attribution.session_id)
-            .is("offer_id", null);
+            .is("offer_id", null)
+            .select("event_id,event_type,url,attribution");
+
+          const retroactiveCapiRows = (backfilled || []).filter(
+            (row): row is typeof row & { event_id: string } =>
+              Boolean(row.event_id) && (row.event_type === "pageview" || row.event_type === "checkout"),
+          );
+          if (retroactiveCapiRows.length) {
+            try {
+              const outboxRows = retroactiveCapiRows.map((row) => ({
+                workspace_id: i.workspace_id,
+                offer_id: target.offer_id,
+                event_id: row.event_id,
+                event_name: row.event_type === "pageview" ? "PageView" : "InitiateCheckout",
+                event_source_url: row.url || "",
+                user_data_ciphertext: encrypt(JSON.stringify({
+                  fbp: (row.attribution as Record<string, string> | null)?.fbp || null,
+                  fbc: (row.attribution as Record<string, string> | null)?.fbc || null,
+                })),
+              }));
+              await service
+                .from("utm_capi_outbox")
+                .upsert(outboxRows, { onConflict: "workspace_id,offer_id,event_id,event_name", ignoreDuplicates: true });
+            } catch {
+              // Sale and its attribution are already persisted; losing the
+              // retroactive pixel signal here is not worth failing the webhook.
+            }
+          }
         }
       }
     }
