@@ -336,7 +336,17 @@ function normalizeCaktoOrder(
     // show no "tracking"/"type"/"order_bump" fields at all -- bump/upsell/
     // downsell is carried in "offer_type" ("main" in their example payload),
     // and any UTMs only ever show up appended to the checkout URL.
-    const tracking = { ...trackingFromUrl(data.checkoutUrl), ...record(data.tracking) };
+    // Cakto also delivers the click/session signals as flat fields on `data`
+    // (fbc, fbp, sck, utm_*), not only inside the checkout URL.
+    const flat = Object.fromEntries(
+      Object.entries(data).filter(
+        ([key, v]) =>
+          (key.startsWith("utm_") || ["fbc", "fbp", "fbclid", "sck", "src", "xcod"].includes(key)) &&
+          (typeof v === "string" || typeof v === "number") &&
+          String(v).trim() !== "",
+      ),
+    );
+    const tracking = { ...trackingFromUrl(data.checkoutUrl), ...flat, ...record(data.tracking) };
 
     const event = str(root.event || data.event || root.status || data.status).toLowerCase();
     const dataStatus = str(data.status).toLowerCase();
