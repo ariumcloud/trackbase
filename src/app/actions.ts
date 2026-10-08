@@ -575,18 +575,29 @@ export async function deleteIntegration(workspace: string, id: string): Promise<
       return { error: "Integração não encontrada ou já removida." };
     }
 
+    // A conexão pode ser um "hub" com satélites de produto autodescobertos
+    // (parent_integration_id). O delete em cascata do hub arrastaria essas
+    // linhas satélite antes de limpar as tabelas dependentes delas, o que
+    // rejeitaria a exclusão por violação de chave estrangeira.
+    const { data: children } = await service
+      .from("utm_integrations")
+      .select("id")
+      .eq("workspace_id", workspace)
+      .eq("parent_integration_id", id);
+    const idsToClean = [id, ...(children ?? []).map((c) => c.id)];
+
     // Parallel cleanup of all dependent tables
     await Promise.all([
-      service.from("utm_credentials").delete().eq("workspace_id", workspace).eq("integration_id", id),
-      service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).eq("integration_id", id),
-      service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).eq("integration_id", id),
-      service.from("utm_insights").delete().eq("workspace_id", workspace).eq("integration_id", id),
-      service.from("utm_insights_demographics").delete().eq("workspace_id", workspace).eq("integration_id", id),
-      service.from("utm_ad_entities").delete().eq("workspace_id", workspace).eq("integration_id", id),
-      service.from("utm_sales").delete().eq("workspace_id", workspace).eq("integration_id", id),
+      service.from("utm_credentials").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
+      service.from("utm_webhook_logs").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
+      service.from("utm_meta_action_logs").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
+      service.from("utm_insights").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
+      service.from("utm_insights_demographics").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
+      service.from("utm_ad_entities").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
+      service.from("utm_sales").delete().eq("workspace_id", workspace).in("integration_id", idsToClean),
     ]);
 
-    // Delete the integration
+    // Delete the integration (satellites cascade automatically via parent_integration_id)
     const { error: delErr } = await service
       .from("utm_integrations")
       .delete()
