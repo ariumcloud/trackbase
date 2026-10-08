@@ -8,6 +8,7 @@ alter table public.utm_sales add constraint utm_sales_provider_check
   check (provider in ('meta','hotmart','kiwify','cakto','kirvano','eduzz','monetizze','wiapy','lowfy','greenn','stripe','google','yampi','perfectpay','cartpanda','shopify','ticto'));
 
 -- Update utm_process_payment to include all payment providers
+-- Body matches the live schema (utm_sales.transaction_id, on conflict incl. is_test).
 create or replace function public.utm_process_payment(p_integration uuid, p_payment jsonb)
 returns text language plpgsql set search_path='' as $$
 declare
@@ -60,53 +61,65 @@ begin
   v_net_currency := coalesce(nullif(p_payment->>'net_currency', ''), v_currency);
 
   insert into public.utm_sales(
-    workspace_id, integration_id, offer_id, provider, external_transaction_id,
-    external_event_id, external_product_id, external_offer_id,
-    product_type, parent_product_id, parent_transaction_id,
-    amount, gross_amount, fee_amount, net_amount,
-    currency, fee_currency, net_currency, country,
-    customer_name, customer_email, status,
-    occurred_at, is_test, raw_payload,
-    utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-    campaign_id, adset_id, ad_id, creative_id, click_id
+    workspace_id, integration_id, offer_id, transaction_id, provider, status,
+    amount, currency, country, attribution, occurred_at, is_test,
+    product_type, parent_transaction_id, gross_amount, fee_amount, fee_currency,
+    net_amount, net_currency
   )
-  values (
-    i.workspace_id, i.id, i.offer_id, i.provider, p_payment->>'external_transaction_id',
-    p_payment->>'external_event_id', p_payment->>'product_id', p_payment->>'offer_id',
-    v_prod_type, p_payment->>'parent_product_id', p_payment->>'parent_transaction_id',
-    v_gross, v_gross, v_fee, v_net,
-    v_currency, v_fee_currency, v_net_currency, p_payment->>'country',
-    p_payment->'buyer'->>'name', p_payment->'buyer'->>'email', p_payment->>'type',
-    (p_payment->>'occurred_at')::timestamptz, coalesce((p_payment->>'is_test')::boolean, false), p_payment,
-    p_payment->'attribution'->>'utm_source', p_payment->'attribution'->>'utm_medium',
-    p_payment->'attribution'->>'utm_campaign', p_payment->'attribution'->>'utm_content',
-    p_payment->'attribution'->>'utm_term',
-    p_payment->>'campaign_id', p_payment->>'adset_id', p_payment->>'ad_id',
-    p_payment->>'creative_id', p_payment->>'click_id'
+  values(
+    i.workspace_id, i.id, i.offer_id, p_payment->>'transaction_id', i.provider, p_payment->>'status',
+    v_gross, v_currency, p_payment->>'country', coalesce(p_payment->'attribution', '{}'::jsonb),
+    (p_payment->>'occurred_at')::timestamptz, coalesce((p_payment->>'is_test')::boolean, false),
+    v_prod_type, p_payment->>'parent_transaction_id', v_gross, v_fee, v_fee_currency,
+    v_net, v_net_currency
   )
-  on conflict (integration_id, external_transaction_id, product_type) do update
-    set status = excluded.status,
-        amount = excluded.amount,
-        gross_amount = excluded.gross_amount,
-        fee_amount = excluded.fee_amount,
-        net_amount = excluded.net_amount,
-        currency = excluded.currency,
-        fee_currency = excluded.fee_currency,
-        net_currency = excluded.net_currency,
-        raw_payload = excluded.raw_payload;
+  on conflict(integration_id, transaction_id, product_type, is_test) do update set
+    status = case
+      when excluded.occurred_at > utm_sales.occurred_at
+        or (excluded.occurred_at = utm_sales.occurred_at and excluded.status in ('refunded','chargeback','canceled'))
+      then excluded.status else utm_sales.status end,
+    amount = excluded.amount,
+    gross_amount = excluded.gross_amount,
+    fee_amount = case
+      when utm_sales.fee_currency is distinct from utm_sales.currency
+       and excluded.fee_currency = excluded.currency
+      then utm_sales.fee_amount else excluded.fee_amount end,
+    fee_currency = case
+      when utm_sales.fee_currency is distinct from utm_sales.currency
+       and excluded.fee_currency = excluded.currency
+      then utm_sales.fee_currency else excluded.fee_currency end,
+    net_amount = case
+      when utm_sales.net_currency is distinct from utm_sales.currency
+       and excluded.net_currency = excluded.currency
+      then utm_sales.net_amount else excluded.net_amount end,
+    net_currency = case
+      when utm_sales.net_currency is distinct from utm_sales.currency
+       and excluded.net_currency = excluded.currency
+      then utm_sales.net_currency else excluded.net_currency end,
+    currency = excluded.currency,
+    country = coalesce(nullif(excluded.country, ''), utm_sales.country),
+    attribution = case
+      when coalesce(excluded.attribution, '{}'::jsonb) = '{}'::jsonb then coalesce(utm_sales.attribution, '{}'::jsonb)
+      when coalesce(utm_sales.attribution, '{}'::jsonb) = '{}'::jsonb then excluded.attribution
+      else coalesce(utm_sales.attribution, '{}'::jsonb) || excluded.attribution
+    end,
+    occurred_at = case
+      when excluded.occurred_at > utm_sales.occurred_at then excluded.occurred_at
+      else utm_sales.occurred_at end,
+    parent_transaction_id = coalesce(excluded.parent_transaction_id, utm_sales.parent_transaction_id)
+  where excluded.occurred_at > utm_sales.occurred_at
+     or (excluded.occurred_at = utm_sales.occurred_at and excluded.status in ('refunded','chargeback','canceled'))
+     or (excluded.country is not null and excluded.country is distinct from utm_sales.country)
+     or (coalesce(excluded.attribution, '{}'::jsonb) <> '{}'::jsonb and coalesce(excluded.attribution, '{}'::jsonb) is distinct from utm_sales.attribution);
 
   update public.utm_webhook_logs
-     set status = 'processed', processed_at = now()
-   where id = log_id;
-
+     set status='processed', payment=p_payment,
+         is_test=coalesce((p_payment->>'is_test')::boolean, false), reason=null
+   where id=log_id;
+  update public.utm_integrations set status='connected' where id=i.id;
   return 'processed';
-exception
-  when others then
-    if log_id is not null then
-      update public.utm_webhook_logs
-         set status = 'failed', reason = SQLERRM, processed_at = now()
-       where id = log_id;
-    end if;
-    raise;
 end;
 $$;
+
+revoke all on function public.utm_process_payment(uuid,jsonb) from public, anon, authenticated;
+grant execute on function public.utm_process_payment(uuid,jsonb) to service_role;

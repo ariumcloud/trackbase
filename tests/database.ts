@@ -43,6 +43,15 @@ async function main() {
     readFileSync("supabase/migrations/20260910170000_allow_webhook_replays.sql", "utf8"),
   );
   await db.exec(
+    readFileSync("supabase/migrations/20260919180000_add_yampi_provider.sql", "utf8"),
+  );
+  await db.exec(
+    readFileSync("supabase/migrations/20260919190000_add_missing_gateways.sql", "utf8"),
+  );
+  await db.exec(
+    readFileSync("supabase/migrations/20260919193000_add_lastlink_hubla.sql", "utf8"),
+  );
+  await db.exec(
     readFileSync("supabase/migrations/20260920120000_lifetime_revenue.sql", "utf8"),
   );
   await db.exec(
@@ -609,6 +618,27 @@ async function main() {
     [kiwiIntegration, JSON.stringify(kiwiPayment)],
   );
   assert.equal(kiwiProc.rows[0].status, "processed");
+
+  // Gateways added later (20260919*): the provider allow-lists and the payment
+  // RPC must accept them and still write to utm_sales.transaction_id.
+  for (const provider of ["yampi", "perfectpay", "cartpanda", "shopify", "ticto", "lastlink", "hubla"]) {
+    const integ = (
+      await db.query<{ id: string }>(
+        "insert into public.utm_integrations(workspace_id,offer_id,provider,name,external_product_id) values($1,$2,$3,$4,$5) returning id",
+        [wa, offer, provider, provider + " test", provider + "-prod"],
+      )
+    ).rows[0].id;
+    const res = await db.query<{ status: string }>("select public.utm_process_payment($1,$2) status", [
+      integ,
+      JSON.stringify({
+        event_id: "evt-" + provider, transaction_id: "tx-" + provider, product_id: provider + "-prod",
+        external_offer_id: "", product_type: "main", parent_transaction_id: null, status: "approved",
+        amount: 50, gross_amount: 50, fee_amount: 0, net_amount: 50, currency: "BRL",
+        attribution: {}, occurred_at: "2026-09-06T03:00:00Z", is_test: false,
+      }),
+    ]);
+    assert.equal(res.rows[0].status, "processed", provider);
+  }
 
   // Teste de Limites Quantitativos no Banco
   // Workspace wa está no plano 'devedor' (limite de 1 oferta).
