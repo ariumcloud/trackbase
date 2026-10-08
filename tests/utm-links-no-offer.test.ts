@@ -1,3 +1,4 @@
+import { DEFAULT_CHECKOUT_FRAGMENTS } from "../src/lib/checkout-rules";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { linkSchema } from "../src/lib/utm";
@@ -63,6 +64,8 @@ test("tracking endpoint aceita GET e POST para links criados sem oferta", async 
   const workspace = "10000000-0000-4000-8000-000000000001";
   const offerlessLinkKey = "link_sem_oferta_public_key_123";
   const writes: Array<{ p_key: string; p_event: { event_type: string } }> = [];
+  // Regras de InitiateCheckout que o dono definiu no pixel (vazio = padrões dos gateways).
+  let pixelRules: Array<{ trigger_config: { pattern: string } }> = [];
 
   const respond = (value: unknown, status = 200) =>
     new Response(JSON.stringify(value), {
@@ -87,6 +90,9 @@ test("tracking endpoint aceita GET e POST para links criados sem oferta", async 
       // Workspace sem ofertas ativas cadastradas ainda
       return respond([]);
     }
+    if (url.pathname.endsWith("/utm_pixel_rules")) {
+      return respond(pixelRules);
+    }
     if (url.pathname.endsWith("/rpc/utm_track_event")) {
       writes.push(JSON.parse(String(init?.body)));
       return respond("recorded");
@@ -95,12 +101,22 @@ test("tracking endpoint aceita GET e POST para links criados sem oferta", async 
   };
 
   try {
-    await t.test("GET /api/track com link sem oferta retorna 200 com rules vazias em vez de 404", async () => {
+    await t.test("GET /api/track com link sem oferta retorna 200 e reconhece os checkouts conhecidos", async () => {
       const request = new Request(`https://trackbase.test/api/track?key=${offerlessLinkKey}`);
       const response = await GET(request);
       assert.equal(response.status, 200);
       const json = await response.json();
-      assert.deepEqual(json, { rules: [] });
+      assert.deepEqual(json, { rules: [], contains: [...DEFAULT_CHECKOUT_FRAGMENTS] });
+    });
+
+    await t.test("GET /api/track usa a URL de checkout definida no pixel no lugar dos padrões", async () => {
+      pixelRules = [{ trigger_config: { pattern: "https://pay.exemplo.com.br/meu-produto" } }];
+      try {
+        const response = await GET(new Request(`https://trackbase.test/api/track?key=${offerlessLinkKey}`));
+        assert.deepEqual(await response.json(), { rules: [], contains: ["pay.exemplo.com.br/meu-produto"] });
+      } finally {
+        pixelRules = [];
+      }
     });
 
     await t.test("POST /api/track com pageview em link sem oferta grava evento com a chave do link", async () => {

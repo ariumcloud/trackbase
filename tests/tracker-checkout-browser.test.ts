@@ -65,7 +65,7 @@ class Element {
   querySelector(selector: string) { return this.querySelectorAll(selector)[0] || null; }
 }
 
-function browser(rules: string[] = ["https://pay.wiapy.com/"], loadConfig = true, options: { blockedOpen?: boolean; historyThrows?: boolean } = {}) {
+function browser(rules: string[] = ["https://pay.wiapy.com/"], loadConfig = true, options: { blockedOpen?: boolean; historyThrows?: boolean; contains?: string[] } = {}) {
   const requests: BrowserEvent[] = [];
   const pixelCalls: unknown[][] = [];
   const opened: string[] = [];
@@ -95,7 +95,7 @@ function browser(rules: string[] = ["https://pay.wiapy.com/"], loadConfig = true
   };
   const window = {
     location: new URL(landingUrl), innerHeight: 700, pageYOffset: 0,
-    __TRACKBASE_CHECKOUT_CONFIG__: {} as Record<string, { rules: string[]; matches: ReturnType<typeof createCheckoutUrlMatcher>["matchesCheckoutUrl"] }>,
+    __TRACKBASE_CHECKOUT_CONFIG__: {} as Record<string, { rules: string[]; contains?: string[]; matches: ReturnType<typeof createCheckoutUrlMatcher>["matchesCheckoutUrl"] }>,
     addEventListener: (name: string, listener: Listener) => { windowListeners.set(name, [...(windowListeners.get(name) || []), listener]); },
     fbq: (...args: unknown[]) => { pixelCalls.push(args); },
     open: (destination: string) => { opened.push(destination); return options.blockedOpen ? null : {}; },
@@ -144,7 +144,7 @@ function browser(rules: string[] = ["https://pay.wiapy.com/"], loadConfig = true
     assert.equal(configUrl.pathname, "/api/track");
     assert.equal(configUrl.searchParams.get("key"), trackingKey);
     assert.equal(configUrl.searchParams.get("format"), "js");
-    window.__TRACKBASE_CHECKOUT_CONFIG__[trackingKey] = { rules, matches: createCheckoutUrlMatcher().matchesCheckoutUrl };
+    window.__TRACKBASE_CHECKOUT_CONFIG__[trackingKey] = { rules, ...(options.contains ? { contains: options.contains } : {}), matches: createCheckoutUrlMatcher().matchesCheckoutUrl };
     configScripts[0].onload?.();
     configScripts[0].emit("load");
     flushTimers();
@@ -316,6 +316,24 @@ test("successful same-origin history navigation records the configured checkout"
 test("failed history navigation cannot emit checkout", () => {
   const page = browser(["https://landing.example/checkout"], true, { historyThrows: true });
   assert.throws(() => page.history.replaceState({}, "", "/checkout"), /rejected/);
+  assert.equal(page.checkoutEvents().length, 0);
+  assert.equal(page.pixelCheckouts().length, 0);
+});
+
+test("link sem oferta: botão para um checkout conhecido vira InitiateCheckout sem oferta cadastrada", () => {
+  const page = browser([], true, { contains: ["pay.cakto.com.br"] });
+  const link = page.append(new Element("a", { href: "https://pay.cakto.com.br/bbk99hm" }));
+  page.click(link);
+  const [checkout] = page.checkoutEvents();
+  assert.equal(page.checkoutEvents().length, 1);
+  assert.equal(page.pixelCheckouts().length, 1);
+  assert.equal(new URL(checkout.url).hostname, "pay.cakto.com.br");
+  assert.equal(new URL(link.href).searchParams.get("sck"), checkout.session_id);
+});
+
+test("link sem oferta: destino que não contém o trecho configurado continua sendo só clique", () => {
+  const page = browser([], true, { contains: ["pay.cakto.com.br"] });
+  page.click(page.append(new Element("a", { href: "https://outra-loja.example/produto" })));
   assert.equal(page.checkoutEvents().length, 0);
   assert.equal(page.pixelCheckouts().length, 0);
 });

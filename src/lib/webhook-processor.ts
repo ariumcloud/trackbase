@@ -8,6 +8,7 @@ import { hotmartProductNamesMatch } from "@/lib/payment-product-matching";
 import { notifySalePush } from "@/lib/push-notifications";
 import { resolveSaleAttributionEvidence } from "@/lib/attribution";
 import { resolveProductTarget } from "@/lib/gateway-offers";
+import { checkoutUrlFromPayload } from "@/lib/checkout-rules";
 
 export type WebhookIntegration = {
   id: string;
@@ -351,9 +352,21 @@ export async function processPaymentWebhook(
 
         const { data: offer } = await service
           .from("utm_offers")
-          .select("name")
+          .select("name,checkout_url")
           .eq("id", target.offer_id)
           .maybeSingle();
+
+        // Offers discovered by a sale are born without a checkout URL; learn it from the
+        // payload so the tracker and the offer's checkout rule know where checkouts live.
+        const learnedCheckoutUrl = checkoutUrlFromPayload(payload);
+        if (learnedCheckoutUrl && offer && !offer.checkout_url) {
+          const { error: checkoutError } = await service
+            .from("utm_offers")
+            .update({ checkout_url: learnedCheckoutUrl })
+            .eq("id", target.offer_id)
+            .is("checkout_url", null);
+          if (checkoutError) console.error("Falha ao registrar o checkout da oferta", { offer: target.offer_id });
+        }
 
         if (
           webhookProductName &&

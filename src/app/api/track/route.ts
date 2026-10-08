@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase/server";
 import { body, encrypt } from "@/lib/security";
+import { resolveCheckoutFragments } from "@/lib/checkout-rules";
 import { trackPayloadSchema, matchingCheckoutOffers, matchesCheckoutUrl, createCheckoutUrlMatcher } from "@/lib/tracker";
 
 const corsHeaders = {
@@ -18,7 +19,8 @@ const offerFields = "id,workspace_id,public_key,checkout_url,landing_url";
 
 // A public key stays bound to its offer. Only a workspace UUID can resolve across offers.
 // Offerless links resolve active workspace offers for rules, but remain unbound.
-async function trackingContext(key: string) {
+type TrackingContext = { offers: PublicOffer[]; bound: boolean; isOfferlessLink: boolean; workspaceId?: string };
+async function trackingContext(key: string): Promise<TrackingContext> {
   const service = admin();
   const { data: link, error: linkError } = await service.from("utm_links")
     .select("offer_id,workspace_id").eq("public_key", key).eq("active", true).maybeSingle();
@@ -34,7 +36,7 @@ async function trackingContext(key: string) {
     const { data: workspaceOffers, error: offersError } = await service.from("utm_offers").select(offerFields)
       .eq("workspace_id", link.workspace_id).eq("active", true).order("id");
     if (offersError) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
-    return { offers: (workspaceOffers || []) as PublicOffer[], bound: false, isOfferlessLink: true };
+    return { offers: (workspaceOffers || []) as PublicOffer[], bound: false, isOfferlessLink: true, workspaceId: link.workspace_id as string };
   }
   const { data: offer, error } = await service.from("utm_offers").select(offerFields)
     .eq("public_key", key).eq("active", true).maybeSingle();
@@ -64,9 +66,20 @@ export async function GET(request: Request) {
     if (!context.offers.length && !context.isOfferlessLink) return NextResponse.json({ error: "Chave inativa ou inválida." }, { status: 404, headers });
     // Only public checkout patterns, never offer keys, IDs, credentials or workspace details.
     const rules = context.offers.map(offer => offer.checkout_url).filter((value): value is string => Boolean(value));
-    if (url.searchParams.get("format") !== "js") return NextResponse.json({ rules }, { headers });
+    // Offerless links (offer discovered by the first sale) have no checkout_url to
+    // compare against: fall back to the workspace's pixel rules, then to gateway defaults.
+    let contains: string[] = [];
+    if (context.isOfferlessLink && context.workspaceId) {
+      const { data: pixelRules, error: rulesError } = await admin().from("utm_pixel_rules")
+        .select("trigger_config")
+        .eq("workspace_id", context.workspaceId).eq("event_name", "InitiateCheckout")
+        .eq("trigger_type", "url_contains").eq("enabled", true).is("offer_id", null);
+      if (rulesError) throw new Error("TRACKING_CONFIG_UNAVAILABLE");
+      contains = resolveCheckoutFragments(pixelRules || []);
+    }
+    if (url.searchParams.get("format") !== "js") return NextResponse.json(context.isOfferlessLink ? { rules, contains } : { rules }, { headers });
     const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
-    const source = `window.__TRACKBASE_CHECKOUT_CONFIG__=window.__TRACKBASE_CHECKOUT_CONFIG__||{};window.__TRACKBASE_CHECKOUT_CONFIG__[${json(key)}]={rules:${json(rules)},matches:(${createCheckoutUrlMatcher.toString()})().matchesCheckoutUrl};`;
+    const source = `window.__TRACKBASE_CHECKOUT_CONFIG__=window.__TRACKBASE_CHECKOUT_CONFIG__||{};window.__TRACKBASE_CHECKOUT_CONFIG__[${json(key)}]={rules:${json(rules)},${context.isOfferlessLink ? `contains:${json(contains)},` : ""}matches:(${createCheckoutUrlMatcher.toString()})().matchesCheckoutUrl};`;
     return new Response(source, { headers: { ...headers, "Content-Type": "application/javascript; charset=utf-8" } });
   } catch {
     return NextResponse.json({ error: "Configuração temporariamente indisponível." }, { status: 503, headers });

@@ -2743,6 +2743,17 @@ export function Dashboard(p: Props) {
                         </select>
                       </label>
                       <label>
+                        URL do checkout (define o Iniciar Checkout)
+                        <input
+                          name="checkout_pattern"
+                          placeholder="Ex: pay.cakto.com.br (vários: separe por vírgula)"
+                        />
+                      </label>
+                      <p className="form-help">
+                        Todo botão da sua página que levar para um endereço com esse trecho conta como Iniciar Checkout.
+                        Em branco, o Trackbase reconhece sozinho os principais checkouts (Cakto, Hotmart, Kiwify, Kirvano, Eduzz, PerfectPay, Lastlink e Hubla).
+                      </p>
+                      <label>
                         Token de Acesso da Meta (Gerado no Gerenciador de
                         Eventos)
                         <input

@@ -4,6 +4,7 @@ import { db, admin } from "@/lib/supabase/server";
 import { authorize, digest, rateLimit, encrypt } from "@/lib/security";
 import { linkSchema, webUrl } from "@/lib/utm";
 import { normalizeCheckoutUrl } from "@/lib/tracker";
+import { parseCheckoutFragments } from "@/lib/checkout-rules";
 import { validateDocument } from "@/lib/document";
 import { z } from "zod";
 import { redirect } from "next/navigation";
@@ -1049,8 +1050,13 @@ export async function savePixel(
           .min(20, "O token de acesso CAPI da Meta deve ser preenchido."),
         offer_id: z.string().uuid().optional().or(z.literal("")),
         test_event_code: z.string().trim().max(50).optional(),
+        checkout_pattern: z.string().trim().max(400).optional(),
       })
       .parse(Object.fromEntries(form));
+    const checkoutFragments = parseCheckoutFragments(parsed.checkout_pattern);
+    if (parsed.checkout_pattern && !checkoutFragments.length) {
+      throw new Error("URL do checkout inválida. Use algo como pay.cakto.com.br");
+    }
 
     const service = admin();
     const ciphertext = encrypt(parsed.capi_token);
@@ -1074,6 +1080,7 @@ export async function savePixel(
     }
 
     let saveError: { message?: string } | null = null;
+    let pixelRowId: string | null = existing?.id ?? null;
     if (existing?.id) {
       const { error } = await service
         .from("utm_pixels")
@@ -1085,20 +1092,51 @@ export async function savePixel(
         .eq("id", existing.id);
       saveError = error;
     } else {
-      const { error } = await service.from("utm_pixels").insert({
+      const { data: inserted, error } = await service.from("utm_pixels").insert({
         workspace_id: workspace,
         pixel_id: parsed.pixel_id,
         offer_id: parsed.offer_id ? parsed.offer_id : null,
         capi_token_ciphertext: ciphertext,
         test_event_code: parsed.test_event_code || null,
         active: true,
-      });
+      }).select("id").single();
       saveError = error;
+      pixelRowId = inserted?.id ?? null;
     }
 
     if (saveError) {
       console.error("Erro ao gravar utm_pixels:", saveError);
       throw new Error(saveError.message || "Erro no banco de dados ao salvar o Pixel.");
+    }
+
+    // How InitiateCheckout is defined: destinations (e.g. pay.cakto.com.br) that count as checkout.
+    if (pixelRowId && checkoutFragments.length) {
+      const { data: currentRules } = await service
+        .from("utm_pixel_rules")
+        .select("trigger_config")
+        .eq("pixel_id", pixelRowId)
+        .eq("event_name", "InitiateCheckout")
+        .eq("trigger_type", "url_contains")
+        .is("offer_id", null);
+      const known = new Set(
+        (currentRules || []).map((rule) => (rule.trigger_config as { pattern?: string } | null)?.pattern),
+      );
+      const missing = checkoutFragments.filter((fragment) => !known.has(fragment));
+      if (missing.length) {
+        const { error: ruleError } = await service.from("utm_pixel_rules").insert(
+          missing.map((fragment) => ({
+            workspace_id: workspace,
+            pixel_id: pixelRowId,
+            offer_id: null,
+            event_name: "InitiateCheckout",
+            trigger_type: "url_contains",
+            trigger_config: { pattern: fragment },
+            send_pixel: true,
+            send_capi: true,
+          })),
+        );
+        if (ruleError) throw new Error("Pixel salvo, mas não foi possível registrar a URL do checkout.");
+      }
     }
 
     revalidatePath("/painel");

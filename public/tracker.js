@@ -210,7 +210,13 @@
     function isAllowed(urlStr) {
       var current = config();
       var destination = absoluteDestination(urlStr);
-      if (!current || !destination || typeof current.matches !== 'function' || !Array.isArray(current.rules)) return false;
+      if (!current || !destination) return false;
+      // Offerless links: the destination only has to contain a configured fragment (e.g. "pay.cakto.com.br").
+      if (Array.isArray(current.contains) && current.contains.length) {
+        var lowered = destination.toLowerCase();
+        if (current.contains.some(function(fragment) { return lowered.indexOf(fragment) !== -1; })) return true;
+      }
+      if (typeof current.matches !== 'function' || !Array.isArray(current.rules)) return false;
       return current.rules.filter(function(rule) { return current.matches(destination, rule); }).length === 1;
     }
     function targetDestination(target) {
