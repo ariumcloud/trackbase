@@ -316,7 +316,18 @@ export const caktoAdapter: PaymentAdapter = {
   provider: "cakto",
   normalize(payload, context) {
     const root = record(payload);
-    const data = record(root.data);
+    // Webhook V2 delivers `data` as an array of orders; V1 as a single object.
+    const items = Array.isArray(root.data) ? root.data.map(record) : [record(root.data)];
+    return items.map((data) => normalizeCaktoOrder(root, data, context));
+  },
+};
+
+function normalizeCaktoOrder(
+  root: Record<string, unknown>,
+  data: Record<string, unknown>,
+  context: Parameters<PaymentAdapter["normalize"]>[1],
+) {
+  {
     const customer = record(data.customer);
     const address = record(data.address);
     const product = record(data.product);
@@ -335,12 +346,22 @@ export const caktoAdapter: PaymentAdapter = {
     const isDownsell = offerType.includes("downsell");
 
     let type: PaymentEventType = "payment_pending";
-    if (["purchase_approved", "purchase_complete", "paid", "approved"].includes(event) || dataStatus === "paid" || dataStatus === "approved") {
+    // The order keeps status "paid" through these events, so match the event
+    // first or the status fallback below would book a second approval.
+    if (event === "refund_requested") {
+      type = "payment_pending";
+    } else if (event === "subscription_created") {
+      type = "subscription_created";
+    } else if (event === "subscription_renewed") {
+      type = "subscription_renewed";
+    } else if (event === "subscription_canceled" || event === "subscription_cancelled") {
+      type = "subscription_canceled";
+    } else if (["purchase_approved", "purchase_complete", "paid", "approved"].includes(event) || ((dataStatus === "paid" || dataStatus === "approved") && !/refund|chargeback|cancel|refus/.test(event))) {
       if (isBump) type = "order_bump_approved";
       else if (isUpsell) type = "upsell_approved";
       else if (isDownsell) type = "downsell_approved";
       else type = "purchase_approved";
-    } else if (event.includes("refund") || dataStatus === "refunded") {
+    } else if ((event.includes("refund") && !event.includes("refused")) || dataStatus === "refunded") {
       type = "purchase_refunded";
     } else if (event.includes("chargeback") || dataStatus === "chargeback") {
       type = "chargeback_created";
@@ -370,7 +391,7 @@ export const caktoAdapter: PaymentAdapter = {
     const productId = str(product.id || data.product_id || root.product_id) || "";
     const parentProductId = str(data.parent_product || data.parent_product_id || data.parentProductId) || null;
 
-    return [
+    return (
       normalizedPaymentEventSchema.parse({
         provider: "cakto",
         externalTransactionId: transaction,
@@ -390,6 +411,7 @@ export const caktoAdapter: PaymentAdapter = {
         buyer: {
           name: str(customer.name) || null,
           email: str(customer.email) || null,
+          phone: str(customer.phone) || null,
         },
         attribution: extractAttribution(tracking),
         campaignId: str(tracking.utm_campaign) || null,
@@ -397,14 +419,14 @@ export const caktoAdapter: PaymentAdapter = {
         adId: str(tracking.utm_content) || null,
         creativeId: str(tracking.utm_creative) || null,
         clickId: str(tracking.fbclid || tracking.src || tracking.sck || tracking.fbc || tracking.gclid) || null,
-        occurredAt: parseDate(data.updatedAt || data.paidAt || data.createdAt, context.receivedAt),
+        occurredAt: parseDate(data.paidAt || data.updatedAt || data.createdAt, context.receivedAt),
         receivedAt: context.receivedAt,
         isTest: Boolean(data.is_test || root.is_test),
-        rawPayload: redactPaymentPayload(payload),
-      }),
-    ];
-  },
-};
+        rawPayload: redactPaymentPayload(root),
+      })
+    );
+  }
+}
 
 // 4. ADAPTADOR KIRVANO
 // Kirvano's webhook is flat (no "data" wrapper), keys the sale by "sale_id"

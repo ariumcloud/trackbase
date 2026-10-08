@@ -5,6 +5,7 @@ import { metaInitiateCheckouts, metaLinkClicks, metaPurchases } from "@/lib/meta
 import { credentials, pages, type RawInsight } from "@/lib/meta";
 import { dayInZone } from "@/lib/metrics";
 import { processCapiOutbox } from "@/lib/capi-outbox";
+import { processWebhookInbox } from "@/lib/webhook-processor";
 import { rateLimit } from "@/lib/security";
 
 export const maxDuration = 300; // 5 minutos se hospedado no serverless
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
     }
 
     const service = admin();
+    // Replay webhooks parked after a failure first, so their CAPI events go out in this same run.
+    await processWebhookInbox(service, 10).catch(() => {
+      console.error("Webhook inbox processing failed");
+    });
     const capi = await processCapiOutbox(5).catch(() => {
       console.error("CAPI outbox processing failed");
       return { claimed: 0, sent: 0, skipped: 0, retried: 0, failed: 0 };

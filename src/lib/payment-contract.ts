@@ -160,7 +160,11 @@ export const normalizedPaymentEventSchema = z.object({
     .regex(/^[A-Z]{2}$/)
     .nullable(),
   buyer: z
-    .object({ name: z.string().nullable(), email: z.string().nullable() })
+    .object({
+      name: z.string().nullable(),
+      email: z.string().nullable(),
+      phone: z.string().nullable().optional(),
+    })
     .nullable(),
   attribution: z.record(z.string(), z.string()),
   campaignId: z.string().nullable(),
