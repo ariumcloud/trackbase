@@ -50,6 +50,10 @@ export type DashboardSummary = {
   pageviews: number;
   ctas: number;
   checkouts: number;
+  /** Sessões de anúncio com pixel ativo (critério do Meta); só existem depois do tracker novo. */
+  pageviews_px?: number;
+  checkouts_px?: number;
+  pixel_data?: boolean;
   by_product_type: Record<string, { count: number; revenue: number }>;
   by_country: Record<string, { count: number; revenue: number }>;
 };

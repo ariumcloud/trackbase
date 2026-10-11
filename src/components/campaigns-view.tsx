@@ -915,6 +915,8 @@ export function CampaignsView({
     cpm: number | null;
   }
 
+  const hasMetaIc = [...insightsMap.values()].some((v) => v.metaInitiateCheckouts !== null);
+
   const toRow = (e: Entity): RowData => {
     const ins = insightsMap.get(`${e.integration_id}:${e.external_id}`) || insightsMap.get(`:${e.external_id}`) || {
       spend: 0,
@@ -934,7 +936,13 @@ export function CampaignsView({
     const cpm =
       ins.impressions > 0 ? (ins.spend / ins.impressions) * 1000 : null;
 
-    const ic = checkoutMap.get(e.external_id) || 0;
+    // IC é o número do Meta (mesmo do Gerenciador). O tracker só entra quando o
+    // Meta ainda não trouxe nenhum IC; senão cliques de teste e de robô, que o
+    // Meta descarta, apareciam espalhados por campanhas que nem entregaram.
+    const hasMetaIc = [...insightsMap.values()].some((v) => v.metaInitiateCheckouts !== null);
+    const ic = hasMetaIc
+      ? ins.metaInitiateCheckouts ?? 0
+      : checkoutMap.get(e.external_id) || 0;
     const cpi = ic > 0 ? ins.spend / ic : null;
 
     const budgetCurrency = e.budget_currency || integrations.find((i) => i.id === e.integration_id)?.currency || "USD";

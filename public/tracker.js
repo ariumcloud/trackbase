@@ -99,6 +99,17 @@
         for (var k in attr) {
           if (attr.hasOwnProperty(k)) eventAttr[k] = attr[k];
         }
+        // O _fbp/_fbc só nascem depois que o fbevents.js carrega, então a leitura
+        // única do início deixava de fora quem chegou pela primeira vez. Relê a
+        // cada evento e anota se o pixel realmente estava ativo: é o critério do
+        // Meta para contar PageView/InitiateCheckout, e é o que torna o funil
+        // do Trackbase comparável com o Gerenciador.
+        var liveFbp = getCookie('_fbp');
+        var liveFbc = getCookie('_fbc');
+        if (liveFbp) { eventAttr.fbp = liveFbp; attr.fbp = liveFbp; }
+        if (liveFbc) { eventAttr.fbc = liveFbc; attr.fbc = liveFbc; }
+        var pixelLive = typeof window.fbq === 'function' && (window.fbq.loaded === true || !!liveFbp);
+        eventAttr.pixel_loaded = pixelLive ? 'true' : 'false';
         if (extraMeta) {
           for (var mk in extraMeta) {
             if (extraMeta.hasOwnProperty(mk)) eventAttr[mk] = extraMeta[mk];

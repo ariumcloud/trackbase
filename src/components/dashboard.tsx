@@ -605,6 +605,11 @@ export function Dashboard(p: Props) {
   const pageviews = provider === "all" ? Number(s?.pageviews || 0) : 0;
   const ctas = provider === "all" ? Number(s?.ctas || 0) : 0;
   const checkouts = provider === "all" ? Number(s?.checkouts || 0) : 0;
+  // Com o tracker novo o funil usa sessões de anúncio com pixel ativo, o mesmo
+  // critério do Meta. Antes disso (dados sem a marca) cai nas sessões brutas.
+  const pixelFunnel = provider === "all" && Boolean(s?.pixel_data);
+  const pageviewsQualified = pixelFunnel ? Number(s?.pageviews_px || 0) : pageviews;
+  const checkoutsQualified = pixelFunnel ? Number(s?.checkouts_px || 0) : checkouts;
 
   const operatingProfit = spend === null ? null : netRevenue - spend;
   const netMargin =
@@ -716,12 +721,15 @@ export function Dashboard(p: Props) {
       );
 
       const offerEvents = (p.events || []).filter((e) => e.offer_id === offer.id);
-      let pageviews = 0, checkouts = 0, ctaClicks = 0;
+      let ctaClicks = 0;
+      // Sessões únicas, igual ao RPC: F5 e clique duplo não contam em dobro.
+      const pageviewSessions = new Set<string>();
+      const checkoutSessions = new Set<string>();
       const bestBySession = new Map<string, number>();
       const ctaViewSessions = new Set<string>();
       for (const event of offerEvents) {
-        if (event.event_type === "pageview") pageviews += 1;
-        if (event.event_type === "checkout") checkouts += 1;
+        if (event.event_type === "pageview") pageviewSessions.add(event.session_id || event.id);
+        if (event.event_type === "checkout") checkoutSessions.add(event.session_id || event.id);
         const action = event.attribution?.action || "";
         if ((event.event_type === "cta" && (action === "" || action === "cta_click")) || event.event_type === "cta_click") ctaClicks += 1;
 
@@ -750,9 +758,9 @@ export function Dashboard(p: Props) {
         revenue,
         purchases: offerApproved.length,
         refundedCount: offerRefunded.length,
-        pageviews,
-        ctas: ctaClicks + checkouts,
-        checkouts,
+        pageviews: pageviewSessions.size,
+        ctas: ctaClicks + checkoutSessions.size,
+        checkouts: checkoutSessions.size,
         scroll25Count,
         scroll50Count,
         scroll75Count,
@@ -908,6 +916,9 @@ export function Dashboard(p: Props) {
     pageviews,
     ctas,
     checkouts,
+    pageviewsQualified,
+    checkoutsQualified,
+    pixelFunnel,
     byProduct,
     byCountry,
   };
@@ -1608,7 +1619,19 @@ export function Dashboard(p: Props) {
                 workspace={workspace}
                 initialLayout={p.dashboardLayout}
                 onRefresh={() => {
-                  start(() => {
+                  // Sem isso o botão só relia o banco, que o Meta só enche 1x/dia
+                  // (cron) — os cliques/IC do Meta ficavam horas defasados.
+                  start(async () => {
+                    const targets = p.integrations.filter(
+                      (i) => i.provider === "meta" && i.status !== "token_expired" && i.account_id,
+                    );
+                    try {
+                      await Promise.all(
+                        targets.map((i) => request("/api/meta/sync", { workspace, integration: i.id })),
+                      );
+                    } catch (e) {
+                      setNotice(e instanceof Error ? e.message : "Não foi possível sincronizar o Meta.");
+                    }
                     router.refresh();
                   });
                 }}

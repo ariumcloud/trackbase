@@ -98,6 +98,9 @@ interface UtmifySummaryProps {
     clicks: number;
     pageviews: number;
     checkouts: number;
+    pageviewsQualified: number;
+    checkoutsQualified: number;
+    pixelFunnel: boolean;
     byCountry: Record<string, { count: number; revenue: number }>;
   };
   byPlacement: { list: PlacementItem[]; top: Omit<PlacementItem, "percentage"> | null };
@@ -132,6 +135,10 @@ export function UtmifySummary({
   initialLayout,
 }: UtmifySummaryProps) {
   const [selectedAccount, setSelectedAccount] = useState("all");
+  const latestMetaSync = integrations
+    .filter((i) => i.provider === "meta" && i.last_synced_at)
+    .map((i) => i.last_synced_at as string)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -303,8 +310,8 @@ export function UtmifySummary({
   // começa em Cliques no Link, que é o primeiro número comparável ao resto.
   const funnelSteps = [
     { name: "Cliques no Link", value: metrics.clicks },
-    { name: "Page View", value: metrics.pageviews },
-    { name: "Início Checkout", value: metrics.checkouts },
+    { name: "Page View", value: metrics.pageviewsQualified },
+    { name: "Início Checkout", value: metrics.checkoutsQualified },
     { name: "Compras", value: metrics.purchases },
   ].map((step, i, arr) => ({
     ...step,
@@ -598,7 +605,11 @@ export function UtmifySummary({
       <div className="utmify-summary-header utmify-summary-header-compact">
         <div className="utmify-header-right">
           <span className="utmify-updated-text">
-            {savingLayout ? "Salvando layout…" : "Atualizado há 1 minuto"}
+            {savingLayout
+              ? "Salvando layout…"
+              : latestMetaSync
+                ? `Meta sincronizado em ${new Date(latestMetaSync).toLocaleString("pt-BR")}`
+                : "Meta ainda não sincronizado"}
           </span>
           <button
             type="button"
@@ -889,6 +900,11 @@ export function UtmifySummary({
             ))}
           </div>
         </div>
+        <p className="utmify-funnel-note" style={{ margin: "10px 4px 0", fontSize: 12, opacity: 0.7 }}>
+          {metrics.pixelFunnel
+            ? "Page View e Início Checkout: sessões únicas vindas de anúncio com o pixel ativo, o mesmo critério do Meta."
+            : "Page View e Início Checkout: sessões únicas do tracker (inclui tráfego direto e robôs). O critério do Meta passa a valer nos acessos registrados após a atualização do tracker."}
+        </p>
       </div>
       </EditableSection>
 
