@@ -1,5 +1,6 @@
 "use client";
 
+import { DateRangeCalendar } from "@/components/date-range-calendar";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   BarChart3,
@@ -1636,32 +1637,15 @@ export function CampaignsView({
 
               <div className="campaign-custom-date-box">
                 <span className="custom-date-title">Data personalizada</span>
-                <div className="custom-date-inputs">
-                  <div>
-                    <label>De</label>
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label>Até</label>
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="button primary small custom-date-apply"
-                  disabled={!customStart || !customEnd}
-                  onClick={applyCustomDates}
-                >
-                  Aplicar data
-                </button>
+                <DateRangeCalendar
+                  start={customStart}
+                  end={customEnd}
+                  onChange={(s, e) => {
+                    setCustomStart(s);
+                    setCustomEnd(e);
+                  }}
+                  onApply={applyCustomDates}
+                />
               </div>
             </div>
           )}

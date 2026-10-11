@@ -8218,3 +8218,29 @@ table.utmify-daily-table tbody tr:last-child td {
   margin-top: 10px;
   flex-wrap: wrap;
 }
+
+/* Calendário de intervalo (substitui o <input type="date"> nativo nos filtros de data) */
+.campaign-date-popover { width: 296px; max-width: calc(100vw - 32px); }
+.range-cal { display: flex; flex-direction: column; gap: 8px; }
+.range-cal-head { display: flex; align-items: center; justify-content: space-between; color: #27324a; font-size: 13px; text-transform: capitalize; }
+.range-cal-nav { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #73798a; cursor: pointer; }
+.range-cal-nav:hover { background: #f1f2f6; color: #27324a; }
+.range-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; }
+.range-cal-weekday { text-align: center; font-size: 10px; font-weight: 700; color: #9aa1b2; padding: 4px 0; }
+.range-cal-day { height: 30px; border: 0; background: transparent; color: #45516a; font-size: 12px; cursor: pointer; border-radius: 6px; }
+.range-cal-day:hover { background: #f5f3ff; color: #4927bd; }
+.range-cal-day.is-today { box-shadow: inset 0 0 0 1px #cfc5fa; }
+.range-cal-day.in-range { background: #eee9ff; color: #4927bd; border-radius: 0; }
+.range-cal-day.is-edge { background: #6D3EF2; color: #fff; font-weight: 700; border-radius: 6px; }
+.range-cal-summary { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #73798a; font-variant-numeric: tabular-nums; }
+.range-cal .custom-date-apply { margin-top: 0; }
+[data-theme="dark"] .range-cal-head { color: #F3F4F6; }
+[data-theme="dark"] .range-cal-nav { color: #9CA3AF; }
+[data-theme="dark"] .range-cal-nav:hover { background: #374151; color: #F9FAFB; }
+[data-theme="dark"] .range-cal-weekday { color: #6B7280; }
+[data-theme="dark"] .range-cal-day { color: #D1D5DB; }
+[data-theme="dark"] .range-cal-day:hover { background: #374151; color: #FFFFFF; }
+[data-theme="dark"] .range-cal-day.is-today { box-shadow: inset 0 0 0 1px #4B5563; }
+[data-theme="dark"] .range-cal-day.in-range { background: rgba(109, 62, 242, 0.25); color: #E9E3FF; }
+[data-theme="dark"] .range-cal-day.is-edge { background: #6D3EF2; color: #FFFFFF; }
+[data-theme="dark"] .range-cal-summary { color: #9CA3AF; }
