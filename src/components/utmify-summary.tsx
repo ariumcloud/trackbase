@@ -100,7 +100,7 @@ interface UtmifySummaryProps {
     checkouts: number;
     pageviewsQualified: number;
     checkoutsQualified: number;
-    pixelFunnel: boolean;
+    funnelSource: "meta" | "pixel" | "raw";
     byCountry: Record<string, { count: number; revenue: number }>;
   };
   byPlacement: { list: PlacementItem[]; top: Omit<PlacementItem, "percentage"> | null };
@@ -901,9 +901,11 @@ export function UtmifySummary({
           </div>
         </div>
         <p className="utmify-funnel-note" style={{ margin: "10px 4px 0", fontSize: 12, opacity: 0.7 }}>
-          {metrics.pixelFunnel
-            ? "Page View e Início Checkout: sessões únicas vindas de anúncio com o pixel ativo, o mesmo critério do Meta."
-            : "Page View e Início Checkout: sessões únicas do tracker (inclui tráfego direto e robôs). O critério do Meta passa a valer nos acessos registrados após a atualização do tracker."}
+          {metrics.funnelSource === "meta"
+            ? "Cliques, Page View (visualizações da página de destino) e Início Checkout vêm do Meta, os mesmos números do Gerenciador."
+            : metrics.funnelSource === "pixel"
+              ? "Page View e Início Checkout: sessões únicas vindas de anúncio com o pixel ativo, o mesmo critério do Meta."
+              : "Page View e Início Checkout: sessões únicas do tracker (inclui tráfego direto e robôs). Clique em Atualizar para trazer os números do Meta."}
         </p>
       </div>
       </EditableSection>

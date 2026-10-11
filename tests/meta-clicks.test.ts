@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { metaInitiateCheckouts, metaLinkClicks } from "../src/lib/meta-clicks";
+import { metaInitiateCheckouts, metaLandingPageViews, metaLinkClicks } from "../src/lib/meta-clicks";
 
 test("prioriza inline_link_clicks para bater com a coluna de cliques no link do Ads Manager", () => {
   assert.equal(
@@ -39,4 +39,17 @@ test("usa uma única variação canônica de InitiateCheckout sem duplicar alias
     ]),
     3,
   );
+});
+
+test("lê as visualizações da página de destino sem somar aliases", () => {
+  assert.equal(
+    metaLandingPageViews([
+      { action_type: "link_click", value: "12" },
+      { action_type: "landing_page_view", value: "9" },
+      { action_type: "omni_landing_page_view", value: "9" },
+    ]),
+    9,
+  );
+  assert.equal(metaLandingPageViews([{ action_type: "link_click", value: "3" }]), 0);
+  assert.equal(metaLandingPageViews(undefined), 0);
 });

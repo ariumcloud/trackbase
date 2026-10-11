@@ -49,6 +49,15 @@ export function metaInitiateCheckouts(actions?: MetaAction[]): number {
   return nonNegativeNumber(fallback?.value) ?? 0;
 }
 
+/** Meta's "Visualizações da página de destino": link clicks whose page actually loaded. */
+export function metaLandingPageViews(actions?: MetaAction[]): number {
+  for (const kind of ["landing_page_view", "omni_landing_page_view"]) {
+    const value = nonNegativeNumber(actions?.find((a) => a.action_type === kind)?.value);
+    if (value !== null) return value;
+  }
+  return 0;
+}
+
 /**
  * Returns the same link-click number the client sees in Ads Manager by
  * prioritizing inline_link_clicks. Older API responses and test payloads may

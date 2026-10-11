@@ -607,9 +607,21 @@ export function Dashboard(p: Props) {
   const checkouts = provider === "all" ? Number(s?.checkouts || 0) : 0;
   // Com o tracker novo o funil usa sessões de anúncio com pixel ativo, o mesmo
   // critério do Meta. Antes disso (dados sem a marca) cai nas sessões brutas.
+  // O Meta tem prioridade quando já sincronizou todo o período: é o número que o
+  // cliente confere no Gerenciador (Visualizações da página de destino e Finalizações iniciadas).
+  const metaFunnel = provider === "all" && Boolean(s?.meta_funnel);
   const pixelFunnel = provider === "all" && Boolean(s?.pixel_data);
-  const pageviewsQualified = pixelFunnel ? Number(s?.pageviews_px || 0) : pageviews;
-  const checkoutsQualified = pixelFunnel ? Number(s?.checkouts_px || 0) : checkouts;
+  const funnelSource: "meta" | "pixel" | "raw" = metaFunnel ? "meta" : pixelFunnel ? "pixel" : "raw";
+  const pageviewsQualified = metaFunnel
+    ? Number(s?.meta_lpv || 0)
+    : pixelFunnel
+      ? Number(s?.pageviews_px || 0)
+      : pageviews;
+  const checkoutsQualified = metaFunnel
+    ? Number(s?.meta_ic || 0)
+    : pixelFunnel
+      ? Number(s?.checkouts_px || 0)
+      : checkouts;
 
   const operatingProfit = spend === null ? null : netRevenue - spend;
   const netMargin =
@@ -918,7 +930,7 @@ export function Dashboard(p: Props) {
     checkouts,
     pageviewsQualified,
     checkoutsQualified,
-    pixelFunnel,
+    funnelSource,
     byProduct,
     byCountry,
   };

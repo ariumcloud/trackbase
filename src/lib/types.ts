@@ -54,6 +54,10 @@ export type DashboardSummary = {
   pageviews_px?: number;
   checkouts_px?: number;
   pixel_data?: boolean;
+  /** Totais do Meta no período; meta_funnel só é true quando todo o período já tem LPV sincronizado. */
+  meta_ic?: number;
+  meta_lpv?: number;
+  meta_funnel?: boolean;
   by_product_type: Record<string, { count: number; revenue: number }>;
   by_country: Record<string, { count: number; revenue: number }>;
 };
