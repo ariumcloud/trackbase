@@ -64,7 +64,7 @@ export function DateRangeCalendar({
         <button type="button" className="range-cal-nav" onClick={() => shift(-1)} aria-label="Mês anterior">
           <ChevronLeft size={14} />
         </button>
-        <strong>{MONTHS[view.month]} de {view.year}</strong>
+        <strong>{MONTHS[view.month][0].toUpperCase() + MONTHS[view.month].slice(1)} de {view.year}</strong>
         <button type="button" className="range-cal-nav" onClick={() => shift(1)} aria-label="Próximo mês">
           <ChevronRight size={14} />
         </button>
