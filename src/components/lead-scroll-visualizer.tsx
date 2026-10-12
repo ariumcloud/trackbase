@@ -700,10 +700,19 @@ export function LeadScrollVisualizer({
 
   // Atualiza o Radar sem exigir reload manual. O refresh preserva o estado
   // visual e faz o Server Component buscar eventos recém-gravados.
+  // Cada refresh refaz toda a busca do /painel no servidor, então só roda com a
+  // aba visível e a cada 30s: uma aba esquecida em segundo plano não deve gastar CPU.
   useEffect(() => {
     if (dataSourceMode !== "real") return;
-    const refreshId = window.setInterval(() => router.refresh(), 10000);
-    return () => window.clearInterval(refreshId);
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    const refreshId = window.setInterval(refreshIfVisible, 30000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      window.clearInterval(refreshId);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [dataSourceMode, router]);
 
   // Garante seleção válida de lead
